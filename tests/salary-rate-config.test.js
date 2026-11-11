@@ -11,6 +11,7 @@ function fixture() {
   fs.cpSync(path.resolve(__dirname, '..', 'services'), path.join(dir, 'services'), { recursive:true });
   const db = require(path.join(dir, 'services', 'db.js'));
   db.initDatabase(true);
+  db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', { is_settled: false });
   global.getApp = () => ({ globalData: { currentUser: db.getById(db.TABLES.USERS, 'u_adm1') } });
   global.wx = { getStorageSync: () => null };
   const settings = require(path.join(dir, 'services', 'systemConfigService.js'));
@@ -67,5 +68,27 @@ test('unconfigured partner teacher amount fails rather than being guessed', () =
   try {
     db.update(db.TABLES.USERS, 'u_tch1', { teacher_category:'partner_teacher' });
     assert.throws(() => salary.calculateLessonFee('sch_1'), /尚未配置/);
+  } finally { close(); }
+});
+
+test('settled historical lesson cannot be recomputed directly', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', { is_settled:true });
+    assert.throws(() => salary.calculateLessonFee('sch_1'), /已结算历史/);
+  } finally { close(); }
+});
+test('saved hourly rate snapshot prevails over later price changes', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', {
+      teacher_salary_tier_snapshot_json: {
+        teacher_id:'u_tch1', tier_id:'tier_junior', tier_name:'历史价格',
+        headcount_rates_json:{1:100,2:300,3:400}
+      }
+    });
+    const result = salary.calculateLessonFee('sch_1');
+    assert.equal(result.rate_used, 300);
+    assert.equal(result.calculated_teacher_fee, 450);
   } finally { close(); }
 });
