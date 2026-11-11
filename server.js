@@ -976,7 +976,16 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+// 未完成服务端身份认证之前，默认只开放给本机访问。
+// 非回环地址要求显式确认风险，仅用于隔离测试。
+const HOST = process.env.HOST || '127.0.0.1';
+const IS_LOOPBACK_HOST = HOST === '127.0.0.1' || HOST === '::1' || HOST === 'localhost';
+if (!IS_LOOPBACK_HOST && process.env.ALLOW_INSECURE_NETWORK !== '1') {
+  console.error('[server] Refusing non-loopback bind: server-side authentication is not implemented.');
+  console.error('[server] Use HOST=127.0.0.1, or explicitly set ALLOW_INSECURE_NETWORK=1 for isolated testing only.');
+  process.exitCode = 1;
+} else {
+  server.listen(PORT, HOST, () => {
   console.log(`================================================================`);
   console.log(`  教务与财务管理系统 - PC Web 网页端 & 同步服务端启动成功！`);
   console.log(`  PC Web 监控调试控制台: http://localhost:${PORT}`);
@@ -984,6 +993,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  后端 REST API 基地址:   http://localhost:${PORT}/api`);
   console.log(`  小程序端连接地址:       http://127.0.0.1:${PORT}`);
   console.log(`================================================================`);
-});
+  });
+}
 
 module.exports = server;
