@@ -11,6 +11,7 @@ function fixture() {
   fs.cpSync(path.resolve(__dirname, '..', 'services'), path.join(root, 'services'), { recursive: true });
   const db = require(path.join(root, 'services', 'db.js'));
   db.initDatabase(true);
+  db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', { is_settled: false });
   const salary = require(path.join(root, 'services', 'salaryEngineService.js'));
   return { db, salary, close: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
