@@ -167,7 +167,7 @@ function authorize(pathname, method, role, req) {
     if (!Object.values(db.TABLES).includes(table)) return false;
     return role === 'super_admin' ||
       !['users', 'teacher_lesson_fees', 'salary_settlements', 'salary_adjustments',
-        'audit_logs', 'teacher_tiers', 'partner_teacher_rate_config'].includes(table);
+        'audit_logs', 'teacher_tiers', 'partner_teacher_rate_config', 'approval_requests'].includes(table);
   }
   if (pathname === '/api/approvals/approve' || pathname === '/api/approvals/reject') {
     return role === 'super_admin';
