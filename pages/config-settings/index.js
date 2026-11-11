@@ -395,23 +395,17 @@ Page({
     const teacher = this.data.teachers.find(t => t.id === id)
     if (!teacher) return
 
-    const rates = teacher.custom_tier_rates_json || teacher.defaultTierRates || { 1: 150, 2: 200, 3: 260 }
-    const keys = Object.keys(rates).map(Number).sort((a, b) => a - b)
-    const maxCapacity = keys.length > 0 ? Math.max(...keys) : 3
-
-    const ratesList = []
-    for (let i = 1; i <= maxCapacity; i++) {
-      ratesList.push({
-        headcount: i,
-        rate: rates[i] !== undefined ? String(rates[i]) : ''
-      })
-    }
+    const rates = teacher.custom_tier_rates_json || teacher.defaultTierRates || {}
+    const ratesList = [1,2,3,4,5,6,7,8].map(headcount => ({
+      headcount,
+      rate: rates[headcount] !== undefined ? String(rates[headcount]) : ''
+    }))
 
     this.setData({
       showTeacherCustomModal: true,
       editingTeacher: teacher,
       teacherCustomForm: {
-        max_capacity: maxCapacity,
+        max_capacity: 8,
         ratesList,
         reason: ''
       }
@@ -430,27 +424,6 @@ Page({
     })
   },
 
-  onChangeCustomMaxCapacity(e) {
-    const delta = Number(e.currentTarget.dataset.delta)
-    let newMax = Number(this.data.teacherCustomForm.max_capacity) + delta
-    if (newMax < 1) newMax = 1
-    if (newMax > 10) newMax = 10
-
-    const list = [...this.data.teacherCustomForm.ratesList]
-    if (newMax > list.length) {
-      for (let i = list.length + 1; i <= newMax; i++) {
-        list.push({ headcount: i, rate: '' })
-      }
-    } else if (newMax < list.length) {
-      list.splice(newMax)
-    }
-
-    this.setData({
-      'teacherCustomForm.max_capacity': newMax,
-      'teacherCustomForm.ratesList': list
-    })
-  },
-
   onCustomReasonInput(e) {
     this.setData({ 'teacherCustomForm.reason': e.detail.value })
   },
@@ -461,12 +434,13 @@ Page({
 
     const headcountRates = {}
     teacherCustomForm.ratesList.forEach(item => {
-      headcountRates[item.headcount] = Number(item.rate)
+      headcountRates[item.headcount] = item.rate
     })
 
     try {
+      const validatedRates = normalizeManualRates(headcountRates)
       const created = systemConfigService.submitTeacherCustomRateRequest(editingTeacher.id, {
-        custom_tier_rates_json: headcountRates,
+        custom_tier_rates_json: validatedRates,
         maxCapacity: teacherCustomForm.max_capacity,
         reason: teacherCustomForm.reason
       })
@@ -508,6 +482,58 @@ Page({
             wx.showModal({ title: '操作失败', content: err.message, showCancel: false })
           }
         }
+      }
+    })
+  },
+
+  onOpenPartnerModal() {
+    const rates = (this.data.partnerConfig && this.data.partnerConfig.headcount_rates_json) || {}
+    this.setData({
+      showPartnerModal: true,
+      partnerForm: {
+        ratesList: [1,2,3,4,5,6,7,8].map(headcount => ({
+          headcount, rate: rates[headcount] !== undefined ? String(rates[headcount]) : ''
+        })),
+        reason: ''
+      }
+    })
+  },
+  onClosePartnerModal() { this.setData({ showPartnerModal: false }) },
+  onPartnerRateInput(e) {
+    this.setData({ [`partnerForm.ratesList[${e.currentTarget.dataset.index}].rate`]: e.detail.value })
+  },
+  onPartnerReasonInput(e) { this.setData({ 'partnerForm.reason': e.detail.value }) },
+  onSubmitPartnerRates() {
+    try {
+      const rates = {}
+      this.data.partnerForm.ratesList.forEach(row => { rates[row.headcount] = row.rate })
+      const created = systemConfigService.submitPartnerTeacherRatesRequest({
+        headcount_rates_json: normalizeManualRates(rates),
+        reason: this.data.partnerForm.reason
+      })
+      this.setData({ showPartnerModal: false })
+      wx.showModal({ title: '已提交审批', content: `合伙人老师档位设置申请 #${created.id}，等待超管审批。`, showCancel: false })
+    } catch (err) {
+      wx.showModal({ title: '金额校验失败', content: err.message, showCancel: false })
+    }
+  },
+  onSubmitTeacherCategory(e) {
+    const teacher = this.data.teachers.find(t => t.id === e.currentTarget.dataset.id)
+    if (!teacher) return
+    const category = teacher.teacherCategory === 'partner_teacher' ? 'ordinary' : 'partner_teacher'
+    wx.showModal({
+      title: '确认申请调整教师类别',
+      content: `将【${teacher.name}】调整为${category === 'partner_teacher' ? '合伙人老师' : '普通教师'}？仍然需要超级管理员审批。`,
+      success: (res) => {
+        if (!res.confirm) return
+        try {
+          const created = systemConfigService.submitTeacherCategoryRequest(teacher.id, {
+            teacher_category: category,
+            teacher_tier_id: teacher.teacher_tier_id,
+            reason: '管理员申请调整教师薪酬类别'
+          })
+          wx.showModal({ title: '已提交审批', content: `审批单 #${created.id}`, showCancel: false })
+        } catch (err) { wx.showModal({ title: '申请失败', content: err.message, showCancel: false }) }
       }
     })
   },
