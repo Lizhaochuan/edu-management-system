@@ -20,7 +20,7 @@ Page({
   /** 角色切换回调 */
   onRoleChange() {
     wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
-  }
+  },
 
   /** 核心角色死锁检验与日志加载 */
   checkPermissionAndLoad() {
