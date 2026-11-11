@@ -1035,10 +1035,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 4. 静态 Web 资源托管 (托管 ./web-admin)
-  let filePath = path.join(WEB_ADMIN_DIR, pathname === '/' ? 'index.html' : pathname);
-
-  // 防目录穿越
-  if (!filePath.startsWith(WEB_ADMIN_DIR)) {
+  let requestedPath;
+  try { requestedPath = decodeURIComponent(pathname === '/' ? '/index.html' : pathname); }
+  catch (_err) {
+    res.writeHead(400); res.end('Bad Path'); return;
+  }
+  if (requestedPath.includes('\\0') || requestedPath.includes('\\\\')) {
+    res.writeHead(403); res.end('Access Denied'); return;
+  }
+  const filePath = path.resolve(WEB_ADMIN_DIR, '.' + requestedPath);
+  const relativePath = path.relative(WEB_ADMIN_DIR, filePath);
+  // Canonical path containment, not a string-prefix check (which accepts web-admin2).
+  if (relativePath === '..' || relativePath.startsWith('..' + path.sep) ||
+      path.isAbsolute(relativePath)) {
     res.writeHead(403);
     res.end('Access Denied');
     return;
