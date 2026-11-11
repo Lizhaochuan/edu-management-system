@@ -3,14 +3,26 @@
 // Production data/db.json must never be copied into this test environment.
 'use strict';
 
-const test = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
+const os = require('node:os');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
+// Tests must never initialize or mutate the current checkout's data/db.json.
+let ISOLATED_ROOT;
+before(() => {
+  ISOLATED_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'edu-security-test-'));
+  fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(ISOLATED_ROOT, 'server.js'));
+  fs.cpSync(path.join(ROOT, 'services'), path.join(ISOLATED_ROOT, 'services'), { recursive: true });
+});
+after(() => {
+  if (ISOLATED_ROOT) fs.rmSync(ISOLATED_ROOT, { recursive: true, force: true });
+});
 
 function availablePort() {
   return new Promise((resolve, reject) => {
@@ -53,7 +65,7 @@ function startServer(port, extraEnv = {}) {
   if (!Object.prototype.hasOwnProperty.call(extraEnv, 'ALLOW_INSECURE_NETWORK')) delete env.ALLOW_INSECURE_NETWORK;
   if (!Object.prototype.hasOwnProperty.call(extraEnv, 'HOST')) delete env.HOST;
   const child = spawn(process.execPath, ['server.js'], {
-    cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe']
+    cwd: ISOLATED_ROOT, env, stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';
   child.stdout.on('data', d => { output += d.toString(); });
