@@ -6,6 +6,7 @@ const path = require('path');
 const url = require('url');
 
 const db = require('./services/db');
+const authService = require('./services/authService');
 const packageAccountService = require('./services/packageAccountService');
 const attendanceService = require('./services/attendanceService');
 const salaryEngineService = require('./services/salaryEngineService');
@@ -79,22 +80,21 @@ function parseJsonBody(req) {
 }
 
 /** 统一 JSON 响应辅助函数 */
-function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, {
+function sendJson(res, statusCode, data, extraHeaders = {}) {
+  res.writeHead(statusCode, Object.assign({
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
-  });
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  }, extraHeaders));
   res.end(JSON.stringify(data));
 }
 
 /** 从 HTTP 请求中提取操作人身份信息 */
 function getOperatorFromReq(req) {
-  const userId = req.headers['x-user-id'] || 'u_sa1';
-  const role = req.headers['x-user-role'] || 'super_admin';
-  const user = db.getById(db.TABLES.USERS, userId);
-  if (user) return user;
-  return { id: userId, name: '操作员', role: role };
+  // This is established by credential authentication, not by untrusted request headers.
+  if (!req.auth || !req.auth.user) throw new Error('未认证的操作人');
+  return req.auth.user;
 }
 
 // 创建 HTTP 服务
@@ -121,14 +121,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end();
     return;
   }
 
-  // 2. SSE 实时事件通道
+  // 2. SSE 只允许已登录的管理人员订阅，防止泄漏机构业务事件。
   if (pathname === '/api/events') {
+    const identity = authService.authenticate(req);
+    if (!identity || !authService.authorize(pathname, req.method, identity.user.role, req)) {
+      return sendJson(res, identity ? 403 : 401, { code: identity ? 403 : 401, message: '无权订阅业务事件' });
+    }
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
@@ -147,20 +151,46 @@ const server = http.createServer(async (req, res) => {
   // 3. API 路由分发
   if (pathname.startsWith('/api/')) {
     try {
-      // 3.1 服务健康与概况
+      // Minimal public health check. Do not disclose database table/record counts.
       if (pathname === '/api/status' && req.method === 'GET') {
-        const allDb = db.dumpAll();
-        let totalRecords = 0;
-        Object.keys(allDb).forEach(t => { totalRecords += (allDb[t] || []).length; });
         return sendJson(res, 200, {
-          code: 0,
-          status: 'running',
-          uptime: process.uptime(),
-          sse_clients: sseClients.size,
-          total_tables: Object.keys(allDb).length,
-          total_records: totalRecords,
+          code: 0, status: 'running', uptime: process.uptime(),
           timestamp: new Date().toISOString()
         });
+      }
+
+      // Credential authentication for Web cookie sessions and mini-program Bearer tokens.
+      if (pathname === '/api/auth/login' && req.method === 'POST') {
+        const payload = await parseJsonBody(req);
+        const result = authService.login(payload.user_id, payload.password, req.socket.remoteAddress);
+        if (result.status !== 200) {
+          return sendJson(res, result.status, { code: result.status, message: result.message });
+        }
+        const secure = !!req.socket.encrypted || process.env.COOKIE_SECURE === '1';
+        return sendJson(res, 200, { code: 0, data: { user: result.user, token: result.token } },
+          { 'Set-Cookie': authService.sessionCookie(result.token, secure) });
+      }
+
+      if (pathname === '/api/auth/me' && req.method === 'GET') {
+        const identity = authService.authenticate(req);
+        return identity
+          ? sendJson(res, 200, { code: 0, data: { user: authService.publicUser(identity.user) } })
+          : sendJson(res, 401, { code: 401, message: '请先登录' });
+      }
+
+      if (pathname === '/api/auth/logout' && req.method === 'POST') {
+        authService.logout(req);
+        const secure = !!req.socket.encrypted || process.env.COOKIE_SECURE === '1';
+        return sendJson(res, 200, { code: 0, message: '已退出登录' },
+          { 'Set-Cookie': authService.clearCookie(secure) });
+      }
+
+      // All remaining APIs require a valid server-issued session and an allowlisted role.
+      const identity = authService.authenticate(req);
+      if (!identity) return sendJson(res, 401, { code: 401, message: '请先登录' });
+      req.auth = identity;
+      if (!authService.authorize(pathname, req.method, identity.user.role, req)) {
+        return sendJson(res, 403, { code: 403, message: '当前账号无权访问此接口' });
       }
 
       // 3.2 全库数据导出 (小程序全量同步)
