@@ -67,3 +67,35 @@ test('cancel does not notify families if postponement fails and reverses status 
     assert.equal(JSON.stringify(f.db.dumpAll()),before);
   } finally {f.close();}
 });
+
+test('attending partner teacher locks independent rate snapshot at sign-in',()=>{
+  const f=fixture();
+  try {
+    const rates={1:111,2:199,3:251,4:315,5:355,6:399,7:420,8:450};
+    f.db.update(f.db.TABLES.USERS,'u_tch2',{teacher_category:'partner_teacher'});
+    f.db.update(f.db.TABLES.PARTNER_TEACHER_RATE_CONFIG,'partner_teacher',{
+      headcount_rates_json:rates,status:'active'
+    });
+    const result=f.attendance.submitAttendance('sch_2',[
+      {student_id:'stu_3',is_present:true},
+      {student_id:'stu_4',is_present:true}
+    ],f.admin);
+    assert.equal(result.teacher_tier_snapshot.tier_id,'partner_teacher');
+    assert.deepEqual(result.teacher_tier_snapshot.headcount_rates_json,rates);
+    assert.equal(result.calculated_teacher_fee,199);
+    assert.equal(f.db.getById(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_2')
+      .teacher_salary_tier_snapshot_json.tier_id,'partner_teacher');
+  } finally {f.close();}
+});
+
+test('unconfigured partner teacher cannot sign attendance or charge students',()=>{
+  const f=fixture();
+  try {
+    f.db.update(f.db.TABLES.USERS,'u_tch2',{teacher_category:'partner_teacher'});
+    const before=JSON.stringify(f.db.dumpAll());
+    assert.throws(()=>f.attendance.submitAttendance('sch_2',[
+      {student_id:'stu_3',is_present:true}
+    ],f.admin),/合伙人老师尚未配置/);
+    assert.equal(JSON.stringify(f.db.dumpAll()),before);
+  } finally {f.close();}
+});
