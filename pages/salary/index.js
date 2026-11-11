@@ -54,10 +54,10 @@ Page({
 
   /** 初始化当前用户与教师选项 */
   initUserAndTeachers() {
-    const user = (app && app.globalData && app.globalData.currentUser) || {
-      id: 'u_sa1',
-      name: '张校长(创始人)',
-      role: 'super_admin'
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !wx.getStorageSync('auth_token')) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
     }
 
     const allUsers = db.getTable(db.TABLES.USERS) || []
