@@ -40,10 +40,8 @@ const app = createApp({
       this.currentTab = tab;
     },
 
-    onIdentityChange() {
-      const newIdentity = window.api.setCurrentIdentity(this.selectedIdentityId);
-      this.currentIdentity = newIdentity;
-      this.showToast(`已切换身份为【${newIdentity.name}】（${newIdentity.roleText}）`);
+    onLogout() {
+      window.api.logout();
     },
 
     initSSE() {
@@ -106,4 +104,14 @@ app.component('inspector-view', window.InspectorComponent);
 app.component('monitor-view', window.MonitorComponent);
 app.component('toolbox-view', window.ToolboxComponent);
 
-app.mount('#app');
+// Do not mount the admin dashboard or request business data until the server
+// confirms a real login. Old localStorage identity selections are ignored.
+window.api.whoAmI().then((user) => {
+  if (!user || !['admin', 'super_admin'].includes(user.role)) {
+    window.location.replace('/login.html');
+    return;
+  }
+  app.mount('#app');
+}).catch(() => {
+  window.location.replace('/login.html');
+});
