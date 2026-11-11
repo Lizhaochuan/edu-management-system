@@ -46,6 +46,23 @@ function getTeacherTierSnapshot(teacherId) {
   const teacher = db.getById(db.TABLES.USERS, teacherId)
   if (!teacher) return null
 
+  // 合伙人老师是独立薪酬类别，签到时必须锁定其独立八档金额。
+  // 不允许错误记录成普通 Level，也不允许使用未配置价格占位。
+  if (teacher.teacher_category === 'partner_teacher') {
+    const partner = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
+    if (!partner || !partner.headcount_rates_json) {
+      throw new Error('合伙人老师尚未配置1～8人课时费，禁止提交错误的签到价格快照')
+    }
+    return {
+      teacher_id: teacher.id,
+      teacher_name: teacher.name,
+      is_custom_rate: false,
+      tier_id: 'partner_teacher',
+      tier_name: '合伙人老师',
+      headcount_rates_json: require('./salaryRateConfig').normalizeManualRates(partner.headcount_rates_json)
+    }
+  }
+
   // 1. 若为独立改数的特聘名师
   if (teacher.is_custom_rate && teacher.custom_tier_rates_json) {
     return {
