@@ -509,28 +509,8 @@ const salaryEngineService = {
     const cPrev = Number(origSchedule.makeup_compensated_count || 0)
     const maxCapacity = Number(origSchedule.snapshot_max_capacity || (origCls ? origCls.max_capacity_snapshot : 3))
 
-    // 2. 读取原班授课老师当时的价格表字典快照 (R[0] = 0)
-    const tierSnapshot = origSchedule.teacher_salary_tier_snapshot_json
-    let ratesMap = {}
-    let tierName = '标准教师档'
-    let teacherId = origSchedule.teacher_id || (origCls ? origCls.teacher_id : '')
-
-    if (tierSnapshot && tierSnapshot.headcount_rates_json) {
-      ratesMap = tierSnapshot.headcount_rates_json
-      tierName = tierSnapshot.tier_name || '原班快照档'
-      teacherId = tierSnapshot.teacher_id || teacherId
-    } else {
-      const teacher = db.getById(db.TABLES.USERS, teacherId)
-      if (teacher && teacher.is_custom_rate && teacher.custom_tier_rates_json) {
-        ratesMap = teacher.custom_tier_rates_json
-        tierName = '个人专属价表'
-      } else {
-        const tierId = teacher ? (teacher.teacher_tier_id || 'tier_junior') : 'tier_junior'
-        const tier = db.getById(db.TABLES.TEACHER_TIERS, tierId)
-        ratesMap = tier ? tier.headcount_rates_json : { 1: 100, 2: 140, 3: 180 }
-        tierName = tier ? tier.name : '标准教师档'
-      }
-    }
+    // 2. 优先使用原课次锁定的历史档位；无快照时保持同一套回退规则。
+    const { ratesMap, tierName, teacherId } = this._resolveOriginalClassRates(origSchedule, origCls)
 
     const teacher = db.getById(db.TABLES.USERS, teacherId)
     const teacherName = teacher ? teacher.name : (origCls ? origCls.teacher_name_snapshot : '原任课老师')
@@ -663,16 +643,8 @@ const salaryEngineService = {
     const lessonHours = this._getLessonHours(origSchedule, origCls)
     const maxCapacity = Number(origSchedule.snapshot_max_capacity || (origCls ? origCls.max_capacity_snapshot : 3))
 
-    // 读取价格表
-    const tierSnapshot = origSchedule.teacher_salary_tier_snapshot_json
-    let ratesMap = {}
-    if (tierSnapshot && tierSnapshot.headcount_rates_json) {
-      ratesMap = tierSnapshot.headcount_rates_json
-    } else {
-      const teacher = db.getById(db.TABLES.USERS, origSchedule.teacher_id)
-      const tier = teacher ? db.getById(db.TABLES.TEACHER_TIERS, teacher.teacher_tier_id) : null
-      ratesMap = tier ? tier.headcount_rates_json : { 1: 100, 2: 140, 3: 180 }
-    }
+    // 与新增补差使用同一个历史档位解析逻辑，避免合伙人老师回退到普通 Level。
+    const { ratesMap } = this._resolveOriginalClassRates(origSchedule, origCls)
 
     // 查找该原班名下所有有效的（未被撤销的）原班补差记录，按生成时间升序排列
     const allFees = db.getTable(db.TABLES.TEACHER_LESSON_FEES) || []
@@ -734,6 +706,65 @@ const salaryEngineService = {
    * 根据人头数与价格表字典安全匹配价格 (确保 count<=0 时为 0)
    * @private
    */
+  /**
+   * 为原任课老师的补课补差统一取价。
+   * 优先原课次价格快照，其次同课次已产生的补差价表快照；
+   * 两者均不存在时才回退到老师当前类别/档位。
+   */
+  _resolveOriginalClassRates(origSchedule, origCls) {
+    const tierSnapshot = origSchedule.teacher_salary_tier_snapshot_json
+    const originalTeacherId = origSchedule.teacher_id || (origCls ? origCls.teacher_id : '')
+    if (tierSnapshot && tierSnapshot.headcount_rates_json) {
+      return {
+        ratesMap: tierSnapshot.headcount_rates_json,
+        tierName: tierSnapshot.tier_name || '原班快照档',
+        teacherId: tierSnapshot.teacher_id || originalTeacherId
+      }
+    }
+
+    const savedDiff = (db.getTable(db.TABLES.TEACHER_LESSON_FEES) || []).find(f =>
+      f.fee_type === 'original_class_makeup_diff' &&
+      f.original_absent_schedule_id === origSchedule.id &&
+      !f.is_revoked && f.rates_snapshot_json
+    )
+    if (savedDiff) {
+      return {
+        ratesMap: savedDiff.rates_snapshot_json,
+        tierName: savedDiff.tier_name || '历史补课价格快照',
+        teacherId: savedDiff.teacher_id || originalTeacherId
+      }
+    }
+
+    const teacher = db.getById(db.TABLES.USERS, originalTeacherId)
+    if (teacher && teacher.teacher_category === 'partner_teacher') {
+      const partner = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
+      if (!partner || !partner.headcount_rates_json) {
+        throw new Error('合伙人老师尚未配置1～8人课时费，禁止猜测补课差额')
+      }
+      return {
+        ratesMap: require('./salaryRateConfig').normalizeManualRates(partner.headcount_rates_json),
+        tierName: '合伙人老师',
+        teacherId: originalTeacherId
+      }
+    }
+
+    if (teacher && teacher.is_custom_rate && teacher.custom_tier_rates_json) {
+      return {
+        ratesMap: teacher.custom_tier_rates_json,
+        tierName: '个人专属价表',
+        teacherId: originalTeacherId
+      }
+    }
+
+    const tierId = teacher ? (teacher.teacher_tier_id || 'tier_junior') : 'tier_junior'
+    const tier = db.getById(db.TABLES.TEACHER_TIERS, tierId)
+    return {
+      ratesMap: tier ? tier.headcount_rates_json : { 1: 100, 2: 140, 3: 180 },
+      tierName: tier ? tier.name : '标准教师档',
+      teacherId: originalTeacherId
+    }
+  },
+
   /** Use the lesson's locked duration, then its class snapshot. Never guess salary hours. */
   _getLessonHours(schedule, cls) {
     const raw = schedule && schedule.snapshot_hours_per_lesson != null
