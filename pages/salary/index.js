@@ -87,7 +87,7 @@ Page({
   /** 角色切换回调 */
   onRoleChange() {
     wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
-  }
+  },
 
   /** Tab 切换 */
   switchTab(e) {
