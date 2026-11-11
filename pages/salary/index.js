@@ -54,10 +54,10 @@ Page({
 
   /** 初始化当前用户与教师选项 */
   initUserAndTeachers() {
-    const user = (app && app.globalData && app.globalData.currentUser) || {
-      id: 'u_sa1',
-      name: '张校长(创始人)',
-      role: 'super_admin'
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !wx.getStorageSync('auth_token')) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
     }
 
     const allUsers = db.getTable(db.TABLES.USERS) || []
@@ -85,27 +85,8 @@ Page({
   },
 
   /** 角色切换回调 */
-  onRoleChange(e) {
-    const newUser = e.detail.user
-    if (app && app.globalData) {
-      app.globalData.currentUser = newUser
-    }
-
-    const isTeacher = newUser.role === 'teacher'
-    let teacherIndex = this.data.teacherIndex
-
-    if (isTeacher) {
-      const idx = this.data.teacherList.findIndex(t => t.id === newUser.id)
-      teacherIndex = idx > -1 ? idx : 1
-    }
-
-    this.setData({
-      currentUser: newUser,
-      isTeacher: isTeacher,
-      teacherIndex: teacherIndex
-    }, () => {
-      this.refreshAllData()
-    })
+  onRoleChange() {
+    wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
   },
 
   /** Tab 切换 */
