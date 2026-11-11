@@ -439,7 +439,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       // 3.8 模块 4：开发调试沙盒工具接口
+      // 保护真实数据：此接口可重置全库、改签到时间和模拟扣费。
+      // 默认关闭；仅在本机调试时显式设置 ENABLE_DEBUG_ACTIONS=1 才可启用。
+      // 不信任客户端传入的 X-User-Role / X-User-Id 作为权限凭证。
       if (pathname === '/api/debug/action' && req.method === 'POST') {
+        const remoteAddress = req.socket && req.socket.remoteAddress;
+        const isLoopback = remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1';
+        if (process.env.ENABLE_DEBUG_ACTIONS !== '1' || !isLoopback) {
+          return sendJson(res, 403, { code: 403, message: '调试接口已禁用；仅允许显式开启后的本机调试' });
+        }
         const payload = await parseJsonBody(req);
         const { action, schedule_id, package_id } = payload;
 
