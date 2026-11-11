@@ -34,8 +34,8 @@ function broadcast(event, data) {
         sseClients.delete(client);
         return;
       }
-      client.res.write(`event: ${event}\\n`);
-      client.res.write(`data: ${payload}\\n\\n`);
+      client.res.write(`event: ${event}\n`);
+      client.res.write(`data: ${payload}\n\n`);
     } catch (e) {
       sseClients.delete(client);
     }
