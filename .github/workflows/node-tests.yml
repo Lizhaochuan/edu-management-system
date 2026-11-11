@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [work, main]
   push:
-    branches: [work, main, 'chatgpt/**']
+    branches: ['chatgpt/**']
 
 permissions:
   contents: read
@@ -18,9 +18,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check Node syntax
+      - name: Check server and client syntax
         run: |
           node --check server.js
-          node --check services/salaryEngineService.js
-      - name: Run isolated regression suite
+          node --check services/authService.js
+          node --check scripts/manage-auth.js
+          node --check web-admin/js/api.js
+          node --check web-admin/js/app.js
+          find pages components services web-admin/js scripts -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Run isolated tests
         run: npm test
