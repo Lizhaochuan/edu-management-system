@@ -1,7 +1,7 @@
 <!-- pages/user-management/index.wxml -->
 <view class="user-mgmt-page">
   <!-- 1. 顶部角色模拟切换组件（方便现场切号检验死锁与测试） -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 身份来自服务器登录；禁止通过前端组件模拟角色切换 -->
 
   <!-- ── 场景 A：非超管角色死锁拦截视图 ── -->
   <view wx:if="{{!isSuperAdmin}}" class="lock-container">
