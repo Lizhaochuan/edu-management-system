@@ -1,7 +1,7 @@
 <!-- pages/salary/index.wxml -->
 <view class="salary-page">
   <!-- 1. 顶部全局角色切换组件 -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 身份来自服务器登录；禁止通过前端组件模拟角色切换 -->
 
   <!-- 2. 身份与规则内控横幅 -->
   <view class="rule-banner {{isTeacher ? 'banner-teacher' : 'banner-admin'}}">
