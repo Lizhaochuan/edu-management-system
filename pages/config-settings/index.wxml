@@ -203,16 +203,21 @@
               </button>
             </view>
           </view>
-        </view>
-        <view class="tier-card">
-          <view class="tier-top"><text class="tier-name">合伙人老师（独立薪酬类别）</text></view>
-          <text class="panel-subtitle">与普通教师 Level 分开配置，不涉及股权、分红或管理员权限。</text>
-          <view class="rates-flex">
-            <view wx:for="{{partnerConfig.headcount_rates_json}}" wx:for-index="count" wx:for-item="fee" wx:key="count" class="rate-pill">
-              <text class="pill-count">{{count}}人</text><text class="pill-fee">¥{{fee}} /课时</text>
+          <view class="tier-card">
+            <view class="tier-top"><text class="tier-name">合伙人老师（独立薪酬类别）</text></view>
+            <view class="tier-rates-wrap">
+              <text class="rates-title">与普通教师 Level 分开配置，不涉及股权、分红或管理员权限。</text>
+              <view class="rates-flex">
+                <view wx:for="{{partnerConfig.headcount_rates_json}}" wx:for-index="count" wx:for-item="fee" wx:key="count" class="rate-pill">
+                  <text class="pill-count">{{count}}人</text><text class="pill-fee">¥{{fee}} /课时</text>
+                </view>
+              </view>
+              <text wx:if="{{!partnerConfig.headcount_rates_json}}" class="tier-rule-tip">尚未配置，请填写1～8人每课时金额。</text>
+            </view>
+            <view class="tier-bottom">
+              <button class="btn-action-sm" bindtap="onOpenPartnerModal">配置合伙人老师八档金额</button>
             </view>
           </view>
-          <button class="btn-action-sm" bindtap="onOpenPartnerModal">配置合伙人老师八档金额</button>
         </view>
       </block>
 
