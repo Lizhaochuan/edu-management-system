@@ -71,28 +71,17 @@ Page({
     this.checkPermissionAndLoad()
   },
 
-  onRoleChange(e) {
-    const user = e.detail.user
-    const app = getApp()
-    if (app && app.globalData) {
-      app.globalData.currentUser = user
-    }
-    wx.setStorageSync('current_user', user)
-
-    this.checkPermissionAndLoad()
+  onRoleChange() {
+    wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
   },
 
   /** 权限拦截与数据刷新 */
   checkPermissionAndLoad() {
     const app = getApp()
-    let user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
-    if (!user) {
-      const users = db.getTable(db.TABLES.USERS) || []
-      user = users.find(u => u.role === 'super_admin') || users[0]
-      if (app && app.globalData) {
-        app.globalData.currentUser = user
-      }
-      wx.setStorageSync('current_user', user)
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !wx.getStorageSync('auth_token')) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
     }
 
     const hasPermission = user && (user.role === 'admin' || user.role === 'super_admin')
