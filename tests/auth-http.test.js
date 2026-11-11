@@ -65,6 +65,18 @@ before(async () => {
   auth.saveCredential('u_adm1',PASSWORD);
   auth.saveCredential('u_par1',PASSWORD);
   assert.equal(fs.statSync(process.env.AUTH_CREDENTIALS_FILE).mode & 0o777, 0o600);
+  db.insert(db.TABLES.APPROVAL_REQUESTS, {
+    id:'atomic_bad_approval', request_type:'config_change',
+    status:'pending', proposer_id:'u_adm1', proposer_name:'教务管理员',
+    target_table:db.TABLES.TEACHER_TIERS, target_record_id:'missing-tied-id',
+    after_data_json:{name:'不应生效'}, reason:'隔离测试'
+  }, '创建测试失败审批单');
+  db.insert(db.TABLES.APPROVAL_REQUESTS, {
+    id:'atomic_good_approval', request_type:'config_change',
+    status:'pending', proposer_id:'u_adm1', proposer_name:'教务管理员',
+    target_table:db.TABLES.TEACHER_TIERS, target_record_id:'tier_junior',
+    after_data_json:{name:'审批修改后的名称'}, reason:'隔离测试'
+  }, '创建测试有效审批单');
   port = await reservePort();
   child = spawn(process.execPath, ['server.js'], {
     cwd:root,
@@ -149,4 +161,28 @@ test('foreign origin rejected before authentication', async () => {
   assert.equal((await call('/api/db/all','GET',undefined,{
     Cookie:cookie(response), Origin:'https://attacker.example'
   })).status,403);
+});
+
+test('failed approval business logic keeps pending status and can be retried safely', async () => {
+  const login = await signIn('u_sa1');
+  const headers = { Cookie:cookie(login) };
+  const first = await call('/api/approvals/approve','POST',{approval_id:'atomic_bad_approval'},headers);
+  assert.equal(first.status,400,JSON.stringify(first.data));
+  const result = await call('/api/approvals','GET',undefined,headers);
+  const item = result.data.data.find(a => a.id === 'atomic_bad_approval');
+  assert.equal(item.status,'pending');
+  const second = await call('/api/approvals/approve','POST',{approval_id:'atomic_bad_approval'},headers);
+  assert.equal(second.status,400);
+});
+test('successful approval is applied once; duplicate approve/reject are rejected', async () => {
+  const login = await signIn('u_sa1');
+  const headers = { Cookie:cookie(login) };
+  const first = await call('/api/approvals/approve','POST',{approval_id:'atomic_good_approval'},headers);
+  assert.equal(first.status,200,JSON.stringify(first.data));
+  const items = await call('/api/db/teacher_tiers','GET',undefined,headers);
+  assert.equal(items.data.data.find(t => t.id === 'tier_junior').name,'审批修改后的名称');
+  const repeated = await call('/api/approvals/approve','POST',{approval_id:'atomic_good_approval'},headers);
+  assert.equal(repeated.status,409);
+  const reverse = await call('/api/approvals/reject','POST',{approval_id:'atomic_good_approval'},headers);
+  assert.equal(reverse.status,409);
 });
