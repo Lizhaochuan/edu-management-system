@@ -1,0 +1,33 @@
+# Private operational data (never commit)
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*secret*.json
+project.private.config.json
+
+# Dependencies and generated files
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+__MACOSX/
+._*
+
+# IDE and local caches
+.idea/
+.vscode/
+.antigravity/
