@@ -149,6 +149,7 @@ function authorize(pathname, method, role, req) {
     // Teacher and parent scopes must be implemented explicitly, never inherit admin access.
     return false;
   }
+  if (pathname === '/api/events') return true;
   if (pathname === '/api/db/all' || pathname === '/api/logs' ||
       pathname.startsWith('/api/salary/') || pathname.startsWith('/api/debug/')) {
     return role === 'super_admin';
