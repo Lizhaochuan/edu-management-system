@@ -32,17 +32,12 @@
           <span v-if="liveEventCount > 0" class="badge badge-green" style="font-size: 10px;">{{ liveEventCount }} 次事件</span>
         </div>
 
-        <!-- 全局身份与调试视角切换器 -->
+        <!-- 服务端认证后的身份只读展示；禁止模拟切换到其他权限 -->
         <div class="role-switcher-box">
-          <span class="rs-label">🎭 当前视角:</span>
-          <select class="rs-select" v-model="selectedIdentityId" @change="onIdentityChange">
-            <option v-for="u in identities" :key="u.id" :value="u.id">
-              {{ u.name }} ({{ u.roleText }})
-            </option>
-          </select>
-          <span class="badge" :class="currentIdentity.badgeClass">
-            {{ currentIdentity.roleText }}
-          </span>
+          <span class="rs-label">当前登录：</span>
+          <span>{{ currentIdentity.name }}</span>
+          <span class="badge" :class="currentIdentity.badgeClass">{{ currentIdentity.roleText }}</span>
+          <button class="btn-action-sm" @click="onLogout">退出登录</button>
         </div>
       </div>
     </header>
