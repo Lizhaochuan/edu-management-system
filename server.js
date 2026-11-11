@@ -193,9 +193,21 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 403, { code: 403, message: '当前账号无权访问此接口' });
       }
 
-      // 3.2 全库数据导出 (小程序全量同步)
+      // Authenticated snapshot for the native mini-program.
+      // Admins receive business data but never raw audit or salary settlement ledgers.
       if (pathname === '/api/db/all' && req.method === 'GET') {
         const allDb = db.dumpAll();
+        if (identity.user.role === 'admin') {
+          const protectedTables = new Set([
+            db.TABLES.AUDIT_LOGS, db.TABLES.SALARY_SETTLEMENTS,
+            db.TABLES.SALARY_ADJUSTMENTS, db.TABLES.TEACHER_LESSON_FEES
+          ]);
+          const filtered = {};
+          for (const [table, rows] of Object.entries(allDb)) {
+            filtered[table] = protectedTables.has(table) ? [] : rows;
+          }
+          return sendJson(res, 200, { code: 0, data: filtered });
+        }
         return sendJson(res, 200, { code: 0, data: allDb });
       }
 
