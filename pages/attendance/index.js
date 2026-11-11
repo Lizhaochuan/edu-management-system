@@ -108,16 +108,9 @@ Page({
     this.initData()
   },
 
-  onRoleChange(e) {
-    const user = e.detail.user
-    const app = getApp()
-    if (app && app.globalData) {
-      app.globalData.currentUser = user
-    }
-    wx.setStorageSync('current_user', user)
-
-    this.initData()
-  },
+  onRoleChange() {
+    wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
+  }
 
   initData(targetScheduleId) {
     const app = getApp()
