@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>教务管理系统 · 登录</title>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#f1f5f9;color:#0f172a;margin:0;min-height:100vh;display:grid;place-items:center}
+form{width:min(92vw,400px);background:#fff;border-radius:16px;padding:32px;box-shadow:0 10px 35px #0f172a12}
+h1{font-size:22px;margin:0 0 6px}p{color:#64748b;font-size:13px;line-height:1.6;margin:0 0 24px}
+label{display:block;font-size:14px;margin:16px 0 6px}input{display:block;width:100%;font-size:16px;padding:12px;border:1px solid #cbd5e1;border-radius:8px}
+button{width:100%;border:0;border-radius:8px;background:#1d4ed8;color:white;padding:13px;margin-top:22px;font-size:16px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}.error{color:#b91c1c;margin-top:12px;font-size:13px;min-height:18px}
+</style>
+</head>
+<body>
+<form id="login-form">
+<h1>教务管理系统</h1>
+<p>请使用管理员为你设置的用户 ID 和密码登录。不能通过切换界面身份获得额外权限。</p>
+<label for="user-id">用户 ID</label>
+<input id="user-id" type="text" autocomplete="username" maxlength="80" required>
+<label for="password">密码</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button type="submit">安全登录</button>
+<div id="error" class="error" role="alert"></div>
+</form>
+<script>
+document.querySelector('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = document.querySelector('button');
+  const error = document.querySelector('#error');
+  button.disabled = true; error.textContent = '';
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: document.querySelector('#user-id').value.trim(),
+        password: document.querySelector('#password').value
+      })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || '登录失败');
+    document.querySelector('#password').value = '';
+    window.location.replace('/');
+  } catch (err) {
+    error.textContent = err.message || '登录失败，请重试';
+  } finally { button.disabled = false; }
+});
+</script>
+</body>
+</html>
