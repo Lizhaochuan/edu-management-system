@@ -92,3 +92,66 @@ test('saved hourly rate snapshot prevails over later price changes', () => {
     assert.equal(result.calculated_teacher_fee, 450);
   } finally { close(); }
 });
+
+
+test('partner makeup: both new differential and realignment use the eight-bracket partner table', () => {
+  const { db, salary, close } = fixture();
+  try {
+    const partnerRates = { 1:110, 2:155, 3:235, 4:305, 5:325, 6:370, 7:400, 8:440 };
+    db.update(db.TABLES.USERS, 'u_tch1', { teacher_category: 'partner_teacher' });
+    db.update(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher', {
+      status: 'active', headcount_rates_json: partnerRates
+    });
+    // Simulate an older record without either kind of salary snapshot.
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', {
+      teacher_salary_tier_snapshot_json: null, snapshot_teacher_rates_json: null
+    });
+    const diff = salary.applyMakeupProgressiveDifferential({
+      original_absent_schedule_id: 'sch_1', student_id: 'stu_partner', student_name: '补课测试'
+    });
+    assert.equal(diff.tier_name, '合伙人老师');
+    assert.equal(diff.rate_used, 80);
+    assert.equal(diff.lesson_hours, 1.5);
+    assert.equal(diff.calculated_teacher_fee, 120);
+    assert.equal(salary.realignOriginalClassCompensations('sch_1').total_differential_fee, 120);
+    // Current partner pricing may change, but existing supplement must not.
+    db.update(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher', {
+      headcount_rates_json: { ...partnerRates, 3: 400 }
+    });
+    assert.equal(salary.realignOriginalClassCompensations('sch_1').total_differential_fee, 120);
+  } finally { close(); }
+});
+
+test('legacy lesson rate snapshot wins over newer partner pricing', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.USERS, 'u_tch1', { teacher_category: 'partner_teacher' });
+    db.update(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher', {
+      headcount_rates_json: { 1:100, 2:200, 3:500, 4:600, 5:700, 6:800, 7:900, 8:1000 },
+      status: 'active'
+    });
+    // Seed schedule is historically locked to 2 students @ 140 and 3 @ 180.
+    const diff = salary.applyMakeupProgressiveDifferential({
+      original_absent_schedule_id: 'sch_1', student_id: 'stu_legacy', student_name: '历史补课'
+    });
+    assert.equal(diff.tier_name, '原班旧版价格快照');
+    assert.equal(diff.rate_used, 40);
+    assert.equal(diff.calculated_teacher_fee, 60);
+    assert.equal(salary.realignOriginalClassCompensations('sch_1').total_differential_fee, 60);
+  } finally { close(); }
+});
+
+test('partner makeup without rates or historical snapshot fails rather than guessing', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.USERS, 'u_tch1', { teacher_category: 'partner_teacher' });
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', {
+      teacher_salary_tier_snapshot_json: null, snapshot_teacher_rates_json: null
+    });
+    assert.throws(() => salary.applyMakeupProgressiveDifferential({
+      original_absent_schedule_id: 'sch_1', student_id: 'stu_missing', student_name: '缺少价格'
+    }), /合伙人老师尚未配置/);
+    assert.equal(db.getTable(db.TABLES.TEACHER_LESSON_FEES)
+      .filter(row => row.student_id === 'stu_missing').length, 0);
+  } finally { close(); }
+});
