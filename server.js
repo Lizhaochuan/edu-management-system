@@ -229,7 +229,11 @@ const server = http.createServer(async (req, res) => {
           ]);
           const filtered = {};
           for (const [table, rows] of Object.entries(allDb)) {
-            filtered[table] = protectedTables.has(table) ? [] : rows;
+            filtered[table] = protectedTables.has(table) ? [] :
+              table === db.TABLES.APPROVAL_REQUESTS
+                ? rows.filter(a => a.request_type === 'freeze_hours' ||
+                  a.proposer_id === identity.user.id)
+                : rows;
           }
           return sendJson(res, 200, { code: 0, data: filtered });
         }
@@ -612,6 +616,10 @@ const server = http.createServer(async (req, res) => {
         const reqType = query.request_type;
 
         let filtered = allApprovals.filter(a => {
+          if (identity.user.role === 'admin' &&
+              a.request_type !== 'freeze_hours' && a.proposer_id !== identity.user.id) {
+            return false;
+          }
           if (status === 'pending' && a.status !== 'pending') return false;
           if (status === 'processed' && a.status === 'pending') return false;
           if (reqType && a.request_type !== reqType) return false;
