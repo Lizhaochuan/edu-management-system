@@ -32,14 +32,10 @@ Page({
   /** 核心角色死锁检验与日志加载 */
   checkPermissionAndLoad() {
     const app = getApp()
-    let user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
-    if (!user) {
-      const users = db.getTable(db.TABLES.USERS) || []
-      user = users.find(u => u.role === 'super_admin') || users[0]
-      if (app && app.globalData) {
-        app.globalData.currentUser = user
-      }
-      wx.setStorageSync('current_user', user)
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !wx.getStorageSync('auth_token')) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
     }
 
     const isSuperAdmin = user && user.role === 'super_admin'
