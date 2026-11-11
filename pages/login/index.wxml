@@ -6,7 +6,7 @@
     <input class="input" type="text" value="{{userId}}" bindinput="onUserIdInput"
       placeholder="例如：u_sa1" maxlength="80" />
     <view class="form-label">密码</view>
-    <input class="input" type="password" password="{{true}}" value="{{password}}"
+    <input class="input" type="text" password="{{true}}" value="{{password}}"
       bindinput="onPasswordInput" placeholder="请输入密码" />
     <button class="submit" bindtap="onLogin" disabled="{{busy}}">
       {{busy ? '正在验证...' : '登录'}}
