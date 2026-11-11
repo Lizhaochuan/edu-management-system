@@ -137,13 +137,9 @@ function _currentUser() {
         return app.globalData.currentUser
       }
     }
-    if (isMiniProgram && wx.getStorageSync) {
-      const u = wx.getStorageSync('current_user')
-      if (u) return u
-    }
-    return { id: 'u_sa1', name: '系统管理员', role: 'super_admin' }
+    return { id: 'unauthenticated', name: '未登录', role: 'guest' }
   } catch (e) {
-    return { id: 'system', name: '系统' }
+    return { id: 'unauthenticated', name: '未登录', role: 'guest' }
   }
 }
 
