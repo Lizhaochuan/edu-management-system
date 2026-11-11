@@ -150,7 +150,8 @@ function authorize(pathname, method, role, req) {
     return false;
   }
   if (pathname === '/api/events') return true;
-  if (pathname === '/api/db/all' || pathname === '/api/logs' ||
+  if (pathname === '/api/db/all') return true; // Admin export is redacted by server.js.
+  if (pathname === '/api/logs' ||
       pathname.startsWith('/api/salary/') || pathname.startsWith('/api/debug/')) {
     return role === 'super_admin';
   }
