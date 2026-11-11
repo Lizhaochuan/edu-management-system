@@ -219,40 +219,10 @@ const salaryEngineService = {
       tierName = tier ? tier.name : '标准教师档'
     }
 
-    // 阶梯匹配算法：
-    // 若出勤人数在价格表中直接配置，直接命中；
-    // 若超出最高配置人头，按最高配置阶梯价格结算；
-    // 若低于最低配置，按最低阶梯结算。
-    const configuredHeadcounts = Object.keys(ratesMap).map(Number).sort((a, b) => a - b)
-    let calculatedFee = 0
-    let rateUsed = 0
-
-    if (configuredHeadcounts.length > 0) {
-      if (ratesMap[effectiveHeadcount] !== undefined) {
-        calculatedFee = Number(ratesMap[effectiveHeadcount])
-        rateUsed = calculatedFee
-      } else {
-        const maxHeadcount = configuredHeadcounts[configuredHeadcounts.length - 1]
-        const minHeadcount = configuredHeadcounts[0]
-        if (effectiveHeadcount >= maxHeadcount) {
-          calculatedFee = Number(ratesMap[maxHeadcount])
-          rateUsed = calculatedFee
-        } else if (effectiveHeadcount <= minHeadcount) {
-          calculatedFee = Number(ratesMap[minHeadcount])
-          rateUsed = calculatedFee
-        } else {
-          let matched = minHeadcount
-          for (const h of configuredHeadcounts) {
-            if (h <= effectiveHeadcount) matched = h
-          }
-          calculatedFee = Number(ratesMap[matched])
-          rateUsed = calculatedFee
-        }
-      }
-    } else {
-      calculatedFee = effectiveHeadcount * 100
-      rateUsed = 100
-    }
+    // Every headcount bracket is a manually configured rate. Never infer it
+    // from a neighbour, extrapolate past a legacy 1–3 table or make up ¥100.
+    const rateUsed = this._getRateForHeadcount(effectiveHeadcount, ratesMap)
+    const calculatedFee = Number((rateUsed * lessonHours).toFixed(2))
 
     // ─────────────────────────────────────────
     // 保存授课老师档位价格快照至排课记录
@@ -790,22 +760,20 @@ const salaryEngineService = {
   },
 
   _getRateForHeadcount(count, ratesMap) {
-    if (!ratesMap || count <= 0) return 0
-    if (ratesMap[count] !== undefined) return Number(ratesMap[count])
-
-    const keys = Object.keys(ratesMap).map(Number).sort((a, b) => a - b)
-    if (keys.length === 0) return count * 100
-
-    const maxKey = keys[keys.length - 1]
-    const minKey = keys[0]
-    if (count >= maxKey) return Number(ratesMap[maxKey])
-    if (count <= minKey) return Number(ratesMap[minKey])
-
-    let matched = minKey
-    for (const k of keys) {
-      if (k <= count) matched = k
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error('计费人数必须是非负整数')
     }
-    return Number(ratesMap[matched])
+    if (count === 0) return 0
+    if (!ratesMap || !Object.prototype.hasOwnProperty.call(ratesMap, String(count))) {
+      throw new Error(`缺少${count}人档位的独立课时费配置，禁止自动推算金额`)
+    }
+    const raw = ratesMap[count]
+    const rate = Number(raw)
+    if (raw === null || raw === '' || typeof raw === 'boolean' ||
+        !Number.isFinite(rate) || rate < 0) {
+      throw new Error(`${count}人档位课时费无效`)
+    }
+    return rate
   },
 
   // ─────────────────────────────────────────
