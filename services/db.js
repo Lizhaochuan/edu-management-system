@@ -33,7 +33,7 @@ const DB_INIT_FLAG = '__DB_INITIALIZED__'
 // ─────────────────────────────────────────
 const isMiniProgram = typeof wx !== 'undefined' && typeof wx.getStorageSync === 'function'
 const miniConfig = isMiniProgram && typeof wx.getExtConfigSync === 'function' ? (wx.getExtConfigSync() || {}) : {}
-const SERVER_API_BASE = (miniConfig.serverApiBase || 'http://127.0.0.1:3000').replace(/\\/$/, '')
+const SERVER_API_BASE = (miniConfig.serverApiBase || 'http://127.0.0.1:3000').replace(/[/]$/, '')
 function _getBearerToken() {
   if (!isMiniProgram) return null
   const token = wx.getStorageSync('auth_token')
