@@ -735,6 +735,18 @@ const salaryEngineService = {
       }
     }
 
+    // Legacy schedules also contain a locked original hourly-rate snapshot.
+    // It must outrank today's teacher category or today's rate settings.
+    const legacySnapshot = origSchedule.snapshot_teacher_rates_json
+    if (legacySnapshot && typeof legacySnapshot === 'object' &&
+        Object.keys(legacySnapshot).length > 0) {
+      return {
+        ratesMap: legacySnapshot,
+        tierName: '原班旧版价格快照',
+        teacherId: originalTeacherId
+      }
+    }
+
     const teacher = db.getById(db.TABLES.USERS, originalTeacherId)
     if (teacher && teacher.teacher_category === 'partner_teacher') {
       const partner = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
