@@ -1,7 +1,7 @@
 <!-- pages/config-settings/index.wxml -->
 <view class="config-page">
   <!-- 1. 顶部角色模拟切换组件（方便现场切号测试：管理提单 -> 超管审批） -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 身份来自服务器登录；禁止通过前端组件模拟角色切换 -->
 
   <!-- ── 场景 A：无权限拦截视图（老师、家长、游客等） ── -->
   <view wx:if="{{!hasPermission}}" class="lock-container">
