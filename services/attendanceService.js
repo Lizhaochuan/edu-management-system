@@ -1128,6 +1128,16 @@ const attendanceService = {
    * @returns {Object} 取消执行明细
    */
   cancelScheduleLesson(scheduleId, options = {}) {
+    const before = JSON.parse(JSON.stringify(db.dumpAll()))
+    try {
+      return this._cancelScheduleLessonTransactional(scheduleId, options)
+    } catch (error) {
+      db.replaceAll(before)
+      throw error
+    }
+  },
+
+  _cancelScheduleLessonTransactional(scheduleId, options = {}) {
     const operator = checkAdminPermission() // 管理员最高权限
     if (!scheduleId) throw new Error('必须指定需要取消的排课ID')
 
@@ -1159,22 +1169,18 @@ const attendanceService = {
       const copy = Object.assign({}, item)
       // 若该生此前已出勤并扣了课时，调用 Phase 2-A rollbackHours 严格原路退回！
       if (item.deducted_hours > 0 && item.deducted_detail_json) {
-        try {
-          const rollbackRes = packageAccountService.rollbackHours(
-            item.deducted_detail_json,
-            `[课程取消原路退还] 管理员【${operator.name}】取消班级【${cls.name}】第${schedule.lesson_index}次课，全额退回课时。事由: ${reason.trim()}`
-          )
-          refundedStudents.push({
-            student_id: item.student_id,
-            student_name: item.student_name,
-            refunded_hours: item.deducted_hours,
-            paid_refunded: rollbackRes.total_paid_refunded,
-            gift_refunded: rollbackRes.total_gift_refunded,
-            debt_cleared: rollbackRes.debt_cleared
-          })
-        } catch (e) {
-          console.warn(`[cancelScheduleLesson] rollbackHours failed for stu ${item.student_id}:`, e)
-        }
+        const rollbackRes = packageAccountService.rollbackHours(
+          item.deducted_detail_json,
+          `[课程取消原路退还] 管理员【${operator.name}】取消班级【${cls.name}】第${schedule.lesson_index}次课，全额退回课时。事由: ${reason.trim()}`
+        )
+        refundedStudents.push({
+          student_id: item.student_id,
+          student_name: item.student_name,
+          refunded_hours: item.deducted_hours,
+          paid_refunded: rollbackRes.total_paid_refunded,
+          gift_refunded: rollbackRes.total_gift_refunded,
+          debt_cleared: rollbackRes.debt_cleared
+        })
       }
 
       // 清空扣费记录并标记状态
@@ -1210,12 +1216,17 @@ const attendanceService = {
     db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, schedule.id, cancelPayload, logDesc)
 
     // Phase 4-A：同步触发课酬引擎将台账记录清零置 0
-    try {
-      salaryEngineService.calculateLessonFee(schedule.id)
-    } catch (e) {
-      console.warn('[cancelScheduleLesson] salaryEngine calculateLessonFee failed:', e)
+    salaryEngineService.calculateLessonFee(schedule.id)
+
+    // ─────────────────────────────────────────
+    // 后续处理执行：选项 B (整班往后挪一节)
+    // ─────────────────────────────────────────
+    let postponeResult = null
+    if (handle_mode === 'postpone_entire_class') {
+      postponeResult = this.postponeClassSchedules(cls.id, schedule.id, reason.trim(), operator)
     }
 
+    // Notifications happen only after all database changes have succeeded.
     // ─────────────────────────────────────────
     // 三步联动第 3 步：触发取消通知分发
     // ─────────────────────────────────────────
@@ -1236,13 +1247,6 @@ const attendanceService = {
       console.warn('[cancelScheduleLesson] sendLessonCancellationNotice failed:', e)
     }
 
-    // ─────────────────────────────────────────
-    // 后续处理执行：选项 B (整班往后挪一节)
-    // ─────────────────────────────────────────
-    let postponeResult = null
-    if (handle_mode === 'postpone_entire_class') {
-      postponeResult = this.postponeClassSchedules(cls.id, schedule.id, reason.trim(), operator)
-    }
 
     return {
       success: true,
