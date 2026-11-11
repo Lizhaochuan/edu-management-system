@@ -31,9 +31,14 @@ const DB_INIT_FLAG = '__DB_INITIALIZED__'
 // ─────────────────────────────────────────
 // 后端同步与存储适配器（支持微信小程序端与 Node.js 服务端共用同一底座）
 // ─────────────────────────────────────────
-const SERVER_API_BASE = 'http://127.0.0.1:3000'
-
 const isMiniProgram = typeof wx !== 'undefined' && typeof wx.getStorageSync === 'function'
+const miniConfig = isMiniProgram && typeof wx.getExtConfigSync === 'function' ? (wx.getExtConfigSync() || {}) : {}
+const SERVER_API_BASE = (miniConfig.serverApiBase || 'http://127.0.0.1:3000').replace(/\\/$/, '')
+function _getBearerToken() {
+  if (!isMiniProgram) return null
+  const token = wx.getStorageSync('auth_token')
+  return typeof token === 'string' && token.length > 0 ? token : null
+}
 
 // Node.js 服务端文件数据库缓存
 let _nodeMemoryDb = null
@@ -99,12 +104,14 @@ function _writeStorageTable(tableName, rows) {
 /** 小程序端向后端服务异步同步变更（确保 PC 网页端 100% 实时同步感知） */
 function _syncMutationToServer(mutation) {
   if (!isMiniProgram || !wx.request) return
+  const token = _getBearerToken()
+  if (!token) return
   try {
     wx.request({
       url: `${SERVER_API_BASE}/api/db/mutate`,
       method: 'POST',
       data: mutation,
-      header: { 'Content-Type': 'application/json' },
+      header: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       fail(err) {
         // 后端若未启动时静默降级为本地运行，避免控制台报错阻断小程序UI
       }
@@ -870,7 +877,7 @@ function initDatabase(forceReset = false) {
  * @param {Function} callback
  */
 function syncFromServer(callback) {
-  if (!isMiniProgram || !wx.request) {
+  if (!isMiniProgram || !wx.request || !_getBearerToken()) {
     if (callback) callback(null)
     return
   }
@@ -878,6 +885,7 @@ function syncFromServer(callback) {
   wx.request({
     url: `${SERVER_API_BASE}/api/db/all`,
     method: 'GET',
+    header: { Authorization: 'Bearer ' + _getBearerToken() },
     timeout: 3000,
     success(res) {
       if (res.data && res.data.code === 0 && res.data.data) {
@@ -906,7 +914,9 @@ let _autoSyncTimer = null
  * 启动小程序端静默后台自动同步轮询（默认 3 秒）
  */
 function startAutoSync(intervalMs = 3000) {
-  if (!isMiniProgram || _autoSyncTimer) return
+  // Disabled until writes use authenticated, validated server business endpoints.
+  // Periodic full snapshots could otherwise overwrite unsynced local business changes.
+  if (!isMiniProgram || _autoSyncTimer || wx.getStorageSync('sync_mode') !== 'legacy_dev') return
   _autoSyncTimer = setInterval(() => {
     syncFromServer()
   }, intervalMs)
