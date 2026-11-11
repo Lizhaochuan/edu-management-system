@@ -183,7 +183,15 @@ const salaryEngineService = {
     let tierName = '标准教师档'
     let tierId = 'tier_junior'
 
-    if (teacher && teacher.is_custom_rate && teacher.custom_tier_rates_json) {
+    if (teacher && teacher.teacher_category === 'partner_teacher') {
+      const config = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
+      if (!config || !config.headcount_rates_json) {
+        throw new Error('合伙人老师尚未配置1～8人课时费，禁止猜测金额')
+      }
+      ratesMap = require('./salaryRateConfig').normalizeManualRates(config.headcount_rates_json)
+      tierName = '合伙人老师'
+      tierId = 'partner_teacher'
+    } else if (teacher && teacher.is_custom_rate && teacher.custom_tier_rates_json) {
       // 个人专属价格表（经超管审批）
       ratesMap = teacher.custom_tier_rates_json
       tierName = `【${teacher.name}】专属定制价`
