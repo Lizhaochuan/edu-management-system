@@ -77,7 +77,7 @@ Page({
 
   onRoleChange() {
     wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
-  }
+  },
 
   initData() {
     const app = getApp()
