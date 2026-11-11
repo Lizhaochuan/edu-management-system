@@ -1,0 +1,29 @@
+name: Node regression tests
+
+on:
+  pull_request:
+    branches: [work, main]
+  push:
+    branches: ['chatgpt/**']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check server and client syntax
+        run: |
+          node --check server.js
+          node --check services/authService.js
+          node --check scripts/manage-auth.js
+          node --check web-admin/js/api.js
+          node --check web-admin/js/app.js
+      - name: Run isolated tests
+        run: npm test
