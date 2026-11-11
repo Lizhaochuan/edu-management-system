@@ -222,7 +222,7 @@ const salaryEngineService = {
     // Every headcount bracket is a manually configured rate. Never infer it
     // from a neighbour, extrapolate past a legacy 1–3 table or make up ¥100.
     const rateUsed = this._getRateForHeadcount(effectiveHeadcount, ratesMap)
-    const calculatedFee = Number((rateUsed * lessonHours).toFixed(2))
+    let calculatedFee = Number((rateUsed * lessonHours).toFixed(2))
 
     // ─────────────────────────────────────────
     // 保存授课老师档位价格快照至排课记录
