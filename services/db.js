@@ -31,9 +31,14 @@ const DB_INIT_FLAG = '__DB_INITIALIZED__'
 // ─────────────────────────────────────────
 // 后端同步与存储适配器（支持微信小程序端与 Node.js 服务端共用同一底座）
 // ─────────────────────────────────────────
-const SERVER_API_BASE = 'http://127.0.0.1:3000'
-
 const isMiniProgram = typeof wx !== 'undefined' && typeof wx.getStorageSync === 'function'
+const miniConfig = isMiniProgram && typeof wx.getExtConfigSync === 'function' ? (wx.getExtConfigSync() || {}) : {}
+const SERVER_API_BASE = (miniConfig.serverApiBase || 'http://127.0.0.1:3000').replace(/[/]$/, '')
+function _getBearerToken() {
+  if (!isMiniProgram) return null
+  const token = wx.getStorageSync('auth_token')
+  return typeof token === 'string' && token.length > 0 ? token : null
+}
 
 // Node.js 服务端文件数据库缓存
 let _nodeMemoryDb = null
@@ -67,12 +72,20 @@ function _loadNodeDb() {
 
 function _persistNodeDb() {
   if (!_fs || !_dbFilePath || !_nodeMemoryDb) return
+  const dir = _path.dirname(_dbFilePath)
+  if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true })
+  // Replace an entire JSON file atomically instead of truncating it in place.
+  // This improves crash safety on a single host; it does NOT make OneDrive multi-writer safe.
+  const temp = _path.join(dir, '.db-write-' + process.pid + '-' + Date.now() + '-' +
+    Math.random().toString(16).slice(2) + '.tmp')
   try {
-    const dir = _path.dirname(_dbFilePath)
-    if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true })
-    _fs.writeFileSync(_dbFilePath, JSON.stringify(_nodeMemoryDb, null, 2), 'utf8')
+    _fs.writeFileSync(temp, JSON.stringify(_nodeMemoryDb, null, 2), { encoding:'utf8', flag:'wx' })
+    _fs.renameSync(temp, _dbFilePath)
   } catch (e) {
-    console.warn('[db] persist db.json failed:', e)
+    console.error('[db] persist db.json failed; latest mutation was NOT durably saved:', e)
+    throw e
+  } finally {
+    try { if (_fs.existsSync(temp)) _fs.unlinkSync(temp) } catch (_err) {}
   }
 }
 
@@ -99,12 +112,14 @@ function _writeStorageTable(tableName, rows) {
 /** 小程序端向后端服务异步同步变更（确保 PC 网页端 100% 实时同步感知） */
 function _syncMutationToServer(mutation) {
   if (!isMiniProgram || !wx.request) return
+  const token = _getBearerToken()
+  if (!token) return
   try {
     wx.request({
       url: `${SERVER_API_BASE}/api/db/mutate`,
       method: 'POST',
       data: mutation,
-      header: { 'Content-Type': 'application/json' },
+      header: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       fail(err) {
         // 后端若未启动时静默降级为本地运行，避免控制台报错阻断小程序UI
       }
@@ -130,13 +145,9 @@ function _currentUser() {
         return app.globalData.currentUser
       }
     }
-    if (isMiniProgram && wx.getStorageSync) {
-      const u = wx.getStorageSync('current_user')
-      if (u) return u
-    }
-    return { id: 'u_sa1', name: '系统管理员', role: 'super_admin' }
+    return { id: 'unauthenticated', name: '未登录', role: 'guest' }
   } catch (e) {
-    return { id: 'system', name: '系统' }
+    return { id: 'unauthenticated', name: '未登录', role: 'guest' }
   }
 }
 
@@ -870,7 +881,7 @@ function initDatabase(forceReset = false) {
  * @param {Function} callback
  */
 function syncFromServer(callback) {
-  if (!isMiniProgram || !wx.request) {
+  if (!isMiniProgram || !wx.request || !_getBearerToken()) {
     if (callback) callback(null)
     return
   }
@@ -878,6 +889,7 @@ function syncFromServer(callback) {
   wx.request({
     url: `${SERVER_API_BASE}/api/db/all`,
     method: 'GET',
+    header: { Authorization: 'Bearer ' + _getBearerToken() },
     timeout: 3000,
     success(res) {
       if (res.data && res.data.code === 0 && res.data.data) {
@@ -906,7 +918,9 @@ let _autoSyncTimer = null
  * 启动小程序端静默后台自动同步轮询（默认 3 秒）
  */
 function startAutoSync(intervalMs = 3000) {
-  if (!isMiniProgram || _autoSyncTimer) return
+  // Disabled until writes use authenticated, validated server business endpoints.
+  // Periodic full snapshots could otherwise overwrite unsynced local business changes.
+  if (!isMiniProgram || _autoSyncTimer || wx.getStorageSync('sync_mode') !== 'legacy_dev') return
   _autoSyncTimer = setInterval(() => {
     syncFromServer()
   }, intervalMs)
