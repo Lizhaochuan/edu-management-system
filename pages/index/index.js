@@ -172,6 +172,7 @@ const ROLE_DESC_MAP = {
 Page({
   data: {
     currentUser: null,
+    debugEnabled: false,
     roleInfo: {},
     visibleCards: [],
     stats: {
@@ -190,25 +191,35 @@ Page({
     this.refreshCurrentView()
   },
 
-  /** 角色切换组件回调 */
-  onRoleChange(e) {
-    const user = e.detail.user
+  /** Role is established only by server login; never default to local super-admin. */
+  refreshCurrentView() {
+    const app = getApp()
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
+    }
+    this.setData({
+      debugEnabled: user.role === 'super_admin' &&
+        wx.getStorageSync('enable_debug_tools') === true
+    })
     this.applyUser(user)
   },
 
-  /** 刷新当前用户视图与统计信息 */
-  refreshCurrentView() {
-    const app = getApp()
-    let user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
-    if (!user) {
-      const users = db.getTable(db.TABLES.USERS) || []
-      user = users.find(u => u.role === 'super_admin') || users[0]
-      if (app && app.globalData) {
-        app.globalData.currentUser = user
-      }
-      wx.setStorageSync('current_user', user)
+  onLogout() {
+    const token = wx.getStorageSync('auth_token')
+    if (token) {
+      wx.request({
+        url: db.SERVER_API_BASE + '/api/auth/logout',
+        method: 'POST',
+        header: { Authorization: 'Bearer ' + token },
+        timeout: 2000
+      })
     }
-    this.applyUser(user)
+    wx.removeStorageSync('auth_token')
+    wx.removeStorageSync('current_user')
+    getApp().globalData.currentUser = null
+    wx.reLaunch({ url: '/pages/login/index' })
   },
 
   /** 应用用户并进行视图隔离 */
