@@ -72,12 +72,20 @@ function _loadNodeDb() {
 
 function _persistNodeDb() {
   if (!_fs || !_dbFilePath || !_nodeMemoryDb) return
+  const dir = _path.dirname(_dbFilePath)
+  if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true })
+  // Replace an entire JSON file atomically instead of truncating it in place.
+  // This improves crash safety on a single host; it does NOT make OneDrive multi-writer safe.
+  const temp = _path.join(dir, '.db-write-' + process.pid + '-' + Date.now() + '-' +
+    Math.random().toString(16).slice(2) + '.tmp')
   try {
-    const dir = _path.dirname(_dbFilePath)
-    if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true })
-    _fs.writeFileSync(_dbFilePath, JSON.stringify(_nodeMemoryDb, null, 2), 'utf8')
+    _fs.writeFileSync(temp, JSON.stringify(_nodeMemoryDb, null, 2), { encoding:'utf8', flag:'wx' })
+    _fs.renameSync(temp, _dbFilePath)
   } catch (e) {
-    console.warn('[db] persist db.json failed:', e)
+    console.error('[db] persist db.json failed; latest mutation was NOT durably saved:', e)
+    throw e
+  } finally {
+    try { if (_fs.existsSync(temp)) _fs.unlinkSync(temp) } catch (_err) {}
   }
 }
 
