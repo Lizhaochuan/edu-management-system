@@ -82,7 +82,6 @@ function parseJsonBody(req) {
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
   });
@@ -103,11 +102,25 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
+  // A foreign website must not access this unauthenticated local API via CORS.
+  // Same-origin Web requests and native mini-program requests remain compatible.
+  const origin = req.headers.origin;
+  if (origin) {
+    let sameOrigin = false;
+    try {
+      const parsedOrigin = new URL(origin);
+      sameOrigin = parsedOrigin.host === req.headers.host &&
+        (parsedOrigin.protocol === 'http:' || parsedOrigin.protocol === 'https:');
+    } catch (e) { /* malformed Origin is rejected */ }
+    if (!sameOrigin) {
+      return sendJson(res, 403, { code: 403, message: '跨站请求不允许访问本地教务接口' });
+    }
+  }
+
   // 1. 处理 CORS 预检
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
     });
     res.end();
@@ -119,8 +132,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
+      'Connection': 'keep-alive'
     });
     res.write(`data: ${JSON.stringify({ type: 'connected', time: new Date().toISOString() })}\n\n`);
 
@@ -439,7 +451,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       // 3.8 模块 4：开发调试沙盒工具接口
+      // 保护真实数据：此接口可重置全库、改签到时间和模拟扣费。
+      // 默认关闭；仅在本机调试时显式设置 ENABLE_DEBUG_ACTIONS=1 才可启用。
+      // 不信任客户端传入的 X-User-Role / X-User-Id 作为权限凭证。
       if (pathname === '/api/debug/action' && req.method === 'POST') {
+        const remoteAddress = req.socket && req.socket.remoteAddress;
+        const isLoopback = remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1';
+        if (process.env.ENABLE_DEBUG_ACTIONS !== '1' || !isLoopback) {
+          return sendJson(res, 403, { code: 403, message: '调试接口已禁用；仅允许显式开启后的本机调试' });
+        }
         const payload = await parseJsonBody(req);
         const { action, schedule_id, package_id } = payload;
 
@@ -968,7 +988,16 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+// 未完成服务端身份认证之前，默认只开放给本机访问。
+// 非回环地址要求显式确认风险，仅用于隔离测试。
+const HOST = process.env.HOST || '127.0.0.1';
+const IS_LOOPBACK_HOST = HOST === '127.0.0.1' || HOST === '::1' || HOST === 'localhost';
+if (!IS_LOOPBACK_HOST && process.env.ALLOW_INSECURE_NETWORK !== '1') {
+  console.error('[server] Refusing non-loopback bind: server-side authentication is not implemented.');
+  console.error('[server] Use HOST=127.0.0.1, or explicitly set ALLOW_INSECURE_NETWORK=1 for isolated testing only.');
+  process.exitCode = 1;
+} else {
+  server.listen(PORT, HOST, () => {
   console.log(`================================================================`);
   console.log(`  教务与财务管理系统 - PC Web 网页端 & 同步服务端启动成功！`);
   console.log(`  PC Web 监控调试控制台: http://localhost:${PORT}`);
@@ -976,6 +1005,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  后端 REST API 基地址:   http://localhost:${PORT}/api`);
   console.log(`  小程序端连接地址:       http://127.0.0.1:${PORT}`);
   console.log(`================================================================`);
-});
+  });
+}
 
 module.exports = server;
