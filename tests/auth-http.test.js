@@ -123,7 +123,7 @@ test('admin role cannot access salary reports or generic database export', async
   const headers = { Cookie:cookie(response), 'X-User-Role':'super_admin' };
   assert.equal((await call('/api/salary/report','GET',undefined,headers)).status,403);
   assert.equal((await call('/api/db/all','GET',undefined,headers)).status,403);
-  assert.equal((await call('/api/academic/classes','GET',undefined,headers)).status,200);
+  assert.equal((await call('/api/approvals','GET',undefined,headers)).status,200);
 });
 test('parent cannot read other students or privileged routes', async () => {
   const response = await signIn('u_par1');
