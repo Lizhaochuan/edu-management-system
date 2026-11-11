@@ -155,3 +155,36 @@ test('partner makeup without rates or historical snapshot fails rather than gues
       .filter(row => row.student_id === 'stu_missing').length, 0);
   } finally { close(); }
 });
+
+test('legacy 1–3 rate table refuses a fourth attendee instead of guessing price', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_2', {
+      snapshot_max_capacity: 6,
+      attendees_json: [
+        { student_id:'s1', status:'present' },
+        { student_id:'s2', status:'present' },
+        { student_id:'s3', status:'present' },
+        { student_id:'s4', status:'present' }
+      ]
+    });
+    assert.throws(() => salary.calculateLessonFee('sch_2'), /缺少4人档位/);
+    assert.equal(db.getTable(db.TABLES.TEACHER_LESSON_FEES).filter(x => x.schedule_id === 'sch_2').length, 0);
+  } finally { close(); }
+});
+test('missing makeup pay bracket is rejected without generating guessed ledger', () => {
+  const { db, salary, close } = fixture();
+  try {
+    db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, 'sch_1', {
+      initial_present_headcount:3,
+      snapshot_max_capacity:8,
+      snapshot_teacher_rates_json:{1:100,2:140,3:180},
+      teacher_salary_tier_snapshot_json:null
+    });
+    assert.throws(() => salary.applyMakeupProgressiveDifferential({
+      original_absent_schedule_id:'sch_1', student_id:'missing', student_name:'补课'
+    }), /缺少4人档位/);
+    assert.equal(db.getTable(db.TABLES.TEACHER_LESSON_FEES)
+      .filter(x => x.student_id === 'missing').length,0);
+  } finally { close(); }
+});
