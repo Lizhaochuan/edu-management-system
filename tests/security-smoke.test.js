@@ -19,8 +19,14 @@ before(() => {
   ISOLATED_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'edu-security-test-'));
   fs.copyFileSync(path.join(ROOT, 'server.js'), path.join(ISOLATED_ROOT, 'server.js'));
   fs.cpSync(path.join(ROOT, 'services'), path.join(ISOLATED_ROOT, 'services'), { recursive: true });
+  process.env.AUTH_CREDENTIALS_FILE = path.join(ISOLATED_ROOT,'data','auth-credentials.json');
+  const db = require(path.join(ISOLATED_ROOT,'services','db.js'));
+  db.initDatabase(true);
+  require(path.join(ISOLATED_ROOT,'services','authService.js'))
+    .saveCredential('u_sa1','Test-Strong-Password-2026!');
 });
 after(() => {
+  delete process.env.AUTH_CREDENTIALS_FILE;
   if (ISOLATED_ROOT) fs.rmSync(ISOLATED_ROOT, { recursive: true, force: true });
 });
 
@@ -35,7 +41,7 @@ function availablePort() {
   });
 }
 
-function request(port, endpoint, method = 'GET', body = undefined) {
+function request(port, endpoint, method = 'GET', body = undefined, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const data = body === undefined ? null : JSON.stringify(body);
     const req = http.request({
@@ -44,7 +50,7 @@ function request(port, endpoint, method = 'GET', body = undefined) {
       path: endpoint,
       method,
       timeout: 1500,
-      headers: data ? { 'Content-Type': 'application/json' } : {}
+      headers: Object.assign(data ? { 'Content-Type': 'application/json' } : {}, extraHeaders)
     }, res => {
       let result = '';
       res.setEncoding('utf8');
@@ -101,7 +107,7 @@ test('default server: health endpoint works but debug mutations are rejected', a
   try {
     await waitForServer(port, child);
     const response = await request(port, '/api/debug/action', 'POST', { action: 'reseed_database' });
-    assert.equal(response.status, 403, getOutput());
+    assert.equal(response.status, 401, getOutput());
   } finally {
     await stopServer(child);
   }
@@ -129,8 +135,13 @@ test('debug ping is available only with explicit local opt-in', async () => {
   const { child, getOutput } = startServer(port, { ENABLE_DEBUG_ACTIONS: '1' });
   try {
     await waitForServer(port, child);
+    const login = await request(port, '/api/auth/login', 'POST',
+      { user_id:'u_sa1', password:'Test-Strong-Password-2026!' });
+    assert.equal(login.status,200,getOutput());
     // Safe no-op diagnostic only; never call reseed_database or mock_attendance_deduct here.
-    const response = await request(port, '/api/debug/action', 'POST', { action: 'trigger_broadcast' });
+    const token = JSON.parse(login.body).data.token;
+    const response = await request(port, '/api/debug/action', 'POST',
+      { action: 'trigger_broadcast' }, { Authorization:'Bearer '+token });
     assert.equal(response.status, 200, getOutput());
   } finally {
     await stopServer(child);
@@ -160,7 +171,7 @@ test('foreign browser origins cannot read the local database API', async () => {
       }, res => { res.resume(); res.once('end', () => resolve(res)); });
       req.once('error', reject);
     });
-    assert.equal(legitimateGet.statusCode, 200, getOutput());
+    assert.equal(legitimateGet.statusCode, 401, getOutput());
   } finally {
     await stopServer(child);
   }
