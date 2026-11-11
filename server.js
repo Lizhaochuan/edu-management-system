@@ -82,7 +82,6 @@ function parseJsonBody(req) {
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
   });
@@ -103,11 +102,25 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
+  // A foreign website must not access this unauthenticated local API via CORS.
+  // Same-origin Web requests and native mini-program requests remain compatible.
+  const origin = req.headers.origin;
+  if (origin) {
+    let sameOrigin = false;
+    try {
+      const parsedOrigin = new URL(origin);
+      sameOrigin = parsedOrigin.host === req.headers.host &&
+        (parsedOrigin.protocol === 'http:' || parsedOrigin.protocol === 'https:');
+    } catch (e) { /* malformed Origin is rejected */ }
+    if (!sameOrigin) {
+      return sendJson(res, 403, { code: 403, message: '跨站请求不允许访问本地教务接口' });
+    }
+  }
+
   // 1. 处理 CORS 预检
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
     });
     res.end();
@@ -119,8 +132,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
+      'Connection': 'keep-alive'
     });
     res.write(`data: ${JSON.stringify({ type: 'connected', time: new Date().toISOString() })}\n\n`);
 
