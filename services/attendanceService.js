@@ -347,6 +347,17 @@ const attendanceService = {
    * 提交排课考勤签到
    */
   submitAttendance(scheduleId, attendanceInputs = [], operatorUser) {
+    const before = JSON.parse(JSON.stringify(db.dumpAll()))
+    try {
+      return this._submitAttendanceTransactional(scheduleId, attendanceInputs, operatorUser)
+    } catch (error) {
+      // Includes deducted credits, debts, attendance and salary ledgers.
+      db.replaceAll(before)
+      throw error
+    }
+  },
+
+  _submitAttendanceTransactional(scheduleId, attendanceInputs = [], operatorUser) {
     const operator = operatorUser || getCurrentUser()
     if (!scheduleId) throw new Error('排课记录ID不能为空')
 
@@ -498,17 +509,13 @@ const attendanceService = {
 
         // ── Phase 4-B：若为原老师补课 (makeup_teacher == original_teacher)，触发原班累进补差 ──
         if (effectiveTeacherId === mk.original_teacher_id && mk.original_absent_schedule_id) {
-          try {
-            salaryEngineService.applyMakeupProgressiveDifferential({
-              original_absent_schedule_id: mk.original_absent_schedule_id,
-              student_id: mk.student_id,
-              student_name: mk.student_name,
-              makeup_schedule_id: schedule.id,
-              operatorUser: operator
-            })
-          } catch (e) {
-            console.warn('[submitAttendance] applyMakeupProgressiveDifferential failed:', e)
-          }
+          salaryEngineService.applyMakeupProgressiveDifferential({
+            original_absent_schedule_id: mk.original_absent_schedule_id,
+            student_id: mk.student_id,
+            student_name: mk.student_name,
+            makeup_schedule_id: schedule.id,
+            operatorUser: operator
+          })
         }
       } else {
         absentCount++
@@ -546,12 +553,7 @@ const attendanceService = {
     // ─────────────────────────────────────────
     // 【Phase 4 课时费实时核算钩子 1：正向签到完成触发】
     // ─────────────────────────────────────────
-    let feeResult = null
-    try {
-      feeResult = salaryEngineService.calculateLessonFee(schedule.id)
-    } catch (e) {
-      console.warn('[submitAttendance] calculateLessonFee hook failed:', e)
-    }
+    const feeResult = salaryEngineService.calculateLessonFee(schedule.id)
 
     return {
       success: true,
