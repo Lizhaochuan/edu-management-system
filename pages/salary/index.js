@@ -85,28 +85,9 @@ Page({
   },
 
   /** 角色切换回调 */
-  onRoleChange(e) {
-    const newUser = e.detail.user
-    if (app && app.globalData) {
-      app.globalData.currentUser = newUser
-    }
-
-    const isTeacher = newUser.role === 'teacher'
-    let teacherIndex = this.data.teacherIndex
-
-    if (isTeacher) {
-      const idx = this.data.teacherList.findIndex(t => t.id === newUser.id)
-      teacherIndex = idx > -1 ? idx : 1
-    }
-
-    this.setData({
-      currentUser: newUser,
-      isTeacher: isTeacher,
-      teacherIndex: teacherIndex
-    }, () => {
-      this.refreshAllData()
-    })
-  },
+  onRoleChange() {
+    wx.showToast({ title:'请退出后使用另一个账号登录', icon:'none' })
+  }
 
   /** Tab 切换 */
   switchTab(e) {
