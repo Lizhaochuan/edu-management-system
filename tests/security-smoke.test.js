@@ -136,3 +136,32 @@ test('debug ping is available only with explicit local opt-in', async () => {
     await stopServer(child);
   }
 });
+
+
+test('foreign browser origins cannot read the local database API', async () => {
+  const port = await availablePort();
+  const { child, getOutput } = startServer(port);
+  try {
+    await waitForServer(port, child);
+    const foreignGet = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: '127.0.0.1', port, path: '/api/db/all',
+        headers: { Origin: 'https://attacker.example' }
+      }, res => { res.resume(); res.once('end', () => resolve(res)); });
+      req.once('error', reject);
+    });
+    assert.equal(foreignGet.statusCode, 403, getOutput());
+    assert.equal(foreignGet.headers['access-control-allow-origin'], undefined);
+
+    const legitimateGet = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: '127.0.0.1', port, path: '/api/db/all',
+        headers: { Origin: 'http://127.0.0.1:' + port }
+      }, res => { res.resume(); res.once('end', () => resolve(res)); });
+      req.once('error', reject);
+    });
+    assert.equal(legitimateGet.statusCode, 200, getOutput());
+  } finally {
+    await stopServer(child);
+  }
+});
