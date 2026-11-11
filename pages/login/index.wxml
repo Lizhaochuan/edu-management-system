@@ -1,0 +1,17 @@
+<view class="login-page">
+  <view class="login-card">
+    <view class="login-title">教务财务管理系统</view>
+    <view class="login-hint">请输入管理员分配的用户 ID 和密码。本版本暂只开放管理端。</view>
+    <view class="form-label">用户 ID</view>
+    <input class="input" type="text" value="{{userId}}" bindinput="onUserIdInput"
+      placeholder="例如：u_sa1" maxlength="80" />
+    <view class="form-label">密码</view>
+    <input class="input" type="text" password="{{true}}" value="{{password}}"
+      bindinput="onPasswordInput" placeholder="请输入密码" />
+    <button class="submit" bindtap="onLogin" disabled="{{busy}}">
+      {{busy ? '正在验证...' : '登录'}}
+    </button>
+    <view wx:if="{{errorMessage}}" class="error">{{errorMessage}}</view>
+    <view class="note">密码由后端统一校验，客户端身份切换不会授予权限。</view>
+  </view>
+</view>
