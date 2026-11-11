@@ -1,7 +1,9 @@
 <!-- pages/index/index.wxml -->
 <view class="workbench-page">
-  <!-- 1. 顶部角色模拟切换组件 -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 通过后端认证的身份只读显示，禁止模拟切换权限 -->
+  <view style="padding: 12rpx 24rpx; display: flex; justify-content: flex-end;">
+    <button size="mini" bindtap="onLogout">退出登录</button>
+  </view>
 
   <!-- 2. 当前登录人专属身份名牌 -->
   <view class="user-profile-card">
@@ -99,7 +101,7 @@
   </view>
 
   <!-- 5. 底部调试与底座工具区 -->
-  <view class="debug-panel">
+  <view wx:if="{{debugEnabled}}" class="debug-panel">
     <view class="debug-title">🛠️ 架构底座调试工具</view>
     
     <button class="btn-simulate" bindtap="onSimulateApproval" hover-class="btn-hover">
