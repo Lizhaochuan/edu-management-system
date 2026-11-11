@@ -139,7 +139,11 @@ test('admin role cannot access salary reports or generic database export', async
   assert.deepEqual(snapshot.data.data.audit_logs, []);
   assert.deepEqual(snapshot.data.data.teacher_lesson_fees, []);
   assert.equal((await call('/api/logs','GET',undefined,headers)).status,403);
-  assert.equal((await call('/api/approvals','GET',undefined,headers)).status,200);
+  assert.equal((await call('/api/db/approval_requests','GET',undefined,headers)).status,403);
+  assert.equal(snapshot.data.data.approval_requests.some(a => a.request_type !== 'freeze_hours' && a.proposer_id !== 'u_adm1'),false);
+  const list = await call('/api/approvals','GET',undefined,headers);
+  assert.equal(list.status,200);
+  assert.equal(list.data.data.some(a => a.request_type !== 'freeze_hours' && a.proposer_id !== 'u_adm1'),false);
 });
 test('parent cannot read other students or privileged routes', async () => {
   const response = await signIn('u_par1');
