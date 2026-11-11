@@ -56,6 +56,8 @@ before(async () => {
   fs.copyFileSync(path.join(repo, 'server.js'), path.join(root,'server.js'));
   fs.cpSync(path.join(repo,'services'), path.join(root,'services'), { recursive:true });
   fs.cpSync(path.join(repo,'web-admin'), path.join(root,'web-admin'), { recursive:true });
+  fs.mkdirSync(path.join(root,'web-admin2'));
+  fs.writeFileSync(path.join(root,'web-admin2','secret.txt'),'DO_NOT_EXPOSE');
   process.env.AUTH_CREDENTIALS_FILE = path.join(root, 'data', 'auth-credentials.json');
   const db = require(path.join(root,'services','db.js'));
   db.initDatabase(true);
@@ -189,4 +191,12 @@ test('successful approval is applied once; duplicate approve/reject are rejected
   assert.equal(repeated.status,409);
   const reverse = await call('/api/approvals/reject','POST',{approval_id:'atomic_good_approval'},headers);
   assert.equal(reverse.status,409);
+});
+
+test('static web file server refuses encoded traversal into prefix-matching sibling', async () => {
+  const inside = await call('/login.html');
+  assert.equal(inside.status,200);
+  const outside = await call('/..%2Fweb-admin2/secret.txt');
+  assert.equal(outside.status,403);
+  assert.doesNotMatch(JSON.stringify(outside.data),/DO_NOT_EXPOSE/);
 });
