@@ -35,6 +35,7 @@ const salaryEngineService = {
     const cls = db.getById(db.TABLES.CLASSES, schedule.class_id)
     const className = cls ? cls.name : '未知班级'
     const maxCapacity = Number(schedule.snapshot_max_capacity || (cls ? cls.max_capacity_snapshot : 3))
+    const lessonHours = this._getLessonHours(schedule, cls)
 
     // ─────────────────────────────────────────
     // 铁律 1：排课已取消 (status === 'cancelled')，老师课酬强制记为 0 元
@@ -57,6 +58,7 @@ const salaryEngineService = {
         raw_headcount: 0,
         effective_headcount: 0,
         max_capacity: maxCapacity,
+        lesson_hours: lessonHours,
         is_truncated: false,
         calculated_teacher_fee: 0,
         tier_name: '课程已取消',
@@ -151,6 +153,7 @@ const salaryEngineService = {
         raw_headcount: rawHeadcount,
         effective_headcount: 0,
         max_capacity: maxCapacity,
+        lesson_hours: lessonHours,
         is_truncated: false,
         calculated_teacher_fee: 0,
         tier_name: '无有效出勤',
@@ -236,6 +239,7 @@ const salaryEngineService = {
       tier_id: tierId,
       tier_name: tierName,
       is_custom: !!(teacher && teacher.is_custom_rate),
+      lesson_hours: lessonHours,
       headcount_rates_json: ratesMap
     }
 
@@ -257,8 +261,9 @@ const salaryEngineService = {
       raw_headcount: rawHeadcount,
       effective_headcount: effectiveHeadcount,
       max_capacity: maxCapacity,
+      lesson_hours: lessonHours,
       is_truncated: isTruncated,
-      calculated_teacher_fee: calculatedFee,
+      calculated_teacher_fee: Number((rateUsed * lessonHours).toFixed(2)),
       tier_id: tierId,
       tier_name: tierName,
       rate_used: rateUsed,
@@ -266,6 +271,8 @@ const salaryEngineService = {
       fee_type: feeType,
       calculated_at: new Date().toISOString()
     }
+
+    calculatedFee = feeResult.calculated_teacher_fee
 
     // 落库独立课酬明细台账 teacher_lesson_fees
     this._saveOrUpdateTeacherLessonFee(feeResult)
@@ -457,6 +464,7 @@ const salaryEngineService = {
     const makeupSchedule = makeup_schedule_id ? db.getById(db.TABLES.SCHEDULES_AND_ATTENDANCE, makeup_schedule_id) : null
     const origCls = db.getById(db.TABLES.CLASSES, origSchedule.class_id)
     const origClassName = origCls ? origCls.name : '未知原班'
+    const lessonHours = this._getLessonHours(origSchedule, origCls)
 
     // 检查是否已有该学员针对该原排课在该补课课次下的有效补差记录（防重复计算）
     const feesTable = db.getTable(db.TABLES.TEACHER_LESSON_FEES) || []
@@ -510,7 +518,8 @@ const salaryEngineService = {
     // 4. 阶梯差额计算：diff = R[nAfter] - R[nBefore]
     const feeBefore = this._getRateForHeadcount(nBefore, ratesMap)
     const feeAfter = this._getRateForHeadcount(nAfter, ratesMap)
-    const diffFee = Math.max(0, feeAfter - feeBefore)
+    const diffRate = Math.max(0, feeAfter - feeBefore)
+    const diffFee = Number((diffRate * lessonHours).toFixed(2))
 
     const nowIso = new Date().toISOString()
     const diffRecordId = 'diff_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
@@ -534,7 +543,8 @@ const salaryEngineService = {
       n_after: nAfter,
       max_capacity: maxCapacity,
       calculated_teacher_fee: diffFee,
-      rate_used: diffFee,
+      lesson_hours: lessonHours,
+      rate_used: diffRate,
       rates_snapshot_json: ratesMap,
       tier_name: tierName,
       is_substitute: false,
@@ -626,6 +636,7 @@ const salaryEngineService = {
 
     const origCls = db.getById(db.TABLES.CLASSES, origSchedule.class_id)
     const nInit = Number(origSchedule.initial_present_headcount || 0)
+    const lessonHours = this._getLessonHours(origSchedule, origCls)
     const maxCapacity = Number(origSchedule.snapshot_max_capacity || (origCls ? origCls.max_capacity_snapshot : 3))
 
     // 读取价格表
@@ -655,7 +666,8 @@ const salaryEngineService = {
       const stepAfter = Math.min(stepBefore + 1, maxCapacity)
       const feeBefore = this._getRateForHeadcount(stepBefore, ratesMap)
       const feeAfter = this._getRateForHeadcount(stepAfter, ratesMap)
-      const newDiffFee = Math.max(0, feeAfter - feeBefore)
+      const newDiffRate = Math.max(0, feeAfter - feeBefore)
+      const newDiffFee = Number((newDiffRate * lessonHours).toFixed(2))
 
       currentHeadcount = stepAfter
       totalCompensated += newDiffFee
@@ -668,7 +680,8 @@ const salaryEngineService = {
             n_before: stepBefore,
             n_after: stepAfter,
             calculated_teacher_fee: newDiffFee,
-            rate_used: newDiffFee,
+            lesson_hours: lessonHours,
+            rate_used: newDiffRate,
             updated_at: new Date().toISOString()
           },
           `[原班补差重对齐] 重新对齐学员【${record.student_name}】补差基数: ${stepBefore} -> ${stepAfter}，补差课酬 ¥${newDiffFee}`
@@ -697,6 +710,18 @@ const salaryEngineService = {
    * 根据人头数与价格表字典安全匹配价格 (确保 count<=0 时为 0)
    * @private
    */
+  /** Use the lesson's locked duration, then its class snapshot. Never guess salary hours. */
+  _getLessonHours(schedule, cls) {
+    const raw = schedule && schedule.snapshot_hours_per_lesson != null
+      ? schedule.snapshot_hours_per_lesson
+      : (cls && cls.hours_per_lesson_snapshot)
+    const lessonHours = Number(raw)
+    if (raw == null || !Number.isFinite(lessonHours) || lessonHours <= 0) {
+      throw new Error(`无法核算课酬：排课 ${schedule ? schedule.id : ''} 缺少有效的课时快照`)
+    }
+    return lessonHours
+  },
+
   _getRateForHeadcount(count, ratesMap) {
     if (!ratesMap || count <= 0) return 0
     if (ratesMap[count] !== undefined) return Number(ratesMap[count])
