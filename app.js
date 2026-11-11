@@ -1,26 +1,39 @@
-// app.js
 const db = require('./services/db')
 
 App({
   onLaunch() {
-    // 初始化本地日志（模版默认行为保留）
     const logs = wx.getStorageSync('logs') || []
     logs.unshift(Date.now())
     wx.setStorageSync('logs', logs)
 
-    // 初始化数据库种子数据，并与后端服务实时同步
+    // Local sample data is for development only. Never bootstrap a super-admin identity.
     db.initDatabase()
-    db.startAutoSync(3000)
+    wx.removeStorageSync('current_user')
+    this.globalData.currentUser = null
 
-    // 默认把第一个超管设为 currentUser
-    const users = db.getTable(db.TABLES.USERS)
-    const superAdmin = users.find(u => u.role === 'super_admin')
-    if (superAdmin) {
-      this.globalData.currentUser = superAdmin
-    }
+    const token = wx.getStorageSync('auth_token')
+    if (!token) return
+    wx.request({
+      url: db.SERVER_API_BASE + '/api/auth/me',
+      method: 'GET',
+      header: { Authorization: 'Bearer ' + token },
+      timeout: 4000,
+      success: (res) => {
+        const user = res.data && res.data.data && res.data.data.user
+        if (res.statusCode !== 200 || !user ||
+            !['super_admin', 'admin'].includes(user.role)) {
+          wx.removeStorageSync('auth_token')
+          this.globalData.currentUser = null
+          return
+        }
+        this.globalData.currentUser = user
+        db.syncFromServer()
+      },
+      fail: () => { this.globalData.currentUser = null }
+    })
   },
 
   globalData: {
-    currentUser: null  // 当前登录用户对象 { id, name, role, ... }
+    currentUser: null
   }
 })
