@@ -71,14 +71,10 @@ Page({
   /** 初始化当前用户并加载审批单列表 */
   initCurrentUser() {
     const app = getApp()
-    let user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
-    if (!user) {
-      const users = db.getTable(db.TABLES.USERS) || []
-      user = users.find(u => u.role === 'super_admin') || users[0]
-      if (app && app.globalData) {
-        app.globalData.currentUser = user
-      }
-      wx.setStorageSync('current_user', user)
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !wx.getStorageSync('auth_token')) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
     }
 
     this.setData({ currentUser: user }, () => {
