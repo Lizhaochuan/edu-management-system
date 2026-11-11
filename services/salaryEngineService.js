@@ -32,6 +32,15 @@ const salaryEngineService = {
       return null
     }
 
+    // Settled salary is immutable financial history; corrections require a separate approval.
+    const settledLedger = (db.getTable(db.TABLES.TEACHER_LESSON_FEES) || []).some(f =>
+      f.schedule_id === schedule.id && f.fee_type !== 'original_class_makeup_diff' &&
+      (f.settlement_status === 'settled' || f.is_settled === true)
+    )
+    if (schedule.is_settled === true || settledLedger) {
+      throw new Error('已结算历史课酬禁止直接重算，请走薪酬调整审批流程')
+    }
+
     const cls = db.getById(db.TABLES.CLASSES, schedule.class_id)
     const className = cls ? cls.name : '未知班级'
     const maxCapacity = Number(schedule.snapshot_max_capacity || (cls ? cls.max_capacity_snapshot : 3))
@@ -183,7 +192,14 @@ const salaryEngineService = {
     let tierName = '标准教师档'
     let tierId = 'tier_junior'
 
-    if (teacher && teacher.teacher_category === 'partner_teacher') {
+    const historicalSnapshot = schedule.teacher_salary_tier_snapshot_json
+    if (historicalSnapshot && historicalSnapshot.teacher_id === effectiveTeacherId &&
+        historicalSnapshot.headcount_rates_json) {
+      // Use rate snapshot from that lesson, not later price changes.
+      ratesMap = historicalSnapshot.headcount_rates_json
+      tierName = historicalSnapshot.tier_name || tierName
+      tierId = historicalSnapshot.tier_id || tierId
+    } else if (teacher && teacher.teacher_category === 'partner_teacher') {
       const config = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
       if (!config || !config.headcount_rates_json) {
         throw new Error('合伙人老师尚未配置1～8人课时费，禁止猜测金额')
