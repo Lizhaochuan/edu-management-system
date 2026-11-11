@@ -29,8 +29,13 @@ function broadcast(event, data) {
   });
   sseClients.forEach((client) => {
     try {
-      client.write(`event: ${event}\n`);
-      client.write(`data: ${payload}\n\n`);
+      if (!authService.authenticate(client.req)) {
+        client.res.end();
+        sseClients.delete(client);
+        return;
+      }
+      client.res.write(`event: ${event}\\n`);
+      client.res.write(`data: ${payload}\\n\\n`);
     } catch (e) {
       sseClients.delete(client);
     }
@@ -102,6 +107,16 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
+  // Loopback-only dev servers must reject attacker-controlled DNS rebinding hosts.
+  if (!process.env.ALLOW_INSECURE_NETWORK) {
+    let hostname = '';
+    try { hostname = new URL('http://' + String(req.headers.host || '')).hostname; }
+    catch (_err) { /* invalid Host */ }
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(hostname)) {
+      return sendJson(res, 403, { code:403, message:'无效的本机服务器 Host' });
+    }
+  }
+
   // A foreign website must not access this unauthenticated local API via CORS.
   // Same-origin Web requests and native mini-program requests remain compatible.
   const origin = req.headers.origin;
@@ -140,11 +155,9 @@ const server = http.createServer(async (req, res) => {
     });
     res.write(`data: ${JSON.stringify({ type: 'connected', time: new Date().toISOString() })}\n\n`);
 
-    sseClients.add(res);
-
-    req.on('close', () => {
-      sseClients.delete(res);
-    });
+    const client = { req, res };
+    sseClients.add(client);
+    req.on('close', () => sseClients.delete(client));
     return;
   }
 
