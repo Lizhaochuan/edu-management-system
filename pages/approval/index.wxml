@@ -1,0 +1,207 @@
+<!-- pages/approval/index.wxml -->
+<view class="approval-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 内控风控规则提示条 -->
+  <view class="rule-banner">
+    <view class="rule-icon">⚖️</view>
+    <view class="rule-text">
+      <text class="rule-highlight">内控安全铁律：</text>
+      严禁自审自批！课时冻结可由主管审批，调账/退费/配置变更强制要求超管审批。
+    </view>
+  </view>
+
+  <!-- 3. Tab 切换 -->
+  <view class="tab-bar">
+    <view 
+      class="tab-item {{activeTab === 'pending' ? 'active' : ''}}" 
+      bindtap="onSwitchTab" 
+      data-tab="pending"
+    >
+      <text class="tab-label">待审批</text>
+      <view wx:if="{{counts.pending > 0}}" class="tab-badge">{{counts.pending}}</view>
+    </view>
+    <view 
+      class="tab-item {{activeTab === 'processed' ? 'active' : ''}}" 
+      bindtap="onSwitchTab" 
+      data-tab="processed"
+    >
+      <text class="tab-label">已处理</text>
+      <view wx:if="{{counts.processed > 0}}" class="tab-badge gray-badge">{{counts.processed}}</view>
+    </view>
+  </view>
+
+  <!-- 4. 单据列表区 -->
+  <view class="list-container">
+    <!-- ── 待审批列表 ── -->
+    <block wx:if="{{activeTab === 'pending'}}">
+      <view wx:if="{{pendingList.length === 0}}" class="empty-state">
+        <text class="empty-icon">🎉</text>
+        <text class="empty-text">当前暂无待处理审批单</text>
+        <text class="empty-sub">可在首页点击【模拟发起一条调账审批】生成测试单</text>
+      </view>
+
+      <view 
+        wx:for="{{pendingList}}" 
+        wx:key="id" 
+        class="approval-card {{item.isSelf ? 'card-self' : ''}}"
+      >
+        <!-- 卡片头部 -->
+        <view class="card-header">
+          <view class="header-left">
+            <text class="type-tag {{item.typeBadgeClass}}">{{item.typeLabel}}</text>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="status-tag status-pending">待审批</view>
+        </view>
+
+        <!-- 发起人与时间 -->
+        <view class="card-meta">
+          <view class="meta-item">
+            <text class="meta-label">发起人员：</text>
+            <text class="meta-value proposer-name">{{item.proposer_name || item.proposer_id}}</text>
+            <text wx:if="{{item.isSelf}}" class="self-tag">本人发起</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-label">发起时间：</text>
+            <text class="meta-value">{{item.createdTimeText}}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-label">审批权责：</text>
+            <text class="meta-value require-role">{{item.requireRoleText}}</text>
+          </view>
+        </view>
+
+        <!-- 申请事由 -->
+        <view class="reason-section">
+          <text class="reason-label">申请理由：</text>
+          <text class="reason-text">{{item.reason || '未填写理由'}}</text>
+        </view>
+
+        <!-- 变更前后快照对比 -->
+        <view class="diff-section">
+          <view class="diff-title">📊 数据变更前后快照对比</view>
+          <view class="diff-grid">
+            <view class="diff-col diff-before">
+              <view class="col-head">变更前 (Before)</view>
+              <scroll-view scroll-y class="json-code">
+                <text>{{item.beforeJsonText}}</text>
+              </scroll-view>
+            </view>
+            <view class="diff-col diff-after">
+              <view class="col-head">变更后 (After)</view>
+              <scroll-view scroll-y class="json-code">
+                <text>{{item.afterJsonText}}</text>
+              </scroll-view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 操作按钮与权限控制 -->
+        <view class="card-footer">
+          <!-- 具备审批权 -->
+          <block wx:if="{{item.hasRolePermission}}">
+            <view wx:if="{{item.isSelf}}" class="self-warning">
+              ⚠️ 您是此单发起人，受自审铁律保护不可审批
+            </view>
+            <view class="btn-group">
+              <button 
+                class="btn-action btn-reject {{item.isSelf ? 'btn-disabled' : ''}}" 
+                bindtap="onReject" 
+                data-id="{{item.id}}"
+              >
+                驳回
+              </button>
+              <button 
+                class="btn-action btn-approve {{item.isSelf ? 'btn-disabled' : ''}}" 
+                bindtap="onApprove" 
+                data-id="{{item.id}}"
+              >
+                通过审批
+              </button>
+            </view>
+          </block>
+
+          <!-- 不具备审批权 -->
+          <block wx:else>
+            <view class="no-permission-tip">
+              🔒 当前身份无权审批此事项（{{item.requireRoleText}}）
+            </view>
+          </block>
+        </view>
+      </view>
+    </block>
+
+    <!-- ── 已处理列表 ── -->
+    <block wx:if="{{activeTab === 'processed'}}">
+      <view wx:if="{{processedList.length === 0}}" class="empty-state">
+        <text class="empty-icon">📭</text>
+        <text class="empty-text">暂无已处理审批单</text>
+      </view>
+
+      <view 
+        wx:for="{{processedList}}" 
+        wx:key="id" 
+        class="approval-card processed-card"
+      >
+        <view class="card-header">
+          <view class="header-left">
+            <text class="type-tag {{item.typeBadgeClass}}">{{item.typeLabel}}</text>
+            <text class="order-id">#{{item.id}}</text>
+          </view>
+          <view class="status-tag {{item.status === 'approved' ? 'status-approved' : 'status-rejected'}}">
+            {{item.status === 'approved' ? '✓ 已通过' : '✗ 已驳回'}}
+          </view>
+        </view>
+
+        <view class="card-meta">
+          <view class="meta-item">
+            <text class="meta-label">发起人员：</text>
+            <text class="meta-value">{{item.proposer_name || item.proposer_id}}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-label">审批处理：</text>
+            <text class="meta-value highlight-approver">{{item.approver_name || item.approver_id || '管理员'}}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-label">处理时间：</text>
+            <text class="meta-value">{{item.approvedTimeText}}</text>
+          </view>
+        </view>
+
+        <view class="reason-section">
+          <text class="reason-label">申请理由：</text>
+          <text class="reason-text">{{item.reason}}</text>
+        </view>
+
+        <view wx:if="{{item.status === 'rejected' && item.reject_reason}}" class="reject-box">
+          <text class="reject-title">驳回原因：</text>
+          <text class="reject-text">{{item.reject_reason}}</text>
+        </view>
+
+        <view class="diff-section">
+          <view class="diff-title">📊 历史快照数据</view>
+          <view class="diff-grid">
+            <view class="diff-col diff-before">
+              <view class="col-head">申请前 (Before)</view>
+              <scroll-view scroll-y class="json-code">
+                <text>{{item.beforeJsonText}}</text>
+              </scroll-view>
+            </view>
+            <view class="diff-col diff-after">
+              <view class="col-head">执行后 (After)</view>
+              <scroll-view scroll-y class="json-code">
+                <text>{{item.afterJsonText}}</text>
+              </scroll-view>
+            </view>
+          </view>
+        </view>
+
+        <view class="audit-hint">
+          🛡️ 该单据处理全过程已固化至不可篡改操作日志
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

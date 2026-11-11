@@ -1,0 +1,173 @@
+/* components/role-switcher/index.wxss */
+.role-switcher-container {
+  background: #ffffff;
+  border-radius: 16rpx;
+  margin: 20rpx 24rpx;
+  padding: 20rpx 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.switcher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding: 0 8rpx;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-icon {
+  font-size: 32rpx;
+  margin-right: 8rpx;
+}
+
+.header-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.quick-picker-btn {
+  display: flex;
+  align-items: center;
+  background: #f0f4ff;
+  color: #1a73e8;
+  font-size: 24rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 30rpx;
+}
+
+.arrow-down {
+  margin-left: 6rpx;
+  font-size: 20rpx;
+}
+
+.users-scroll {
+  display: flex;
+  flex-direction: row;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.user-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: 170rpx;
+  flex-shrink: 0;
+  padding: 18rpx 8rpx 14rpx 8rpx;
+  margin-right: 16rpx;
+  border-radius: 14rpx;
+  background: #f8fafc;
+  border: 2rpx solid #eef2f6;
+  position: relative;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.user-card.active {
+  background: #eff6ff;
+  border-color: #1a73e8;
+  box-shadow: 0 4rpx 12rpx rgba(26, 115, 232, 0.15);
+}
+
+.role-badge {
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-bottom: 10rpx;
+  font-weight: 500;
+}
+
+.role-super_admin {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.role-admin {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.role-teacher {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.role-parent {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.role-guest {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1rpx dashed #cbd5e1;
+}
+
+.avatar-circle {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.avatar-super_admin {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.avatar-admin {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.avatar-teacher {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.avatar-parent {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.avatar-guest {
+  background: #94a3b8;
+  color: #ffffff;
+}
+
+.user-name {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #1f2937;
+  max-width: 150rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-sub {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+}
+
+.current-indicator {
+  margin-top: 8rpx;
+  font-size: 18rpx;
+  color: #1a73e8;
+  font-weight: 600;
+  background: #dbeafe;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+}

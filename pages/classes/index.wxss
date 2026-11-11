@@ -1,0 +1,662 @@
+/* pages/classes/index.wxss */
+.classes-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ── 顶部铁律横幅 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: linear-gradient(135deg, #064e3b, #047857);
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(4, 120, 87, 0.15);
+}
+
+.banner-top {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.banner-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #a7f3d0;
+}
+
+.banner-desc {
+  font-size: 22rpx;
+  color: #d1fae5;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* ── 数据看板 ── */
+.stats-panel {
+  margin: 0 24rpx 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 10rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.stat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.stat-open {
+  color: #16a34a;
+}
+
+.stat-waiting {
+  color: #d97706;
+}
+
+.stat-full {
+  color: #dc2626;
+}
+
+.stat-label {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 6rpx;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 40rpx;
+  background: #e2e8f0;
+}
+
+/* ── 操作栏 ── */
+.section-bar {
+  margin: 0 24rpx 16rpx 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4rpx;
+}
+
+.section-left {
+  display: flex;
+  align-items: baseline;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.section-count {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-left: 10rpx;
+}
+
+.btn-add-class {
+  background: linear-gradient(135deg, #1a73e8, #1557b0);
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 10rpx 22rpx;
+  border-radius: 20rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── 班级列表与卡片 ── */
+.classes-list {
+  padding: 0 24rpx;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+  background: #ffffff;
+  border-radius: 16rpx;
+}
+
+.empty-icon {
+  font-size: 60rpx;
+  margin-bottom: 12rpx;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+
+.class-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+  border: 2rpx solid transparent;
+}
+
+.card-full {
+  border-color: #fca5a5;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.class-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #111827;
+  margin-right: 12rpx;
+}
+
+.course-tag {
+  font-size: 20rpx;
+  background: #eff6ff;
+  color: #1a73e8;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  font-weight: 600;
+}
+
+.status-badge {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.status-open {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1rpx solid #86efac;
+}
+
+.status-waiting_for_min_students {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1rpx solid #fde047;
+}
+
+/* 建班五要素网格 */
+.five-elements-grid {
+  display: flex;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  margin-bottom: 16rpx;
+}
+
+.elem-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1rpx solid #e2e8f0;
+}
+
+.elem-item:last-child {
+  border-right: none;
+}
+
+.elem-label {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-bottom: 4rpx;
+}
+
+.elem-val {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.teacher-val {
+  color: #0369a1;
+}
+
+.lock-cap {
+  color: #991b1b;
+}
+
+/* 元信息 */
+.class-meta {
+  margin-bottom: 16rpx;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  line-height: 1.7;
+}
+
+.meta-label {
+  color: #64748b;
+  width: 130rpx;
+  flex-shrink: 0;
+}
+
+.meta-val {
+  color: #1e293b;
+}
+
+.schedule-val {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.term-pill {
+  margin-left: 12rpx;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 18rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+}
+
+/* 学员列表区域 */
+.students-section {
+  margin-top: 12rpx;
+  background: #f8fafc;
+  border-radius: 10rpx;
+  padding: 12rpx 14rpx;
+}
+
+.trial-section {
+  background: #f0fdf4;
+  border: 1rpx dashed #86efac;
+}
+
+.students-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.students-title {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #475569;
+}
+
+.full-badge {
+  font-size: 18rpx;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  font-weight: 600;
+}
+
+.trial-free-tag {
+  font-size: 18rpx;
+  background: #dcfce7;
+  color: #15803d;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  font-weight: 600;
+}
+
+.student-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.student-pill {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+}
+
+.pill-enrolled {
+  background: #ffffff;
+  border: 1rpx solid #cbd5e1;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.pill-dot {
+  color: #16a34a;
+  font-size: 16rpx;
+  margin-right: 6rpx;
+}
+
+.pill-trial {
+  background: #ffffff;
+  border: 1rpx solid #a7f3d0;
+  color: #047857;
+  font-weight: 600;
+}
+
+.no-student-hint {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+/* 卡片底部操作 */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f1f5f9;
+}
+
+.btn-group-left, .btn-group-right {
+  display: flex;
+  gap: 10rpx;
+}
+
+.btn-action {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.btn-enroll {
+  background: #1a73e8;
+  color: #ffffff;
+}
+
+.btn-trial {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1rpx solid #a7f3d0;
+}
+
+.btn-teacher {
+  background: #f8fafc;
+  color: #475569;
+  border: 1rpx solid #cbd5e1;
+}
+
+.btn-test-lock {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1rpx solid #fecaca;
+}
+
+.btn-disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+/* ── 弹窗 Modal ── */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 650rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  background: #f8fafc;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+
+.modal-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-close {
+  font-size: 32rpx;
+  color: #94a3b8;
+  padding: 4rpx 12rpx;
+}
+
+.modal-body {
+  padding: 24rpx 28rpx;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20rpx;
+}
+
+.form-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.picker-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.arrow {
+  color: #64748b;
+  font-size: 24rpx;
+}
+
+.form-row {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.form-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.input-tip {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 6rpx;
+  display: block;
+}
+
+.audit-rule-tip {
+  margin-top: 14rpx;
+  font-size: 20rpx;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 10rpx 14rpx;
+  border-radius: 6rpx;
+  line-height: 1.4;
+}
+
+/* 班级简述卡 */
+.class-brief-box {
+  background: #f1f5f9;
+  padding: 14rpx 16rpx;
+  border-radius: 10rpx;
+  margin-bottom: 20rpx;
+}
+
+.brief-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.brief-sub {
+  font-size: 20rpx;
+  color: #475569;
+  margin-top: 4rpx;
+}
+
+.brief-progress {
+  font-size: 20rpx;
+  color: #0284c7;
+  margin-top: 4rpx;
+  font-weight: 600;
+}
+
+.old-teacher-name {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+/* 插班核算账单卡 */
+.calc-bill-card {
+  background: #eff6ff;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 10rpx;
+  padding: 14rpx 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.bill-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 10rpx;
+}
+
+.bill-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.bill-label {
+  color: #475569;
+}
+
+.bill-val {
+  color: #1e293b;
+}
+
+.highlight-bill {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+/* 试听规则提示 */
+.trial-rules-notice {
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+  border-radius: 10rpx;
+  padding: 16rpx;
+}
+
+.notice-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 8rpx;
+}
+
+.notice-item {
+  font-size: 20rpx;
+  color: #15803d;
+  line-height: 1.5;
+}
+
+.modal-footer {
+  display: flex;
+  padding: 18rpx 28rpx;
+  background: #f8fafc;
+  border-top: 1rpx solid #e2e8f0;
+  gap: 16rpx;
+}
+
+.btn-cancel {
+  flex: 1;
+  background: #ffffff;
+  color: #64748b;
+  border: 1rpx solid #cbd5e1;
+  font-size: 24rpx;
+  border-radius: 10rpx;
+}
+
+.btn-submit {
+  flex: 2;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}

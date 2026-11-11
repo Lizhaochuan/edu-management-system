@@ -1,0 +1,24 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/approval/index",
+    "pages/audit-logs/index",
+    "pages/user-management/index",
+    "pages/config-settings/index",
+    "pages/course-packages/index",
+    "pages/classes/index",
+    "pages/parent-binding/index",
+    "pages/attendance/index",
+    "pages/salary/index"
+  ],
+  "window": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "教务财务管理系统",
+    "navigationBarBackgroundColor": "#1a73e8",
+    "backgroundColor": "#f5f7fa"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {}
+}

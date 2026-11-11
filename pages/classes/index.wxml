@@ -1,0 +1,496 @@
+<!-- pages/classes/index.wxml -->
+<view class="classes-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 核心业务铁律横幅 -->
+  <view class="rule-banner">
+    <view class="banner-top">
+      <text class="banner-icon">🏫</text>
+      <text class="banner-title">教务建班与开班铁律</text>
+    </view>
+    <view class="banner-desc">
+      建班定五样，建后封顶绝不可改；多人班满2人起开班；满员硬性拦截不设候补；换师历史切割；试听不占名额不扣课时！
+    </view>
+  </view>
+
+  <!-- 3. 数据看板横条 -->
+  <view class="stats-panel">
+    <view class="stat-col">
+      <text class="stat-num">{{stats.totalClasses}}</text>
+      <text class="stat-label">运行班级</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num stat-open">{{stats.openClasses}}</text>
+      <text class="stat-label">正式开班</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num stat-waiting">{{stats.waitingClasses}}</text>
+      <text class="stat-label">待达门槛</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num stat-full">{{stats.fullClasses}}</text>
+      <text class="stat-label">满员班级</text>
+    </view>
+  </view>
+
+  <!-- 4. 操作栏与列表标题 -->
+  <view class="section-bar">
+    <view class="section-left">
+      <text class="section-title">班级教学名册</text>
+      <text class="section-count">共 {{classes.length}} 个班</text>
+    </view>
+    <button 
+      wx:if="{{isAdmin}}" 
+      class="btn-add-class" 
+      bindtap="onOpenCreateModal" 
+      hover-class="btn-hover"
+    >
+      ＋ 新建班级 (定五样)
+    </button>
+  </view>
+
+  <!-- 5. 班级卡片列表 -->
+  <view class="classes-list">
+    <view wx:if="{{classes.length === 0}}" class="empty-state">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">当前暂无班级数据</text>
+    </view>
+
+    <view 
+      wx:for="{{classes}}" 
+      wx:key="id" 
+      class="class-card {{item.isFull ? 'card-full' : ''}}"
+    >
+      <!-- 卡片头部 -->
+      <view class="card-header">
+        <view class="header-left">
+          <text class="class-name">{{item.name}}</text>
+          <text class="course-tag">{{item.course_name_snapshot}}</text>
+        </view>
+        <view class="status-badge status-{{item.status}}">
+          {{item.status === 'open' ? '✓ 正式开班 (已满2人)' : '⏳ 待满2人开班 (继续等待)'}}
+        </view>
+      </view>
+
+      <!-- 建班五要素数据网格 -->
+      <view class="five-elements-grid">
+        <view class="elem-item">
+          <text class="elem-label">授课教师</text>
+          <text class="elem-val teacher-val">{{item.teacher_name_snapshot}}</text>
+        </view>
+        <view class="elem-item">
+          <text class="elem-label">封顶人数</text>
+          <text class="elem-val lock-cap">🔒 锁死 {{item.max_capacity_snapshot}} 人</text>
+        </view>
+        <view class="elem-item">
+          <text class="elem-label">单价快照</text>
+          <text class="elem-val">¥{{item.unit_price_snapshot}}/课时</text>
+        </view>
+        <view class="elem-item">
+          <text class="elem-label">单次课时</text>
+          <text class="elem-val">{{item.hours_per_lesson_snapshot}} 课时</text>
+        </view>
+      </view>
+
+      <!-- 上课时间与学期 -->
+      <view class="class-meta">
+        <view class="meta-row">
+          <text class="meta-label">上课时间：</text>
+          <text class="meta-val schedule-val">⏰ {{item.weekly_schedule}}</text>
+          <text class="term-pill">{{item.term_name_snapshot}}</text>
+        </view>
+        <view class="meta-row">
+          <text class="meta-label">教学进度：</text>
+          <text class="meta-val">已讲 {{item.current_lesson_index || 0}} / 共 {{item.total_lessons || 16}} 次课</text>
+        </view>
+
+        <!-- 正式在读学员（满班硬性拦截） -->
+        <view class="students-section">
+          <view class="students-title-row">
+            <text class="students-title">正式在读学员 ({{item.enrolledCount}} / {{item.max_capacity_snapshot}} 人)：</text>
+            <text wx:if="{{item.isFull}}" class="full-badge">满员 (硬性拦截加人)</text>
+          </view>
+          <view class="student-tags-wrap">
+            <block wx:if="{{item.enrolledNames.length > 0}}">
+              <view wx:for="{{item.enrolledNames}}" wx:key="*this" class="student-pill pill-enrolled">
+                <text class="pill-dot">●</text>
+                <text>{{item}}</text>
+              </view>
+            </block>
+            <text wx:else class="no-student-hint">暂无正式学员报名（学生先等）</text>
+          </view>
+        </view>
+
+        <!-- 试听学员（不占正式名额、不扣课时、不影响老师出勤人头） -->
+        <view class="students-section trial-section">
+          <view class="students-title-row">
+            <text class="students-title">试听学员名册 (不占满班名额/不扣课/不计人头)：</text>
+            <text class="trial-free-tag">免费试听</text>
+          </view>
+          <view class="student-tags-wrap">
+            <block wx:if="{{item.trialNames.length > 0}}">
+              <view wx:for="{{item.trialNames}}" wx:key="*this" class="student-pill pill-trial">
+                <text>🎧 {{item}}</text>
+              </view>
+            </block>
+            <text wx:else class="no-student-hint">暂无试听学员挂载</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 卡片底部功能操作栏 -->
+      <view wx:if="{{isAdmin}}" class="card-footer">
+        <view class="btn-group-left">
+          <button 
+            class="btn-action btn-enroll {{item.isFull ? 'btn-disabled' : ''}}" 
+            bindtap="onOpenEnrollModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            {{item.isFull ? '已满员 (无法加人)' : '排班 / 插班算费'}}
+          </button>
+          <button 
+            class="btn-action btn-trial" 
+            bindtap="onOpenTrialModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            ＋ 登记试听
+          </button>
+        </view>
+        <view class="btn-group-right">
+          <button 
+            class="btn-action btn-teacher" 
+            bindtap="onOpenChangeTeacherModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            更换老师
+          </button>
+          <button 
+            class="btn-action btn-test-lock" 
+            bindtap="onTestLockCapacity" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            测试改封顶
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：新建班级 Modal（定五样） ── -->
+  <view wx:if="{{showCreateModal}}" class="modal-mask" bindtap="onCloseCreateModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">新建教学班级（建班定五样）</text>
+        <text class="modal-close" bindtap="onCloseCreateModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">班级名称 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="如：乐高编程周六早班" 
+            value="{{createForm.name}}"
+            data-field="name"
+            bindinput="onCreateInput"
+          />
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">选择所属课程 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{courses}}" 
+            range-key="course_name" 
+            value="{{createForm.course_index}}" 
+            bindchange="onCreateCourseChange"
+          >
+            <view class="picker-input">
+              <text>{{courses[createForm.course_index].course_name}} ({{courses[createForm.course_index].class_type_name}})</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">定要素一：指定授课老师 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{teachers}}" 
+            range-key="name" 
+            value="{{createForm.teacher_index}}" 
+            bindchange="onCreateTeacherChange"
+          >
+            <view class="picker-input">
+              <text>{{teachers[createForm.teacher_index].name}} ({{teachers[createForm.teacher_index].phone}})</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">定要素二：封顶人数 <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="number"
+              value="{{createForm.max_capacity}}"
+              data-field="max_capacity"
+              bindinput="onCreateInput"
+            />
+          </view>
+          <view class="form-col">
+            <text class="form-label">定要素三：单价(元) <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="digit"
+              value="{{createForm.unit_price}}"
+              data-field="unit_price"
+              bindinput="onCreateInput"
+            />
+          </view>
+        </view>
+
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">定要素四：单次课时 <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="digit"
+              value="{{createForm.hours_per_lesson}}"
+              data-field="hours_per_lesson"
+              bindinput="onCreateInput"
+            />
+          </view>
+          <view class="form-col">
+            <text class="form-label">总计划课次</text>
+            <input 
+              class="form-input" 
+              type="number"
+              value="{{createForm.total_lessons}}"
+              data-field="total_lessons"
+              bindinput="onCreateInput"
+            />
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">定要素五：每周上课时间 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="如：每周六 09:00-10:30" 
+            value="{{createForm.weekly_schedule}}"
+            data-field="weekly_schedule"
+            bindinput="onCreateInput"
+          />
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">选择学期期数 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{terms}}" 
+            range-key="name" 
+            value="{{createForm.term_index}}" 
+            bindchange="onCreateTermChange"
+          >
+            <view class="picker-input">
+              <text>{{terms[createForm.term_index].name}} (到期: {{terms[createForm.term_index].fixed_expire_date}})</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="audit-rule-tip">
+          🔒 铁律保障：建班定五样，建好后封顶人数绝对不可更改！多人班满 2 人起开班。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseCreateModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitCreateClass">确认建班</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：正式排班 / 插班算费 Modal ── -->
+  <view wx:if="{{showEnrollModal}}" class="modal-mask" bindtap="onCloseEnrollModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">排入班级 / 插班算费</text>
+        <text class="modal-close" bindtap="onCloseEnrollModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="class-brief-box">
+          <text class="brief-title">{{enrollTargetClass.name}}</text>
+          <view class="brief-sub">
+            单价: ¥{{enrollTargetClass.unit_price_snapshot}}/课时 | 每次课: {{enrollTargetClass.hours_per_lesson_snapshot}} 课时 | 封顶: {{enrollTargetClass.max_capacity_snapshot}} 人
+          </view>
+          <view class="brief-progress">
+            当前班级已讲授至第 {{enrollTargetClass.current_lesson_index || 0}} 节 (总共 {{enrollForm.total_lessons}} 节)
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">选择入班学员 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{students}}" 
+            range-key="name" 
+            value="{{enrollForm.student_index}}" 
+            bindchange="onEnrollStudentChange"
+          >
+            <view class="picker-input">
+              <text>{{students[enrollForm.student_index].name}}</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">从第几节课开始插班？ <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="number"
+            value="{{enrollForm.start_lesson_index}}"
+            bindinput="onEnrollStartLessonInput"
+          />
+          <text class="input-tip">插班算费铁律：学校只收从该节起的剩余课时，已上过的课不收费！</text>
+        </view>
+
+        <!-- 实时插班核算账单展示 -->
+        <view class="calc-bill-card">
+          <view class="bill-title">📊 插班课时费用实时核算</view>
+          <view class="bill-row">
+            <text class="bill-label">应收课次：</text>
+            <text class="bill-val">剩余 {{enrollForm.remaining_lessons}} 节课 (已扣除已上节数)</text>
+          </view>
+          <view class="bill-row">
+            <text class="bill-label">需收课时数：</text>
+            <text class="bill-val highlight-bill">{{enrollForm.needed_hours}} 课时</text>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">排班备注</text>
+          <input 
+            class="form-input" 
+            placeholder="如期初正常报名、插班补交等" 
+            value="{{enrollForm.remark}}"
+            data-field="remark"
+            bindinput="onCreateInput"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseEnrollModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitEnroll">确认排入班级</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 3：登记试听生 Modal ── -->
+  <view wx:if="{{showTrialModal}}" class="modal-mask" bindtap="onCloseTrialModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">登记试听生（不占名额不扣课）</text>
+        <text class="modal-close" bindtap="onCloseTrialModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="class-brief-box">
+          <text class="brief-title">{{trialTargetClass.name}}</text>
+          <view class="brief-sub">
+            授课教师: {{trialTargetClass.teacher_name_snapshot}} | 时间: {{trialTargetClass.weekly_schedule}}
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">选择试听学员 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{students}}" 
+            range-key="name" 
+            value="{{trialForm.student_index}}" 
+            bindchange="onTrialStudentChange"
+          >
+            <view class="picker-input">
+              <text>{{students[trialForm.student_index].name}}</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="trial-rules-notice">
+          <view class="notice-title">🎧 试听生核心铁律保障：</view>
+          <view class="notice-item">• 试听生不占正式满班名额，班级满员不阻挡试听</view>
+          <view class="notice-item">• 试听生不触发开班门槛，仍按正式报名人数统计开班</view>
+          <view class="notice-item">• 试听不扣除学员任何课时余额</view>
+          <view class="notice-item">• 试听生不算入老师的出勤人头，老师课酬基数不变</view>
+          <view class="notice-item">• 支持多班并存，学员在其他班的正式课时不受影响</view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseTrialModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitTrial">确认登记试听</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 4：更换授课老师 Modal ── -->
+  <view wx:if="{{showChangeTeacherModal}}" class="modal-mask" bindtap="onCloseChangeTeacherModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">更换班级授课教师（历史切割）</text>
+        <text class="modal-close" bindtap="onCloseChangeTeacherModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="class-brief-box">
+          <text class="brief-title">{{changeTeacherTargetClass.name}}</text>
+          <view class="brief-sub">
+            当前执教老师: <text class="old-teacher-name">{{changeTeacherTargetClass.teacher_name_snapshot}}</text>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">接任新授课老师 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{teachers}}" 
+            range-key="name" 
+            value="{{changeTeacherForm.teacher_index}}" 
+            bindchange="onChangeTeacherChange"
+          >
+            <view class="picker-input">
+              <text>{{teachers[changeTeacherForm.teacher_index].name}} ({{teachers[changeTeacherForm.teacher_index].phone}})</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">更换事由说明</text>
+          <input 
+            class="form-input" 
+            placeholder="如教务优化、老师进修调配" 
+            value="{{changeTeacherForm.reason}}"
+            bindinput="onChangeTeacherReasonInput"
+          />
+        </view>
+
+        <view class="audit-rule-tip">
+          ⚖️ 历史切割规则：班级不解散、进度不变；原老师历史签到和课酬结算完整保留归属原老师；新老师从换的那节课起记录，按新老师档位计费。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseChangeTeacherModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitChangeTeacher">确认更换老师</button>
+      </view>
+    </view>
+  </view>
+</view>

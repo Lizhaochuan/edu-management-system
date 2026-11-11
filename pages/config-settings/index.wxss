@@ -1,0 +1,760 @@
+/* pages/config-settings/index.wxss */
+.config-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ── 场景 A：权限拦截视图 ── */
+.lock-container {
+  padding: 80rpx 40rpx;
+}
+
+.lock-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 60rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.06);
+  border: 2rpx solid #fee2e2;
+}
+
+.lock-icon {
+  font-size: 80rpx;
+  margin-bottom: 24rpx;
+}
+
+.lock-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 16rpx;
+}
+
+.lock-desc {
+  font-size: 26rpx;
+  color: #334155;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.lock-sub {
+  font-size: 22rpx;
+  color: #64748b;
+  line-height: 1.6;
+  margin-top: 16rpx;
+  background: #f8fafc;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  border-left: 6rpx solid #ef4444;
+}
+
+.btn-back-home {
+  margin-top: 40rpx;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 600;
+  padding: 18rpx 60rpx;
+  border-radius: 30rpx;
+}
+
+/* ── 场景 B：管理配置面板 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.12);
+}
+
+.banner-top {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.banner-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.banner-desc {
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* ── 主 Tab 导航 ── */
+.main-tabs {
+  display: flex;
+  background: #ffffff;
+  margin: 0 24rpx 20rpx 24rpx;
+  border-radius: 14rpx;
+  padding: 8rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 0;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  color: #64748b;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  background: #1a73e8;
+  color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(26, 115, 232, 0.25);
+}
+
+.tab-icon {
+  font-size: 26rpx;
+  margin-right: 6rpx;
+}
+
+/* ── Tab 面板公共头部 ── */
+.tab-panel {
+  padding: 0 24rpx;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 18rpx;
+  padding: 0 4rpx;
+}
+
+.panel-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+  display: block;
+}
+
+.panel-subtitle {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.btn-create {
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 10rpx 22rpx;
+  border-radius: 20rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── 1. 四期卡片 ── */
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.term-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.term-tag {
+  display: inline-block;
+  font-size: 24rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.term-spring { background: #dcfce7; color: #16a34a; }
+.term-summer { background: #ffedd5; color: #ea580c; }
+.term-autumn { background: #fef3c7; color: #d97706; }
+.term-winter { background: #e0f2fe; color: #0284c7; }
+
+.term-date-row {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+}
+
+.date-label {
+  color: #64748b;
+}
+
+.date-value {
+  color: #111827;
+  font-weight: 700;
+  margin-left: 8rpx;
+}
+
+.btn-action-sm {
+  background: #eff6ff;
+  color: #1a73e8;
+  border: 1rpx solid #bfdbfe;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 10rpx 20rpx;
+  border-radius: 8rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── 2. 课程班型卡片 ── */
+.courses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.course-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.course-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.course-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+  margin-right: 12rpx;
+}
+
+.class-type-badge {
+  font-size: 20rpx;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  font-weight: 600;
+}
+
+.course-grid {
+  display: flex;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  margin-bottom: 16rpx;
+}
+
+.grid-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1rpx solid #e2e8f0;
+}
+
+.grid-cell:last-child {
+  border-right: none;
+}
+
+.cell-label {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-bottom: 4rpx;
+}
+
+.cell-val {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.highlight-val {
+  color: #dc2626;
+}
+
+.course-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.snapshot-protect-tip {
+  font-size: 20rpx;
+  color: #059669;
+}
+
+/* ── 3. 教师档位卡片 ── */
+.sub-tab-bar {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 12rpx;
+  padding: 6rpx;
+  margin-bottom: 18rpx;
+}
+
+.sub-tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 8rpx;
+}
+
+.sub-tab-item.active {
+  background: #ffffff;
+  color: #1a73e8;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.tiers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.tier-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.tier-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+
+.tier-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.tier-id-tag {
+  font-size: 20rpx;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.tier-rates-wrap {
+  margin-bottom: 16rpx;
+}
+
+.rates-title {
+  font-size: 22rpx;
+  color: #64748b;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.rates-flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.rate-pill {
+  background: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 8rpx;
+  padding: 8rpx 14rpx;
+  display: flex;
+  align-items: center;
+}
+
+.pill-count {
+  font-size: 20rpx;
+  color: #475569;
+  margin-right: 8rpx;
+}
+
+.pill-fee {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.rate-pill-custom {
+  background: #fefce8;
+  border-color: #facc15;
+}
+
+.rate-pill-custom .pill-fee {
+  color: #ca8a04;
+}
+
+.tier-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tier-rule-tip {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+/* 教师跟档卡片 */
+.teachers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.teacher-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.teacher-top {
+  margin-bottom: 14rpx;
+}
+
+.teacher-info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.teacher-real-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1e293b;
+  margin-right: 12rpx;
+}
+
+.custom-status-tag {
+  font-size: 20rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  font-weight: 600;
+}
+
+.tag-custom  { background: #fef9c3; color: #a16207; border: 1rpx solid #fde047; }
+.tag-default { background: #dcfce7; color: #15803d; border: 1rpx solid #86efac; }
+
+.teacher-base-tier {
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.current-rates-box {
+  background: #f8fafc;
+  padding: 14rpx;
+  border-radius: 10rpx;
+  margin-bottom: 16rpx;
+}
+
+.current-rates-title {
+  font-size: 20rpx;
+  color: #64748b;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.teacher-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+}
+
+.btn-reset-tier {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1rpx solid #fca5a5;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 10rpx 18rpx;
+  border-radius: 8rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── 弹窗 Modal ── */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 650rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  background: #f8fafc;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+
+.modal-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-close {
+  font-size: 32rpx;
+  color: #94a3b8;
+  padding: 4rpx 12rpx;
+}
+
+.modal-body {
+  padding: 24rpx 28rpx;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20rpx;
+}
+
+.form-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.form-row {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.form-col {
+  flex: 1;
+}
+
+.form-textarea {
+  width: 100%;
+  height: 120rpx;
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  font-size: 24rpx;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.picker-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 14rpx 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.arrow {
+  font-size: 28rpx;
+}
+
+/* 步进器控件 */
+.stepper-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stepper-ctrl {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 30rpx;
+  padding: 4rpx 10rpx;
+}
+
+.btn-step {
+  width: 50rpx;
+  height: 50rpx;
+  line-height: 50rpx;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1a73e8;
+  font-weight: 700;
+  font-size: 28rpx;
+  border: 1rpx solid #cbd5e1;
+}
+
+.step-num {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 16rpx;
+}
+
+.input-tip-warn {
+  font-size: 20rpx;
+  color: #b91c1c;
+  margin-top: 6rpx;
+  display: block;
+}
+
+/* 阶梯动态输入行 */
+.rates-input-group {
+  background: #f8fafc;
+  border-radius: 10rpx;
+  padding: 14rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.rate-input-row {
+  display: flex;
+  align-items: center;
+}
+
+.rate-count-badge {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #334155;
+  width: 140rpx;
+}
+
+.rate-input-box {
+  flex: 1;
+  background: #ffffff;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 8rpx;
+  padding: 8rpx 12rpx;
+  font-size: 24rpx;
+}
+
+.rate-unit {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-left: 10rpx;
+  width: 80rpx;
+}
+
+.teacher-brief-bar {
+  background: #fefce8;
+  border-left: 6rpx solid #eab308;
+  padding: 12rpx 16rpx;
+  border-radius: 6rpx;
+  margin-bottom: 16rpx;
+}
+
+.brief-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #854d0e;
+  margin-right: 12rpx;
+}
+
+.brief-role {
+  font-size: 22rpx;
+  color: #a16207;
+}
+
+.audit-tip {
+  margin-top: 14rpx;
+  font-size: 20rpx;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 10rpx 14rpx;
+  border-radius: 6rpx;
+  line-height: 1.4;
+}
+
+.modal-footer {
+  display: flex;
+  padding: 18rpx 28rpx;
+  background: #f8fafc;
+  border-top: 1rpx solid #e2e8f0;
+  gap: 16rpx;
+}
+
+.btn-cancel {
+  flex: 1;
+  background: #ffffff;
+  color: #64748b;
+  border: 1rpx solid #cbd5e1;
+  font-size: 24rpx;
+  border-radius: 10rpx;
+}
+
+.btn-submit {
+  flex: 2;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}

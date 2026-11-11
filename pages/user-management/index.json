@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "用户与权限授权中心",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "买课登记与课时账本",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

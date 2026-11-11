@@ -1,0 +1,1155 @@
+<!-- pages/course-packages/index.wxml -->
+<view class="package-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 核心业务铁律横幅（Phase 1-B & Phase 2-A） -->
+  <view class="rule-banner">
+    <view class="banner-top">
+      <text class="banner-icon">💼</text>
+      <text class="banner-title">课时扣费引擎与逆向回滚铁律</text>
+    </view>
+    <view class="banner-desc">
+      ① 多包FIFO（先到期先扣）；② 包内先扣付费后扣赠送；③ 余额不足扣至0记欠绝不记负；④ 可用&lt;4课时预警联动家校；⑤ 上课消课优先物理破锁；⑥ 原路回滚先退赠送后退付费对称逆操作！
+    </view>
+  </view>
+
+  <!-- 3. 数据看板横条 -->
+  <view class="stats-panel">
+    <view class="stat-col">
+      <text class="stat-num">{{stats.totalPaidLeft}}</text>
+      <text class="stat-label">可用付费课时</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num stat-gift">{{stats.totalGiftLeft}}</text>
+      <text class="stat-label">可用赠送课时</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num {{stats.totalDebtHours > 0 ? 'stat-debt' : ''}}">{{stats.totalDebtHours}}</text>
+      <text class="stat-label">累计欠课时</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-col">
+      <text class="stat-num stat-public">¥{{stats.publicAccountAmount}}</text>
+      <text class="stat-label">公账累计</text>
+    </view>
+  </view>
+
+  <!-- 4. Phase 2-A 核心亮点：最近消课扣费留痕与原路精准逆向回滚区 -->
+  <view wx:if="{{lastDeductionResult}}" class="deduction-result-box">
+    <view class="result-header">
+      <view class="result-title-group">
+        <text class="result-icon">⚡</text>
+        <text class="result-title">最近一次消课扣费明细留痕</text>
+      </view>
+      <button class="btn-rollback-trigger" bindtap="onOpenRollbackModal" hover-class="btn-hover">
+        🔄 原路精准逆向回滚
+      </button>
+    </view>
+
+    <!-- 预警与透支状态横幅 -->
+    <view wx:if="{{lastDeductionResult.insufficient_balance_flagged}}" class="alert-strip strip-debt">
+      <text class="alert-icon">⚠️</text>
+      <text class="alert-txt">【可用余额不足】已扣至0(绝不记负数)，超额透支 {{lastDeductionResult.debt_added}} 课时已记入欠费账本！</text>
+    </view>
+    <view wx:if="{{lastDeductionResult.low_balance_warning}}" class="alert-strip strip-warning">
+      <text class="alert-icon">🚨</text>
+      <text class="alert-txt">【4课时预警】可用总课时仅剩 {{lastDeductionResult.current_balance.total_available_hours}} 课时，已触发家校通知与人工兜底清单！</text>
+    </view>
+    <view wx:if="{{lastDeductionResult.invalidated_approvals && lastDeductionResult.invalidated_approvals.length > 0}}" class="alert-strip strip-unlocked">
+      <text class="alert-icon">🔓</text>
+      <text class="alert-txt">【并发破锁】实际上课消课优先物理执行，已自动废止 {{lastDeductionResult.invalidated_approvals.length}} 笔冲突审批单据！</text>
+    </view>
+
+    <!-- 扣费明细汇总 -->
+    <view class="deduct-summary-grid">
+      <view class="summary-item">
+        <text class="s-label">消课学员</text>
+        <text class="s-val">{{lastDeductionResult.student_name}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="s-label">课程名称</text>
+        <text class="s-val">{{lastDeductionResult.course_name}}</text>
+      </view>
+      <view class="summary-item">
+        <text class="s-label">扣除付费课时</text>
+        <text class="s-val highlight-paid">-{{lastDeductionResult.paid_deducted}} 课时</text>
+      </view>
+      <view class="summary-item">
+        <text class="s-label">扣除赠送课时</text>
+        <text class="s-val highlight-gift">-{{lastDeductionResult.gift_deducted}} 课时</text>
+      </view>
+    </view>
+
+    <!-- 包分解明细 (packages_breakdown) -->
+    <view class="breakdown-section">
+      <text class="breakdown-title">各课时包 FIFO 扣减分解：</text>
+      <view wx:for="{{lastDeductionResult.packages_breakdown}}" wx:key="package_id" class="breakdown-card">
+        <view class="bd-head">
+          <text class="bd-id">课时包批次 #{{item.package_id}}</text>
+          <text class="bd-tag">FIFO扣减</text>
+        </view>
+        <view class="bd-body">
+          <text class="bd-row">先扣付费：<text class="c-paid">-{{item.paid_deducted}}</text> 课时 (扣后付费余量: {{item.paid_left_after}})</text>
+          <text class="bd-row">后扣赠送：<text class="c-gift">-{{item.gift_deducted}}</text> 课时 (扣后赠送余量: {{item.gift_left_after}})</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结构化留痕 JSON 预览 -->
+    <view class="json-preview-box">
+      <text class="json-label">结构化留痕数据 (deducted_detail_json)：</text>
+      <text class="json-code">{{lastDeductionResult.deducted_detail_json}}</text>
+    </view>
+  </view>
+
+  <!-- 5. 操作栏与列表标题 -->
+  <view class="section-bar">
+    <view class="section-left">
+      <text class="section-title">课时包批次账本</text>
+      <text class="section-count">共 {{packages.length}} 笔批次</text>
+    </view>
+    <view class="section-btns" wx:if="{{isAdmin}}">
+      <button 
+        class="btn-scan-expiring" 
+        bindtap="onOpenExpiringModal" 
+        hover-class="btn-hover"
+      >
+        📅 四期到期扫描
+      </button>
+      <button 
+        class="btn-quick-deduct" 
+        bindtap="onOpenDeductModal" 
+        hover-class="btn-hover"
+      >
+        ⚡ 模拟消课与测试
+      </button>
+      <button 
+        class="btn-add-package" 
+        bindtap="onOpenPurchaseModal" 
+        hover-class="btn-hover"
+      >
+        ＋ 登记新购
+      </button>
+    </view>
+  </view>
+
+  <!-- 6. 课时包卡片列表 -->
+  <view class="package-list">
+    <view wx:if="{{packages.length === 0}}" class="empty-state">
+      <text class="empty-icon">👛</text>
+      <text class="empty-text">当前暂无课时包记录</text>
+    </view>
+
+    <view 
+      wx:for="{{packages}}" 
+      wx:key="id" 
+      class="package-card {{item.debt_hours > 0 ? 'card-debt' : ''}} {{item.lock_status === 'pending_approval_locked' ? 'card-locked' : ''}}"
+    >
+      <!-- 卡片头部 -->
+      <view class="card-header">
+        <view class="header-left">
+          <text class="student-name">{{item.student_name_snapshot}}</text>
+          <text class="course-badge">{{item.course_name_snapshot}}</text>
+          <text wx:if="{{item.lock_status === 'pending_approval_locked'}}" class="locked-badge">🔒 审批锁定中</text>
+        </view>
+        <view class="dest-badge dest-{{item.account_destination === '进入公账' ? 'public' : 'personal'}}">
+          {{item.account_destination}}
+        </view>
+      </view>
+
+      <!-- 课时详情数据网格 -->
+      <view class="hours-grid">
+        <view class="grid-cell">
+          <text class="cell-label">付费课时 (余/总)</text>
+          <text class="cell-val paid-val">{{item.paid_hours_left}} / {{item.paid_hours_total}}</text>
+        </view>
+        <view class="grid-cell">
+          <text class="cell-label">赠送课时 (余/总)</text>
+          <text class="cell-val gift-val">{{item.gift_hours_left}} / {{item.gift_hours_total}}</text>
+        </view>
+        <view class="grid-cell">
+          <text class="cell-label">折算单价快照</text>
+          <text class="cell-val">¥{{item.unit_price_snapshot}}</text>
+        </view>
+      </view>
+
+      <!-- 期数与到期日 -->
+      <view class="card-meta">
+        <view class="meta-row">
+          <text class="meta-label">所属期数：</text>
+          <text class="meta-val">{{item.term_name_snapshot}}</text>
+          <text class="expire-pill">统一到期日：{{item.expire_date}}</text>
+        </view>
+        <view class="meta-row">
+          <text class="meta-label">绑定班级：</text>
+          <text class="meta-val">{{item.class_id ? ('班级#' + item.class_id) : '未绑定 (独立买课，入班时按需抵扣)'}}</text>
+        </view>
+        <view wx:if="{{item.debt_hours > 0}}" class="meta-row debt-alert-row">
+          <text class="debt-icon">⚠️</text>
+          <text class="debt-text">累计透支欠费：<text class="debt-hours">{{item.debt_hours}} 课时</text> (可用只扣至0不为负，补买优先自动冲抵)</text>
+        </view>
+        <view wx:if="{{item.locked_by_approval_id}}" class="meta-row locked-info-row">
+          <text class="lock-icon">🔒</text>
+          <text class="lock-desc">挂接待审单据: #{{item.locked_by_approval_id}} (实际上课消课具有最高物理优先级，破锁扣费)</text>
+        </view>
+        <view wx:if="{{item.offset_debt_summary}}" class="meta-row offset-summary-row">
+          <text class="offset-tag">已冲抵</text>
+          <text class="offset-text">{{item.offset_debt_summary}}</text>
+        </view>
+        <view wx:if="{{item.total_frozen_days > 0}}" class="meta-row freeze-info-row">
+          <text class="freeze-icon">❄️</text>
+          <text class="freeze-text">累计已冻结：<text class="freeze-days">{{item.total_frozen_days}} / 90 天</text> (到期日已顺延至 {{item.expire_date}})</text>
+        </view>
+      </view>
+
+      <!-- 卡片底部调试与教务变更操作 -->
+      <view class="card-footer">
+        <text class="pkg-id">批次号: #{{item.id}}</text>
+        <view class="footer-btn-group" wx:if="{{isAdmin}}">
+          <button 
+            class="btn-footer btn-freeze" 
+            bindtap="onOpenFreezeModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            ❄️ 冻结
+          </button>
+          <button 
+            class="btn-footer btn-adjust" 
+            bindtap="onOpenAdjustModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            ⚖️ 调课时
+          </button>
+          <button 
+            class="btn-footer btn-transfer" 
+            bindtap="onOpenTransferModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            🔄 三转
+          </button>
+          <button 
+            class="btn-footer btn-refund" 
+            bindtap="onOpenRefundModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+            wx:if="{{item.lock_status !== 'refunded' && (item.paid_hours_left > 0 || item.gift_hours_left > 0)}}"
+          >
+            💸 退费
+          </button>
+          <button 
+            class="btn-footer btn-deduct-test" 
+            bindtap="onOpenDeductModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            ⚡ 扣费
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：买课登记 Modal ── -->
+  <view wx:if="{{showPurchaseModal}}" class="modal-mask" bindtap="onClosePurchaseModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">登记新购课时包（独立买课）</text>
+        <text class="modal-close" bindtap="onClosePurchaseModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <!-- 1. 选择学员 -->
+        <view class="form-group">
+          <text class="form-label">购课学员 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{students}}" 
+            range-key="name" 
+            value="{{purchaseForm.student_index}}" 
+            bindchange="onStudentPickerChange"
+          >
+            <view class="picker-input">
+              {{students[purchaseForm.student_index].name || '请选择学员'}}
+            </view>
+          </picker>
+        </view>
+
+        <!-- 欠费预警横幅 -->
+        <view wx:if="{{purchaseForm.debtHoursWarning > 0}}" class="debt-warning-box">
+          <text class="warn-icon">⚠️</text>
+          <text class="warn-text">
+            该生当前欠课时 {{purchaseForm.debtHoursWarning}} 课时！本次新购将【优先自动冲抵欠课】！
+          </text>
+        </view>
+
+        <!-- 2. 选择课程 -->
+        <view class="form-group">
+          <text class="form-label">购买课程 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{courses}}" 
+            range-key="course_name" 
+            value="{{purchaseForm.course_index}}" 
+            bindchange="onCoursePickerChange"
+          >
+            <view class="picker-input">
+              {{courses[purchaseForm.course_index].course_name || '请选择课程'}}
+            </view>
+          </picker>
+        </view>
+
+        <!-- 3. 付费课时与赠送课时 -->
+        <view class="form-row">
+          <view class="form-group flex-1">
+            <text class="form-label">付费课时数 <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="digit" 
+              value="{{purchaseForm.paid_hours_total}}" 
+              data-field="paid_hours_total" 
+              bindinput="onPurchaseInput" 
+              placeholder="如 16"
+            />
+          </view>
+          <view class="form-group flex-1">
+            <text class="form-label">赠送课时数 (推荐奖励等)</text>
+            <input 
+              class="form-input" 
+              type="digit" 
+              value="{{purchaseForm.gift_hours_total}}" 
+              data-field="gift_hours_total" 
+              bindinput="onPurchaseInput" 
+              placeholder="如 0"
+            />
+          </view>
+        </view>
+
+        <!-- 4. 购买总金额与折算单价 -->
+        <view class="form-group">
+          <text class="form-label">实付总金额 (元) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            value="{{purchaseForm.total_amount}}" 
+            data-field="total_amount" 
+            bindinput="onPurchaseInput" 
+            placeholder="如 2880"
+          />
+        </view>
+
+        <!-- 5. 资金去向 -->
+        <view class="form-group">
+          <text class="form-label">资金去向 <text class="required">*</text></text>
+          <view class="dest-toggle-group">
+            <view 
+              class="dest-btn {{purchaseForm.account_destination === '进入公账' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectAccountDestination" 
+              data-dest="进入公账"
+            >
+              🏢 进入公账
+            </view>
+            <view 
+              class="dest-btn {{purchaseForm.account_destination === '进入个人账户' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectAccountDestination" 
+              data-dest="进入个人账户"
+            >
+              👤 进入个人账户
+            </view>
+          </view>
+        </view>
+
+        <!-- 6. 所属期数 -->
+        <view class="form-group">
+          <text class="form-label">所属期数 (统一有效期) <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{terms}}" 
+            range-key="name" 
+            value="{{purchaseForm.term_index}}" 
+            bindchange="onTermPickerChange"
+          >
+            <view class="picker-input">
+              {{terms[purchaseForm.term_index].name || '请选择期数'}}
+            </view>
+          </picker>
+          <view class="term-date-tip">
+            固定到期日：{{purchaseForm.selectedExpireDate}} (寒暑假开学日)
+          </view>
+        </view>
+
+        <!-- 7. 备注 -->
+        <view class="form-group">
+          <text class="form-label">购课备注说明</text>
+          <input 
+            class="form-input" 
+            value="{{purchaseForm.remark}}" 
+            data-field="remark" 
+            bindinput="onPurchaseInput" 
+            placeholder="选填"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onClosePurchaseModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitPurchase">确认登记并入账</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：Phase 2-A 消课扣费与测试弹窗 ── -->
+  <view wx:if="{{showDeductModal}}" class="modal-mask" bindtap="onCloseDeductModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">⚡ 课堂消课扣费 (Phase 2-A 引擎)</text>
+        <text class="modal-close" bindtap="onCloseDeductModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <!-- 快捷测试案例按钮组 -->
+        <view class="quick-cases-box">
+          <text class="qc-title">🎯 快捷测试 Phase 2-A 铁律案例：</text>
+          <view class="qc-btns">
+            <button class="btn-qc" bindtap="onApplyQuickCase" data-case="fifo">① 多包FIFO(先到期+先付费后赠送)</button>
+            <button class="btn-qc" bindtap="onApplyQuickCase" data-case="debt">② 余额不足透支记欠(不为负数)</button>
+            <button class="btn-qc" bindtap="onApplyQuickCase" data-case="warning">③ &lt;4课时预警与家校通知</button>
+            <button class="btn-qc btn-qc-unlock" bindtap="onApplyQuickCase" data-case="unlock">④ 审批锁定并发破锁</button>
+          </view>
+        </view>
+
+        <!-- 学员选择 -->
+        <view class="form-group">
+          <text class="form-label">消课学员</text>
+          <picker 
+            mode="selector" 
+            range="{{students}}" 
+            range-key="name" 
+            value="{{deductForm.student_index}}" 
+            bindchange="onDeductStudentChange"
+          >
+            <view class="picker-input">{{students[deductForm.student_index].name}}</view>
+          </picker>
+        </view>
+
+        <!-- 课程选择 -->
+        <view class="form-group">
+          <text class="form-label">对应课程</text>
+          <picker 
+            mode="selector" 
+            range="{{courses}}" 
+            range-key="course_name" 
+            value="{{deductForm.course_index}}" 
+            bindchange="onDeductCourseChange"
+          >
+            <view class="picker-input">{{courses[deductForm.course_index].course_name}}</view>
+          </picker>
+        </view>
+
+        <!-- 本次扣除课时数 -->
+        <view class="form-group">
+          <text class="form-label">本次扣减课时数 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            value="{{deductForm.hours_needed}}" 
+            data-field="hours_needed" 
+            bindinput="onDeductInput" 
+            placeholder="如 1.5 或 2.0"
+          />
+        </view>
+
+        <!-- 业务说明 -->
+        <view class="form-group">
+          <text class="form-label">消课业务说明</text>
+          <input 
+            class="form-input" 
+            value="{{deductForm.context_desc}}" 
+            data-field="context_desc" 
+            bindinput="onDeductInput" 
+            placeholder="如 课堂正常出勤消课"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseDeductModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitDeduct">执行扣费并留痕</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 3：精准原路逆向回滚 Modal ── -->
+  <view wx:if="{{showRollbackModal}}" class="modal-mask" bindtap="onCloseRollbackModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">🔄 原路精准逆向回滚 (rollbackHours)</text>
+        <text class="modal-close" bindtap="onCloseRollbackModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="rollback-tip-box">
+          <text class="rb-tip-title">🛡️ 逆向回滚对称操作说明：</text>
+          <text class="rb-tip-txt">1. 若本次消课产生欠课，优先冲减欠费账本；</text>
+          <text class="rb-tip-txt">2. 对称逆操作：严格先退回赠送课时，再退回付费课时；</text>
+          <text class="rb-tip-txt">3. 操作必须写入不可篡改审计日志。</text>
+        </view>
+
+        <view class="form-group" style="margin-top: 24rpx;">
+          <text class="form-label">回滚必填理由 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{rollbackReason}}" 
+            bindinput="onRollbackReasonInput" 
+            placeholder="如 老师点名手滑撤回签到"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseRollbackModal">放弃回滚</button>
+        <button class="btn-confirm btn-rollback-confirm" bindtap="onSubmitRollback">确认原路回滚</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 4：课时冻结申请 Modal (Phase 5-A 90天双封顶) ── -->
+  <view wx:if="{{showFreezeModal}}" class="modal-mask" bindtap="onCloseFreezeModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">❄️ 课时冻结申请 (90天双封顶)</text>
+        <text class="modal-close" bindtap="onCloseFreezeModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="freeze-tip-box">
+          <text class="ft-title">🛡️ 90天双封顶与顺延铁律：</text>
+          <text class="ft-txt">1. 单次上限：一次最多冻结 90 天；</text>
+          <text class="ft-txt">2. 累计上限：多次冻结累计上限 90 天；</text>
+          <text class="ft-txt">3. 审批通过后，课时包到期日自动顺延相应天数。</text>
+        </view>
+
+        <!-- 目标课时包基础信息 -->
+        <view class="target-info-card">
+          <view class="t-row"><text class="t-label">冻结学员：</text><text class="t-val">{{freezeTarget.student_name_snapshot}}</text></view>
+          <view class="t-row"><text class="t-label">课程名称：</text><text class="t-val">{{freezeTarget.course_name_snapshot}}</text></view>
+          <view class="t-row"><text class="t-label">原到期日：</text><text class="t-val text-blue">{{freezeTarget.expire_date}}</text></view>
+          <view class="t-row"><text class="t-label">已累积冻结：</text><text class="t-val {{freezeTarget.total_frozen_days >= 90 ? 'text-red' : ''}}">{{freezeTarget.total_frozen_days || 0}} / 90 天</text></view>
+          <view class="t-row"><text class="t-label">本次最多可冻：</text><text class="t-val text-green">{{maxFreezeDaysAllowed}} 天</text></view>
+        </view>
+
+        <!-- 申请冻结天数 -->
+        <view class="form-group" style="margin-top: 16rpx;">
+          <text class="form-label">申请冻结天数 (天) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="number" 
+            value="{{freezeForm.freeze_days}}" 
+            bindinput="onFreezeDaysInput" 
+            placeholder="如 14 或 30"
+          />
+        </view>
+
+        <!-- 冻结详细原因 -->
+        <view class="form-group">
+          <text class="form-label">冻结详细原因 (必填) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{freezeForm.reason}}" 
+            bindinput="onFreezeReasonInput" 
+            placeholder="如 学生生病就医、全家出远门探亲等"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseFreezeModal">取消</button>
+        <button class="btn-confirm btn-freeze-confirm" bindtap="onSubmitFreeze">提交管理员审批</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 5：管理员手工调课时 Modal (Phase 5-A 超管独批·防负数·并发锁) ── -->
+  <view wx:if="{{showAdjustModal}}" class="modal-mask" bindtap="onCloseAdjustModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">⚖️ 管理员手工调课时 (超管独批)</text>
+        <text class="modal-close" bindtap="onCloseAdjustModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="adjust-tip-box">
+          <text class="at-title">🛡️ 手工调课时四大铁律：</text>
+          <text class="at-txt">1. 必填理由；2. 防负数拦截；3. 不改历史新立台账；4. 提交超管独批并自动施加并发锁。</text>
+        </view>
+
+        <!-- 目标课时包基础信息 -->
+        <view class="target-info-card">
+          <view class="t-row"><text class="t-label">调账学员：</text><text class="t-val">{{adjustTarget.student_name_snapshot}}</text></view>
+          <view class="t-row"><text class="t-label">课程名称：</text><text class="t-val">{{adjustTarget.course_name_snapshot}}</text></view>
+          <view class="t-row">
+            <text class="t-label">当前可用余额：</text>
+            <text class="t-val">付费 <text class="text-blue">{{adjustTarget.paid_hours_left}}</text> 课时，赠送 <text class="text-green">{{adjustTarget.gift_hours_left}}</text> 课时 (共 {{adjustTarget.paid_hours_left + adjustTarget.gift_hours_left}} 课时)</text>
+          </view>
+        </view>
+
+        <!-- 调整方向 -->
+        <view class="form-group" style="margin-top: 16rpx;">
+          <text class="form-label">调整方向 <text class="required">*</text></text>
+          <view class="dest-toggle-group">
+            <view 
+              class="dest-btn {{adjustForm.direction === 'increase' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectAdjustDirection" 
+              data-dir="increase"
+            >
+              ➕ 手工增加课时 (补赠/补偿)
+            </view>
+            <view 
+              class="dest-btn {{adjustForm.direction === 'decrease' ? 'dest-btn-active dest-btn-danger' : ''}}" 
+              bindtap="onSelectAdjustDirection" 
+              data-dir="decrease"
+            >
+              ➖ 手工扣减课时 (防负数·并发锁)
+            </view>
+          </view>
+        </view>
+
+        <!-- 调整课时量输入 -->
+        <view class="form-row">
+          <view class="form-group flex-1">
+            <text class="form-label">调整付费课时数</text>
+            <input 
+              class="form-input" 
+              type="digit" 
+              value="{{adjustForm.paid_delta}}" 
+              bindinput="onAdjustPaidInput" 
+              placeholder="0"
+            />
+          </view>
+          <view class="form-group flex-1">
+            <text class="form-label">调整赠送课时数</text>
+            <input 
+              class="form-input" 
+              type="digit" 
+              value="{{adjustForm.gift_delta}}" 
+              bindinput="onAdjustGiftInput" 
+              placeholder="0"
+            />
+          </view>
+        </view>
+
+        <!-- 调后余额动态实时预览 -->
+        <view class="preview-box {{previewAdjustHours.isNegative ? 'preview-error' : 'preview-normal'}}">
+          <view class="p-title">调后课时预览：</view>
+          <view class="p-content">
+            付费课时: <text class="p-val">{{previewAdjustHours.paid}}</text> 课时 | 
+            赠送课时: <text class="p-val">{{previewAdjustHours.gift}}</text> 课时 | 
+            合计: <text class="p-val">{{previewAdjustHours.total}}</text> 课时
+          </view>
+          <view wx:if="{{previewAdjustHours.isNegative}}" class="p-warn">
+            ⚠️ 【防负数铁律拦截】扣减后余额不能为负数，无法提交申请！
+          </view>
+        </view>
+
+        <!-- 调账详细原因 -->
+        <view class="form-group" style="margin-top: 16rpx;">
+          <text class="form-label">调账详细原因 (必填) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{adjustForm.reason}}" 
+            bindinput="onAdjustReasonInput" 
+            placeholder="如 补赠推荐新学员活动课时，或录入失误调减"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseAdjustModal">取消</button>
+        <button 
+          class="btn-confirm {{previewAdjustHours.isNegative ? 'btn-disabled' : ''}}" 
+          bindtap="onSubmitAdjust"
+          disabled="{{previewAdjustHours.isNegative}}"
+        >
+          提交超级管理员审批
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 6：核心教务三转 Modal (Phase 5-B 转人 / 转课 / 转班) ── -->
+  <view wx:if="{{showTransferModal}}" class="modal-mask" bindtap="onCloseTransferModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">🔄 核心教务三转申请 (超管独批)</text>
+        <text class="modal-close" bindtap="onCloseTransferModal">✕</text>
+      </view>
+      <view class="modal-body scrollable-modal-body">
+        <view class="transfer-tip-box">
+          <text class="tt-title">🛡️ 三转通用底层铁律：</text>
+          <text class="tt-txt">1. 部分转移强制先扣付费课时，后扣赠送课时；</text>
+          <text class="tt-txt">2. 原到期日严格不变，差价与退零头随单走账；</text>
+          <text class="tt-txt">3. 严禁同时转人又转课（需拆分为两笔各自独立审批）；</text>
+          <text class="tt-txt">4. 提交后自动对课时包施加审批并发锁，超管批准后正式生效。</text>
+        </view>
+
+        <!-- 源课时包基础信息卡片 -->
+        <view class="target-info-card">
+          <view class="t-row"><text class="t-label">转出学员：</text><text class="t-val text-bold">{{transferTarget.student_name_snapshot}}</text></view>
+          <view class="t-row"><text class="t-label">当前课程：</text><text class="t-val">{{transferTarget.course_name_snapshot}} (原单价: ¥{{transferTarget.unit_price_snapshot}})</text></view>
+          <view class="t-row">
+            <text class="t-label">当前可用余额：</text>
+            <text class="t-val">付费 <text class="text-blue">{{transferTarget.paid_hours_left}}</text> 课时，赠送 <text class="text-green">{{transferTarget.gift_hours_left}}</text> 课时 (共 {{transferTarget.paid_hours_left + transferTarget.gift_hours_left}} 课时)</text>
+          </view>
+          <view class="t-row"><text class="t-label">原到期日：</text><text class="t-val text-purple">{{transferTarget.expire_date}} (转移后严格不变)</text></view>
+        </view>
+
+        <!-- 1. 选择转移类型 -->
+        <view class="form-group" style="margin-top: 14rpx;">
+          <text class="form-label">转移场景类型 <text class="required">*</text></text>
+          <view class="dest-toggle-group">
+            <view 
+              class="dest-btn {{transferForm.transfer_type === 'transfer_student' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectTransferType" 
+              data-type="transfer_student"
+            >
+              👤 转人 (同课程平转)
+            </view>
+            <view 
+              class="dest-btn {{transferForm.transfer_type === 'transfer_course' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectTransferType" 
+              data-type="transfer_course"
+            >
+              📚 转课 (按钱换算)
+            </view>
+            <view 
+              class="dest-btn {{transferForm.transfer_type === 'transfer_class' ? 'dest-btn-active' : ''}}" 
+              bindtap="onSelectTransferType" 
+              data-type="transfer_class"
+            >
+              🏫 转班 (整节换算)
+            </view>
+          </view>
+        </view>
+
+        <!-- 2. 转出课时量输入 -->
+        <view class="form-group">
+          <text class="form-label">申请转出课时数 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            value="{{transferForm.hours_to_transfer}}" 
+            bindinput="onTransferHoursInput" 
+            placeholder="如 10.0"
+          />
+        </view>
+
+        <!-- 3. 条件选择分支 -->
+        <!-- 分支 1: 转人 (选择转入学员) -->
+        <view class="form-group" wx:if="{{transferForm.transfer_type === 'transfer_student'}}">
+          <text class="form-label">转入目标学员 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{transferTargetStudents}}" 
+            range-key="name" 
+            value="{{transferForm.target_student_index}}" 
+            bindchange="onTransferStudentChange"
+          >
+            <view class="picker-input">
+              {{transferTargetStudents[transferForm.target_student_index].name || '请选择接收学员'}} ▾
+            </view>
+          </picker>
+        </view>
+
+        <!-- 分支 2: 转课 (选择目标课程) -->
+        <view class="form-group" wx:if="{{transferForm.transfer_type === 'transfer_course'}}">
+          <text class="form-label">转入目标课程 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{transferTargetCourses}}" 
+            range-key="course_name" 
+            value="{{transferForm.target_course_index}}" 
+            bindchange="onTransferCourseChange"
+          >
+            <view class="picker-input">
+              {{transferTargetCourses[transferForm.target_course_index].course_name}} (¥{{transferTargetCourses[transferForm.target_course_index].unit_price}}/课时) ▾
+            </view>
+          </picker>
+        </view>
+
+        <!-- 分支 3: 转班 (选择目标班级) -->
+        <view class="form-group" wx:if="{{transferForm.transfer_type === 'transfer_class'}}">
+          <text class="form-label">转入目标班级 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{transferTargetClasses}}" 
+            range-key="name" 
+            value="{{transferForm.target_class_index}}" 
+            bindchange="onTransferClassChange"
+          >
+            <view class="picker-input">
+              {{transferTargetClasses[transferForm.target_class_index].name}} (单节¥{{transferTargetClasses[transferForm.target_class_index].unit_price_snapshot * transferTargetClasses[transferForm.target_class_index].hours_per_lesson_snapshot}}) ▾
+            </view>
+          </picker>
+        </view>
+
+        <!-- 零头处理选项 (转课与转班有零头时提供) -->
+        <view class="form-group" wx:if="{{transferForm.transfer_type !== 'transfer_student'}}">
+          <text class="form-label">换算零头处理选项 <text class="required">*</text></text>
+          <radio-group class="radio-row" bindchange="onRemainderOptionChange">
+            <label class="radio-label">
+              <radio value="top_up" checked="{{transferForm.remainder_option === 'top_up'}}" color="#16a34a"/>
+              <text class="radio-text text-green">家长补钱（凑够整课时/整节课，补交差价）</text>
+            </label>
+            <label class="radio-label">
+              <radio value="refund_change" checked="{{transferForm.remainder_option === 'refund_change'}}" color="#ea580c"/>
+              <text class="radio-text text-orange">退零头（向下取整，零头现金退还家长）</text>
+            </label>
+          </radio-group>
+        </view>
+
+        <!-- 4. 实时动态换算结果预览面板 -->
+        <view class="transfer-preview-card" wx:if="{{transferPreview}}">
+          <view class="tp-header">
+            <text class="tp-title">📊 换算试算实时结果：</text>
+            <text class="tp-badge">{{transferPreview.transfer_type_name}}</text>
+          </view>
+          <view class="tp-body">
+            <view class="tp-row">
+              <text class="tp-label">先付费后赠送分解：</text>
+              <text class="tp-val">扣除付费 <text class="text-blue">{{transferPreview.transferred_paid_hours}}</text> 课时，赠送 <text class="text-green">{{transferPreview.transferred_gift_hours}}</text> 课时</text>
+            </view>
+            <view class="tp-row" wx:if="{{transferPreview.transferred_paid_value}}">
+              <text class="tp-label">转出付费价值：</text>
+              <text class="tp-val text-bold">¥{{transferPreview.transferred_paid_value}}</text>
+            </view>
+            <view class="tp-row">
+              <text class="tp-label">转入目标所得：</text>
+              <text class="tp-val text-bold text-blue">
+                {{transferPreview.target_paid_hours}} 付费课时 + {{transferPreview.target_gift_hours}} 赠送课时 (共 {{transferPreview.target_total_hours}} 课时)
+              </text>
+            </view>
+            <view class="tp-row" wx:if="{{transferPreview.target_lessons}}">
+              <text class="tp-label">折合新班整节数：</text>
+              <text class="tp-val text-bold text-purple">{{transferPreview.target_lessons}} 节课 (强制整节)</text>
+            </view>
+            <view class="tp-row highlight-amount-row" wx:if="{{transferPreview.top_up_amount > 0}}">
+              <text class="tp-label">家长需补交差价：</text>
+              <text class="tp-val-money text-green">+¥{{transferPreview.top_up_amount}}</text>
+            </view>
+            <view class="tp-row highlight-amount-row" wx:if="{{transferPreview.refund_amount > 0}}">
+              <text class="tp-label">需退还家长零头：</text>
+              <text class="tp-val-money text-orange">-¥{{transferPreview.refund_amount}}</text>
+            </view>
+            <view class="tp-row">
+              <text class="tp-label">到期日继承：</text>
+              <text class="tp-val">{{transferPreview.expire_date}} (严格沿用原课时包)</text>
+            </view>
+            <view class="tp-summary">{{transferPreview.summary_desc}}</view>
+          </view>
+        </view>
+
+        <!-- 场景 D 警告横幅 (若同时转人又转课) -->
+        <view class="scene-d-box" wx:if="{{transferErrorMsg}}">
+          <text class="sd-icon">🚫</text>
+          <text class="sd-txt">{{transferErrorMsg}}</text>
+        </view>
+
+        <!-- 5. 转移原因输入 -->
+        <view class="form-group" style="margin-top: 14rpx;">
+          <text class="form-label">转移详细原因 (必填) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{transferForm.reason}}" 
+            bindinput="onTransferReasonInput" 
+            placeholder="如 学员时间冲突转班、家长时间冲突转给弟弟等"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseTransferModal">取消</button>
+        <button 
+          class="btn-confirm {{(!transferPreview || transferErrorMsg) ? 'btn-disabled' : ''}}" 
+          bindtap="onSubmitTransfer"
+          disabled="{{!transferPreview || !!transferErrorMsg}}"
+        >
+          提交超级管理员审批
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 7：退费清算 Modal (Phase 5-C 退费核算引擎与超管审批) ── -->
+  <view wx:if="{{showRefundModal}}" class="modal-mask" bindtap="onCloseRefundModal">
+    <view class="modal-box modal-box-large" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">💸 课时退费清算申请 (超管独批)</text>
+        <text class="modal-close" bindtap="onCloseRefundModal">✕</text>
+      </view>
+
+      <view class="modal-body modal-scroll">
+        <!-- 铁律提示横幅 -->
+        <view class="rule-hint-box" style="background:#fef2f2; border-color:#fecaca;">
+          <view class="rh-title" style="color:#b91c1c;">⚡ 财务内控与退费清算铁律：</view>
+          <view class="rh-desc" style="color:#991b1b;">
+            ① 赠送课时绝不退费，只退剩余付费课时；超管批准后赠送课时清零作废！<br/>
+            ② 个人账户退费强制 0 手续费；公账退费扣减管理员手动填写的手续费！<br/>
+            ③ 发起即上审批并发锁；超管批准后自动核销清零并联动退班！
+          </view>
+        </view>
+
+        <!-- 课时包基本属性 -->
+        <view class="target-pkg-card" wx:if="{{refundTarget}}">
+          <view class="tp-row-main">
+            <text class="tp-name">{{refundTarget.student_name_snapshot}}</text>
+            <text class="tp-course">{{refundTarget.course_name_snapshot}}</text>
+          </view>
+          <view class="tp-meta-grid">
+            <text>购买单价快照: ¥{{refundTarget.unit_price_snapshot}}/课时</text>
+            <text>资金去向: <text class="text-bold {{refundTarget.account_destination === '进入公账' ? 'text-blue' : 'text-green'}}">{{refundTarget.account_destination}}</text></text>
+            <text>剩余付费: <text class="text-bold text-blue">{{refundTarget.paid_hours_left}}</text> 课时</text>
+            <text>作废赠送: <text class="text-bold text-orange">{{refundTarget.gift_hours_left}}</text> 课时 (不退)</text>
+          </view>
+        </view>
+
+        <!-- 退费实时核算面板 -->
+        <view class="transfer-preview-card" wx:if="{{refundPreview}}">
+          <view class="tp-header">
+            <text class="tp-title">📊 退费金额精准核算结果：</text>
+            <text class="tp-badge {{refundPreview.is_personal_account ? 'badge-personal' : 'badge-public'}}">
+              {{refundPreview.is_personal_account ? '对私账户免手续费' : '对公账户扣减手续费'}}
+            </text>
+          </view>
+          <view class="tp-body">
+            <view class="tp-row">
+              <text class="tp-label">应退学费总额：</text>
+              <text class="tp-val text-bold">
+                {{refundPreview.paid_hours_left}} 课时 × ¥{{refundPreview.unit_price_snapshot}} = ¥{{refundPreview.gross_refund}}
+              </text>
+            </view>
+            <view class="tp-row">
+              <text class="tp-label">作废赠送课时：</text>
+              <text class="tp-val text-orange">{{refundPreview.gift_hours_forfeited}} 课时 (一分钱不退，核销作废)</text>
+            </view>
+            <view class="tp-row highlight-amount-row" wx:if="{{!refundPreview.is_personal_account}}">
+              <text class="tp-label">扣除手续费：</text>
+              <text class="tp-val-money text-orange">-¥{{refundPreview.handling_fee}}</text>
+            </view>
+            <view class="tp-row highlight-amount-row" wx:if="{{refundPreview.is_personal_account}}">
+              <text class="tp-label">扣除手续费：</text>
+              <text class="tp-val text-green text-bold">¥0.00 (个人账户强制不扣手续费)</text>
+            </view>
+            <view class="tp-row net-refund-total-row">
+              <text class="tp-label-total">实际退还金额：</text>
+              <text class="tp-val-total">¥{{refundPreview.net_refund}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 手续费输入（仅公账可用） -->
+        <view class="form-group" wx:if="{{refundPreview && !refundPreview.is_personal_account}}">
+          <text class="form-label">扣除手续费金额 (元) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            value="{{refundForm.handling_fee}}" 
+            bindinput="onRefundHandlingFeeInput" 
+            placeholder="请输入手续费 (0 ~ {{refundPreview.gross_refund}})"
+          />
+        </view>
+
+        <!-- 退费方式选择 -->
+        <view class="form-group">
+          <text class="form-label">退费转账方式 <text class="required">*</text></text>
+          <picker 
+            range="{{refundMethods}}" 
+            value="{{refundMethodIndex}}" 
+            bindchange="onRefundMethodChange"
+          >
+            <view class="form-picker-val">
+              <text>{{refundMethods[refundMethodIndex] || '请选择退费方式'}}</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <!-- 退费详细原因 -->
+        <view class="form-group">
+          <text class="form-label">退费详细原因 (必填) <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{refundForm.reason}}" 
+            bindinput="onRefundReasonInput" 
+            placeholder="如 学员搬家迁离、时间严重冲突无法协调等"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseRefundModal">取消</button>
+        <button 
+          class="btn-confirm btn-danger" 
+          bindtap="onSubmitRefund"
+          disabled="{{!refundPreview}}"
+        >
+          提交超级管理员审批
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 8：四期到期扫描与顺延 / 不续退费 Modal (Phase 5-C) ── -->
+  <view wx:if="{{showExpiringModal}}" class="modal-mask" bindtap="onCloseExpiringModal">
+    <view class="modal-box modal-box-large" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">📅 四期到期扫描与顺延处理</text>
+        <text class="modal-close" bindtap="onCloseExpiringModal">✕</text>
+      </view>
+
+      <view class="modal-body modal-scroll">
+        <!-- 学期切换器 -->
+        <view class="expiring-filter-bar">
+          <text class="ef-label">扫描指定学期：</text>
+          <picker 
+            range="{{allTerms}}" 
+            range-key="name" 
+            value="{{selectedTermIndex}}" 
+            bindchange="onTermFilterChange"
+          >
+            <view class="term-picker-box">
+              <text class="term-picker-name">{{allTerms[selectedTermIndex].name || '选择学期'}}</text>
+              <text class="term-expire-date">(固定到期: {{allTerms[selectedTermIndex].fixed_expire_date}})</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <!-- 规则提示 -->
+        <view class="expiring-hint-strip">
+          <text class="eh-icon">💡</text>
+          <text class="eh-txt">学校绝不空置保留过期课时：二选一闭环（家长续费则【期末顺延】，不续费则直接【不续退费】按原价核算走超管审批）。</text>
+        </view>
+
+        <!-- 到期课时包列表 -->
+        <view class="expiring-list">
+          <view wx:if="{{expiringPackages.length === 0}}" class="empty-state" style="padding: 40rpx 0;">
+            <text class="empty-icon">🎉</text>
+            <text class="empty-text">该学期暂无临近或已过期的有效课时包</text>
+          </view>
+
+          <view 
+            wx:for="{{expiringPackages}}" 
+            wx:key="id" 
+            class="expiring-card {{item.is_expired ? 'exp-expired' : (item.is_expiring_soon ? 'exp-soon' : '')}}"
+          >
+            <view class="ec-top">
+              <view class="ec-stu-info">
+                <text class="ec-name">{{item.student_name}}</text>
+                <text class="ec-course">{{item.course_name_snapshot}}</text>
+                <text class="ec-class">{{item.class_name}}</text>
+              </view>
+              <view class="ec-tag {{item.is_expired ? 'tag-expired' : (item.is_expiring_soon ? 'tag-soon' : 'tag-normal')}}">
+                {{item.expire_tag}}
+              </view>
+            </view>
+
+            <view class="ec-hours-row">
+              <text class="ec-hours-label">剩余课时：</text>
+              <text class="ec-hours-val">
+                付费 <text class="text-blue text-bold">{{item.paid_hours_left}}</text> + 赠送 <text class="text-green text-bold">{{item.gift_hours_left}}</text> (共 {{item.total_available_hours}} 课时)
+              </text>
+              <text class="ec-expire-time">到期日: {{item.expire_date}}</text>
+            </view>
+
+            <view class="ec-actions">
+              <button 
+                class="btn-ec btn-ec-rollover" 
+                bindtap="onOpenRolloverModal" 
+                data-id="{{item.id}}"
+                hover-class="btn-hover"
+              >
+                🔄 期末顺延
+              </button>
+              <button 
+                class="btn-ec btn-ec-refund" 
+                bindtap="onDirectRefundFromExpiring" 
+                data-id="{{item.id}}"
+                hover-class="btn-hover"
+              >
+                💸 不续退费
+              </button>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseExpiringModal">关闭</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 9：期末顺延确认与补费 Modal (Phase 5-C) ── -->
+  <view wx:if="{{showRolloverModal}}" class="modal-mask" bindtap="onCloseRolloverModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">🔄 期末顺延确认 (顺延续费)</text>
+        <text class="modal-close" bindtap="onCloseRolloverModal">✕</text>
+      </view>
+
+      <view class="modal-body">
+        <view class="target-pkg-card" wx:if="{{rolloverTarget}}">
+          <view class="tp-row-main">
+            <text class="tp-name">{{rolloverTarget.student_name}}</text>
+            <text class="tp-course">{{rolloverTarget.course_name_snapshot}}</text>
+          </view>
+          <view class="tp-meta-grid">
+            <text>当前期数: {{rolloverTarget.term_name}}</text>
+            <text>当前到期日: {{rolloverTarget.expire_date}}</text>
+            <text>可顺延付费: <text class="text-blue text-bold">{{rolloverTarget.paid_hours_left}}</text> 课时</text>
+            <text>可顺延赠送: <text class="text-green text-bold">{{rolloverTarget.gift_hours_left}}</text> 课时</text>
+          </view>
+        </view>
+
+        <!-- 选择顺延目标学期 -->
+        <view class="form-group" style="margin-top: 16rpx;">
+          <text class="form-label">顺延至目标下一期 <text class="required">*</text></text>
+          <picker 
+            range="{{allTerms}}" 
+            range-key="name" 
+            value="{{rolloverTermIndex}}" 
+            bindchange="onRolloverTermChange"
+          >
+            <view class="form-picker-val">
+              <text>{{allTerms[rolloverTermIndex].name || '请选择目标学期'}} (到期: {{allTerms[rolloverTermIndex].fixed_expire_date}})</text>
+              <text class="picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+
+        <!-- 家长补齐费用输入 -->
+        <view class="form-group">
+          <text class="form-label">家长补齐下一期学费金额 (元，选填)</text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            value="{{rolloverForm.top_up_fee}}" 
+            bindinput="onRolloverTopUpInput" 
+            placeholder="若全额顺延填0，如有补费请输入"
+          />
+        </view>
+
+        <!-- 备注 -->
+        <view class="form-group">
+          <text class="form-label">顺延说明备注 (选填)</text>
+          <input 
+            class="form-input" 
+            value="{{rolloverForm.remark}}" 
+            bindinput="onRolloverRemarkInput" 
+            placeholder="如 家长已沟通确认秋季继续上课"
+          />
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseRolloverModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitRollover">确认顺延并留档</button>
+      </view>
+    </view>
+  </view>
+</view>

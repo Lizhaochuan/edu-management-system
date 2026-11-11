@@ -1,0 +1,514 @@
+<!-- pages/config-settings/index.wxml -->
+<view class="config-page">
+  <!-- 1. 顶部角色模拟切换组件（方便现场切号测试：管理提单 -> 超管审批） -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- ── 场景 A：无权限拦截视图（老师、家长、游客等） ── -->
+  <view wx:if="{{!hasPermission}}" class="lock-container">
+    <view class="lock-card">
+      <view class="lock-icon">🔒</view>
+      <view class="lock-title">权限拦截</view>
+      <view class="lock-desc">
+        系统参数、课时单价与薪资档位属于教务与财务核心配置，仅教务管理(admin)或超级管理员(super_admin)可访问。
+      </view>
+      <view class="lock-sub">
+        当前登录身份：【{{currentUser.name}} ({{currentUser.role}}）】无权访问此页面。
+      </view>
+      <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
+        返回工作台首页
+      </button>
+    </view>
+  </view>
+
+  <!-- ── 场景 B：管理人员授权配置视图 ── -->
+  <view wx:else class="config-content">
+    <!-- 2. 顶栏安全与审批铁律提示条 -->
+    <view class="rule-banner">
+      <view class="banner-top">
+        <text class="banner-icon">⚖️</text>
+        <text class="banner-title">系统参数审批铁律</text>
+      </view>
+      <view class="banner-desc">
+        管理员在此提交的参数变更均需超级管理员审批才生效；旧班旧课快照不变，新班用新标准。
+      </view>
+    </view>
+
+    <!-- 3. 主分类导航 Tab -->
+    <view class="main-tabs">
+      <view 
+        class="tab-btn {{activeTab === 'terms' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="terms"
+      >
+        <text class="tab-icon">🌸</text>
+        <text>四期到期日</text>
+      </view>
+      <view 
+        class="tab-btn {{activeTab === 'courses' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="courses"
+      >
+        <text class="tab-icon">🎨</text>
+        <text>班型与课时单价</text>
+      </view>
+      <view 
+        class="tab-btn {{activeTab === 'tiers' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="tiers"
+      >
+        <text class="tab-icon">💰</text>
+        <text>教师课酬档位</text>
+      </view>
+    </view>
+
+    <!-- ── TAB 1：四期到期日配置 ── -->
+    <view wx:if="{{activeTab === 'terms'}}" class="tab-panel">
+      <view class="panel-header">
+        <view class="header-left">
+          <text class="panel-title">春夏秋冬四期到期日</text>
+          <text class="panel-subtitle">固定以寒暑假开学日为课时包到期期限</text>
+        </view>
+      </view>
+
+      <view class="terms-list">
+        <view wx:for="{{terms}}" wx:key="id" class="term-card">
+          <view class="term-main">
+            <view class="term-tag term-{{item.term_type}}">{{item.name}}</view>
+            <view class="term-date-row">
+              <text class="date-label">固定到期日：</text>
+              <text class="date-value">{{item.fixed_expire_date}}</text>
+            </view>
+          </view>
+          <button 
+            class="btn-action-sm" 
+            bindtap="onOpenEditTerm" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            申请调整到期日
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- ── TAB 2：班型与课程单价设置 ── -->
+    <view wx:if="{{activeTab === 'courses'}}" class="tab-panel">
+      <view class="panel-header">
+        <view class="header-left">
+          <text class="panel-title">班型与课程单价</text>
+          <text class="panel-subtitle">班型改了旧班不变，新班用新的</text>
+        </view>
+        <button class="btn-create" bindtap="onOpenAddCourse" hover-class="btn-hover">
+          ＋ 新建班型
+        </button>
+      </view>
+
+      <view class="courses-list">
+        <view wx:for="{{courses}}" wx:key="id" class="course-card">
+          <view class="course-top">
+            <text class="course-name">{{item.course_name}}</text>
+            <text class="class-type-badge">{{item.class_type_name}}</text>
+          </view>
+          <view class="course-grid">
+            <view class="grid-cell">
+              <text class="cell-label">封顶人数</text>
+              <text class="cell-val">{{item.max_capacity}} 人</text>
+            </view>
+            <view class="grid-cell">
+              <text class="cell-label">一课时单价</text>
+              <text class="cell-val highlight-val">¥{{item.unit_price}}</text>
+            </view>
+            <view class="grid-cell">
+              <text class="cell-label">每次课几课时</text>
+              <text class="cell-val">{{item.hours_per_lesson}} 课时</text>
+            </view>
+          </view>
+          <view class="course-bottom">
+            <text class="snapshot-protect-tip">🛡️ 班级快照保护机制已就绪</text>
+            <button 
+              class="btn-action-sm" 
+              bindtap="onOpenEditCourse" 
+              data-id="{{item.id}}"
+              hover-class="btn-hover"
+            >
+              申请修改参数
+            </button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ── TAB 3：教师课酬档位与特聘课酬 ── -->
+    <view wx:if="{{activeTab === 'tiers'}}" class="tab-panel">
+      <!-- 子 Tab 切换 -->
+      <view class="sub-tab-bar">
+        <view 
+          class="sub-tab-item {{tierSubTab === 'tiers' ? 'active' : ''}}" 
+          bindtap="onSwitchTierSubTab" 
+          data-sub="tiers"
+        >
+          档位阶梯课酬设置
+        </view>
+        <view 
+          class="sub-tab-item {{tierSubTab === 'teachers' ? 'active' : ''}}" 
+          bindtap="onSwitchTierSubTab" 
+          data-sub="teachers"
+        >
+          教师特聘与跟档管理
+        </view>
+      </view>
+
+      <!-- 子分栏 1：档位阶梯课酬 -->
+      <block wx:if="{{tierSubTab === 'tiers'}}">
+        <view class="panel-header">
+          <view class="header-left">
+            <text class="panel-title">教师薪资档位与人头阶梯</text>
+            <text class="panel-subtitle">改名不改历史；人数改大必须填全阶梯价格</text>
+          </view>
+          <button class="btn-create" bindtap="onOpenAddTier" hover-class="btn-hover">
+            ＋ 新建档位
+          </button>
+        </view>
+
+        <view class="tiers-list">
+          <view wx:for="{{tiers}}" wx:key="id" class="tier-card">
+            <view class="tier-top">
+              <text class="tier-name">{{item.name}}</text>
+              <text class="tier-id-tag">ID: {{item.id}}</text>
+            </view>
+            <view class="tier-rates-wrap">
+              <text class="rates-title">出勤人数阶梯课酬标准：</text>
+              <view class="rates-flex">
+                <view 
+                  wx:for="{{item.headcount_rates_json}}" 
+                  wx:for-index="count" 
+                  wx:for-item="fee" 
+                  wx:key="count" 
+                  class="rate-pill"
+                >
+                  <text class="pill-count">{{count}}人出勤</text>
+                  <text class="pill-fee">¥{{fee}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="tier-bottom">
+              <text class="tier-rule-tip">改名保留历史签到快照</text>
+              <button 
+                class="btn-action-sm" 
+                bindtap="onOpenEditTier" 
+                data-id="{{item.id}}"
+                hover-class="btn-hover"
+              >
+                申请调整档位
+              </button>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 子分栏 2：教师特聘与跟档状态 -->
+      <block wx:if="{{tierSubTab === 'teachers'}}">
+        <view class="panel-header">
+          <view class="header-left">
+            <text class="panel-title">授课教师课酬结算状态</text>
+            <text class="panel-subtitle">支持给单个老师单独改数或一键清回档位默认</text>
+          </view>
+        </view>
+
+        <view class="teachers-list">
+          <view wx:for="{{teachers}}" wx:key="id" class="teacher-card">
+            <view class="teacher-top">
+              <view class="teacher-info-row">
+                <text class="teacher-real-name">{{item.name}}</text>
+                <view class="custom-status-tag {{item.isCustom ? 'tag-custom' : 'tag-default'}}">
+                  {{item.isCustom ? '⚡ 特聘独立改数' : '✓ 默认跟档结算'}}
+                </view>
+              </view>
+              <text class="teacher-base-tier">基准绑定档位：{{item.tierName}}</text>
+            </view>
+
+            <view class="current-rates-box">
+              <text class="current-rates-title">当前结算阶梯课酬：</text>
+              <view class="rates-flex">
+                <view 
+                  wx:for="{{item.custom_tier_rates_json || item.defaultTierRates}}" 
+                  wx:for-index="count" 
+                  wx:for-item="fee" 
+                  wx:key="count" 
+                  class="rate-pill {{item.isCustom ? 'rate-pill-custom' : ''}}"
+                >
+                  <text class="pill-count">{{count}}人出勤</text>
+                  <text class="pill-fee">¥{{fee}}</text>
+                </view>
+              </view>
+            </view>
+
+            <view class="teacher-actions">
+              <button 
+                wx:if="{{item.isCustom}}" 
+                class="btn-reset-tier" 
+                bindtap="onResetTeacherTier" 
+                data-id="{{item.id}}"
+              >
+                申请恢复跟档
+              </button>
+              <button 
+                class="btn-action-sm" 
+                bindtap="onOpenTeacherCustomModal" 
+                data-id="{{item.id}}"
+                hover-class="btn-hover"
+              >
+                {{item.isCustom ? '调整特聘阶梯' : '单独改数 (脱离默认)'}}
+              </button>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：四期到期日修改 ── -->
+  <view wx:if="{{showTermModal}}" class="modal-mask" bindtap="onCloseTermModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">调整【{{editingTerm.name}}】到期日</text>
+        <text class="modal-close" bindtap="onCloseTermModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">选择固定开学到期日 <text class="required">*</text></text>
+          <picker mode="date" value="{{termForm.expire_date}}" bindchange="onTermDateChange">
+            <view class="picker-input">
+              <text>{{termForm.expire_date || '请点击选择到期日'}}</text>
+              <text class="arrow">📅</text>
+            </view>
+          </picker>
+        </view>
+        <view class="form-group">
+          <text class="form-label">调整理由说明 <text class="required">*</text></text>
+          <textarea 
+            class="form-textarea" 
+            placeholder="请说明调整学期到期日的依据（如根据市教委校历）" 
+            value="{{termForm.reason}}"
+            bindinput="onTermInputReason"
+          />
+        </view>
+        <view class="audit-tip">
+          ⚖️ 该修改将生成审批单，经超级管理员在审批中心批准后生效。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseTermModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitTermChange">提交审批申请</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：课程班型新建 / 修改 ── -->
+  <view wx:if="{{showCourseModal}}" class="modal-mask" bindtap="onCloseCourseModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">{{isEditCourse ? '调整班型与课程单价' : '新建课程与班型'}}</text>
+        <text class="modal-close" bindtap="onCloseCourseModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">课程名称 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="如：少儿乐高编程、少儿素描" 
+            value="{{courseForm.course_name}}"
+            data-field="course_name"
+            bindinput="onCourseInput"
+            disabled="{{isEditCourse}}"
+          />
+        </view>
+        <view class="form-group">
+          <text class="form-label">班型名称 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="如：1v3精品小班、1v6基础大班" 
+            value="{{courseForm.class_type_name}}"
+            data-field="class_type_name"
+            bindinput="onCourseInput"
+            disabled="{{isEditCourse}}"
+          />
+        </view>
+        <view class="form-row">
+          <view class="form-col">
+            <text class="form-label">封顶人数 <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="number"
+              value="{{courseForm.max_capacity}}"
+              data-field="max_capacity"
+              bindinput="onCourseInput"
+            />
+          </view>
+          <view class="form-col">
+            <text class="form-label">一课时单价(元) <text class="required">*</text></text>
+            <input 
+              class="form-input" 
+              type="digit"
+              value="{{courseForm.unit_price}}"
+              data-field="unit_price"
+              bindinput="onCourseInput"
+            />
+          </view>
+        </view>
+        <view class="form-group">
+          <text class="form-label">单次上课几课时 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit"
+            value="{{courseForm.hours_per_lesson}}"
+            data-field="hours_per_lesson"
+            bindinput="onCourseInput"
+          />
+        </view>
+        <view class="form-group">
+          <text class="form-label">变更事由 <text class="required">*</text></text>
+          <textarea 
+            class="form-textarea" 
+            placeholder="请详细说明价格与班型设置原因" 
+            value="{{courseForm.reason}}"
+            data-field="reason"
+            bindinput="onCourseInput"
+          />
+        </view>
+        <view class="audit-tip">
+          🛡️ 铁律保障：班型改了，已有旧班级快照不变，新班用新标准。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseCourseModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitCourse">提交审批申请</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 3：教师薪资档位新建 / 修改（强校验拦截人数改大阶梯填价） ── -->
+  <view wx:if="{{showTierModal}}" class="modal-mask" bindtap="onCloseTierModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">{{isEditTier ? '调整教师薪资档位' : '新建教师薪资档位'}}</text>
+        <text class="modal-close" bindtap="onCloseTierModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">档位名称 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="如：特级教师、初级新教师" 
+            value="{{tierForm.name}}"
+            bindinput="onTierNameInput"
+          />
+        </view>
+
+        <!-- 封顶人数步进器 -->
+        <view class="form-group">
+          <view class="stepper-header">
+            <text class="form-label">封顶出勤人数阶梯（强校验）</text>
+            <view class="stepper-ctrl">
+              <button class="btn-step" bindtap="onChangeTierMaxCapacity" data-delta="-1">-</button>
+              <text class="step-num">{{tierForm.max_capacity}} 人</text>
+              <button class="btn-step" bindtap="onChangeTierMaxCapacity" data-delta="1">+</button>
+            </view>
+          </view>
+          <text class="input-tip-warn">⚠️ 强校验铁律：人数改大后，必须将每一个新增出勤档位的价格填全，否则无法提交！</text>
+        </view>
+
+        <!-- 阶梯价格动态输入框 -->
+        <view class="rates-input-group">
+          <view wx:for="{{tierForm.ratesList}}" wx:key="headcount" class="rate-input-row">
+            <text class="rate-count-badge">{{item.headcount}} 人出勤：</text>
+            <input 
+              class="rate-input-box" 
+              type="number"
+              placeholder="请输入单节课酬(元)"
+              value="{{item.rate}}"
+              data-index="{{index}}"
+              bindinput="onTierRateItemInput"
+            />
+            <text class="rate-unit">元/课时</text>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">调整理由 <text class="required">*</text></text>
+          <textarea 
+            class="form-textarea" 
+            placeholder="请填写薪资档位设置/调整理由" 
+            value="{{tierForm.reason}}"
+            bindinput="onTierReasonInput"
+          />
+        </view>
+        <view class="audit-tip">
+          🛡️ 改名不改历史，以前签到的记录还留着老名字与当时快照。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseTierModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitTier">提交审批申请</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 4：特聘教师独立改数 ── -->
+  <view wx:if="{{showTeacherCustomModal}}" class="modal-mask" bindtap="onCloseTeacherCustomModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">设置【{{editingTeacher.name}}】特聘独立课酬</text>
+        <text class="modal-close" bindtap="onCloseTeacherCustomModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="teacher-brief-bar">
+          <text class="brief-name">{{editingTeacher.name}}</text>
+          <text class="brief-role">脱离默认档位，独立计费</text>
+        </view>
+
+        <!-- 封顶人数步进器 -->
+        <view class="form-group">
+          <view class="stepper-header">
+            <text class="form-label">特聘人头阶梯封顶人数</text>
+            <view class="stepper-ctrl">
+              <button class="btn-step" bindtap="onChangeCustomMaxCapacity" data-delta="-1">-</button>
+              <text class="step-num">{{teacherCustomForm.max_capacity}} 人</text>
+              <button class="btn-step" bindtap="onChangeCustomMaxCapacity" data-delta="1">+</button>
+            </view>
+          </view>
+        </view>
+
+        <!-- 阶梯价格输入 -->
+        <view class="rates-input-group">
+          <view wx:for="{{teacherCustomForm.ratesList}}" wx:key="headcount" class="rate-input-row">
+            <text class="rate-count-badge">{{item.headcount}} 人出勤：</text>
+            <input 
+              class="rate-input-box" 
+              type="number"
+              placeholder="请输入单节课酬(元)"
+              value="{{item.rate}}"
+              data-index="{{index}}"
+              bindinput="onCustomRateItemInput"
+            />
+            <text class="rate-unit">元/课时</text>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">特聘定制事由 <text class="required">*</text></text>
+          <textarea 
+            class="form-textarea" 
+            placeholder="请说明单独改数原因（如：名师特聘、特级竞赛辅导）" 
+            value="{{teacherCustomForm.reason}}"
+            bindinput="onCustomReasonInput"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseTeacherCustomModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitTeacherCustom">提交特聘申请</button>
+      </view>
+    </view>
+  </view>
+</view>

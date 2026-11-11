@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "课堂点名签到与考勤",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "通用审批中心",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

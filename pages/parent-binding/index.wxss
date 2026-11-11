@@ -1,0 +1,658 @@
+/* pages/parent-binding/index.wxss */
+.binding-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ── 顶部铁律横幅 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: linear-gradient(135deg, #1e1b4b, #4338ca);
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(67, 56, 202, 0.15);
+}
+
+.banner-top {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.banner-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #c7d2fe;
+}
+
+.banner-desc {
+  font-size: 22rpx;
+  color: #e0e7ff;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* ── 家长操作栏 ── */
+.action-bar {
+  margin: 0 24rpx 18rpx 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bar-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bar-sub {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-left: 8rpx;
+}
+
+.bar-btn-group {
+  display: flex;
+  gap: 12rpx;
+}
+
+.btn-bind-exist {
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 8rpx 18rpx;
+  border-radius: 20rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.btn-reg-new {
+  background: #059669;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 8rpx 18rpx;
+  border-radius: 20rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── 孩子卡片列表 ── */
+.children-list {
+  padding: 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 40rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64rpx;
+  margin-bottom: 12rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #334155;
+}
+
+.empty-sub {
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-top: 8rpx;
+}
+
+.child-card {
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.child-basic {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.child-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #0f172a;
+  margin-right: 12rpx;
+}
+
+.child-gender {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-right: 12rpx;
+}
+
+.relation-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.child-id {
+  font-size: 20rpx;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+/* 课时资产三格 */
+.hours-summary-box {
+  display: flex;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  margin-bottom: 16rpx;
+}
+
+.hours-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hours-num {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.paid-num {
+  color: #1e40af;
+}
+
+.gift-num {
+  color: #15803d;
+}
+
+.hours-label {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+}
+
+.hours-divider {
+  width: 2rpx;
+  height: 36rpx;
+  background: #e2e8f0;
+}
+
+/* 班级信息 */
+.class-info-row {
+  display: flex;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.info-label {
+  color: #64748b;
+  width: 130rpx;
+  flex-shrink: 0;
+}
+
+.info-val {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.trial-val {
+  color: #059669;
+}
+
+/* 多家长绑定区域 */
+.parents-group-box {
+  margin-top: 14rpx;
+  background: #f8fafc;
+  border-radius: 10rpx;
+  padding: 12rpx 14rpx;
+}
+
+.parents-group-title {
+  font-size: 20rpx;
+  color: #475569;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.parent-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.parent-pill {
+  background: #ffffff;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
+  display: flex;
+  align-items: center;
+  font-size: 20rpx;
+}
+
+.pill-rel {
+  font-weight: 700;
+  color: #0f172a;
+  margin-right: 8rpx;
+}
+
+.pill-phone {
+  color: #475569;
+  margin-right: 8rpx;
+}
+
+.pill-auth {
+  font-size: 18rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  font-weight: 600;
+}
+
+.auth-yes {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.auth-no {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* 订阅授权状态卡片 */
+.auth-card {
+  margin-top: 16rpx;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.auth-card-granted {
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+}
+
+.auth-card-denied {
+  background: #fefce8;
+  border: 1rpx solid #fef08a;
+}
+
+.auth-left {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.auth-icon {
+  font-size: 26rpx;
+  margin-right: 10rpx;
+  margin-top: 2rpx;
+}
+
+.auth-text-wrap {
+  flex: 1;
+}
+
+.auth-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #0f172a;
+  display: block;
+}
+
+.auth-desc {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+  display: block;
+  line-height: 1.4;
+}
+
+.btn-toggle-auth {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 10rpx 18rpx;
+  border-radius: 20rpx;
+  margin: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.btn-gray {
+  background: #ffffff;
+  color: #475569;
+  border: 1rpx solid #cbd5e1;
+}
+
+.btn-green {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+/* ── 场景 B：管理员人工微信兜底面板 ── */
+.admin-notify-panel {
+  margin: 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.panel-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+  display: block;
+}
+
+.panel-subtitle {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.fallback-count-badge {
+  font-size: 20rpx;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
+.fallback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.fallback-card {
+  background: #fefce8;
+  border-left: 6rpx solid #eab308;
+  border-radius: 10rpx;
+  padding: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fallback-left {
+  flex: 1;
+}
+
+.fallback-user-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 6rpx;
+}
+
+.parent-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+  margin-right: 8rpx;
+}
+
+.rel-badge {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 18rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  margin-right: 8rpx;
+}
+
+.for-student {
+  font-size: 22rpx;
+  color: #475569;
+}
+
+.phone-row {
+  font-size: 22rpx;
+  color: #334155;
+  margin-bottom: 6rpx;
+}
+
+.phone-num {
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.fallback-status {
+  font-size: 18rpx;
+  color: #a16207;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.status-dot {
+  color: #dc2626;
+  margin-right: 6rpx;
+}
+
+.btn-copy-phone {
+  background: #ffffff;
+  color: #0284c7;
+  border: 1rpx solid #bae6fd;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 10rpx 18rpx;
+  border-radius: 20rpx;
+  margin-left: 12rpx;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* ── 弹窗 Modal ── */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 650rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  background: #f8fafc;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+
+.modal-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-close {
+  font-size: 32rpx;
+  color: #94a3b8;
+  padding: 4rpx 12rpx;
+}
+
+.modal-body {
+  padding: 24rpx 28rpx;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20rpx;
+}
+
+.form-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.picker-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.arrow {
+  color: #64748b;
+  font-size: 24rpx;
+}
+
+.form-input {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  font-size: 26rpx;
+  color: #1e293b;
+}
+
+.input-tip {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 6rpx;
+  display: block;
+}
+
+/* 性别选择器 */
+.gender-selector {
+  display: flex;
+  gap: 16rpx;
+}
+
+.gender-opt {
+  flex: 1;
+  padding: 14rpx 0;
+  text-align: center;
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #475569;
+}
+
+.gender-opt.gender-selected {
+  background: #eff6ff;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+.auth-notice-tip {
+  margin-top: 14rpx;
+  font-size: 20rpx;
+  color: #0369a1;
+  background: #f0f9ff;
+  padding: 12rpx 16rpx;
+  border-radius: 8rpx;
+  line-height: 1.4;
+}
+
+.modal-footer {
+  display: flex;
+  padding: 18rpx 28rpx;
+  background: #f8fafc;
+  border-top: 1rpx solid #e2e8f0;
+  gap: 16rpx;
+}
+
+.btn-cancel {
+  flex: 1;
+  background: #ffffff;
+  color: #64748b;
+  border: 1rpx solid #cbd5e1;
+  font-size: 24rpx;
+  border-radius: 10rpx;
+}
+
+.btn-submit {
+  flex: 2;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}

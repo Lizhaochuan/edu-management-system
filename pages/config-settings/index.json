@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "系统参数与课酬设置",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

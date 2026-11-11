@@ -1,0 +1,38 @@
+<!-- components/role-switcher/index.wxml -->
+<view class="role-switcher-container">
+  <view class="switcher-header">
+    <view class="header-left">
+      <text class="header-icon">🎭</text>
+      <text class="header-title">角色身份模拟切换器</text>
+    </view>
+    <view class="header-right">
+      <picker bindchange="onPickerChange" value="{{pickerIndex}}" range="{{userOptions}}" range-key="label">
+        <view class="quick-picker-btn">
+          <text>快捷切换</text>
+          <text class="arrow-down">▾</text>
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <scroll-view class="users-scroll" scroll-x enable-flex scroll-into-view="{{'user-' + currentUserId}}">
+    <view 
+      wx:for="{{users}}" 
+      wx:key="id" 
+      id="{{'user-' + item.id}}"
+      class="user-card {{item.id === currentUserId ? 'active' : ''}}"
+      bindtap="onSelectUser"
+      data-id="{{item.id}}"
+    >
+      <view class="role-badge role-{{item.role}}">
+        {{roleNameMap[item.role] || item.role}}
+      </view>
+      <view class="avatar-circle avatar-{{item.role}}">
+        {{item.avatarText}}
+      </view>
+      <view class="user-name">{{item.name}}</view>
+      <view class="user-sub">{{item.subDesc}}</view>
+      <view wx:if="{{item.id === currentUserId}}" class="current-indicator">当前登录</view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "机构工作台",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

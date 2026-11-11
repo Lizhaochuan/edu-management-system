@@ -1,0 +1,112 @@
+<!-- pages/audit-logs/index.wxml -->
+<view class="audit-page">
+  <!-- 1. 顶部角色模拟切换组件（方便现场切号检验死锁） -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- ── 场景 A：非超管角色死锁拦截视图 ── -->
+  <view wx:if="{{!isSuperAdmin}}" class="lock-container">
+    <view class="lock-card">
+      <view class="lock-icon">🔒</view>
+      <view class="lock-title">权限不足</view>
+      <view class="lock-desc">
+        仅超级管理员（老板 / 机构合伙人）可查看系统底层操作审计日志。
+      </view>
+      <view class="lock-sub">
+        当前身份为：【{{currentUser.name}} ({{currentUser.role}}）】。审计底册记录全校资金与课时流水不可变变更历史，对该角色严格封锁。
+      </view>
+      <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
+        返回工作台首页
+      </button>
+    </view>
+  </view>
+
+  <!-- ── 场景 B：超级管理员授权解锁视图 ── -->
+  <view wx:else class="audit-content">
+    <!-- 2. 醒目安全铁律横幅 -->
+    <view class="security-banner">
+      <view class="banner-top">
+        <text class="banner-icon">🛡️</text>
+        <text class="banner-title">系统底层审计日志已物理锁死</text>
+      </view>
+      <view class="banner-desc">
+        仅由核心引擎自动追加写入，任何人（含超级管理员自身）均不可修改、不可删除！
+      </view>
+    </view>
+
+    <!-- 3. 数据存证统计条 -->
+    <view class="stats-summary">
+      <text class="stats-text">已安全留痕存证 <text class="stats-count">{{logCount}}</text> 条全生命周期核心操作</text>
+      <text class="stats-tag">不可篡改底册</text>
+    </view>
+
+    <!-- 4. 审计日志倒序列表 -->
+    <view class="logs-list">
+      <view 
+        wx:for="{{logs}}" 
+        wx:key="id" 
+        class="log-card"
+      >
+        <!-- 日志卡片头部 -->
+        <view class="log-header">
+          <view class="header-left">
+            <text class="action-badge {{item.actionTagClass}}">{{item.action}}</text>
+            <text class="table-name">{{item.target_table}}</text>
+            <text class="record-id">#{{item.target_record_id}}</text>
+          </view>
+          <text class="log-time">{{item.formattedTime}}</text>
+        </view>
+
+        <!-- 操作人信息 -->
+        <view class="log-meta">
+          <view class="meta-row">
+            <text class="meta-label">操作人员：</text>
+            <text class="meta-operator">{{item.operator_name || '系统自动'}}</text>
+            <text class="meta-op-id">({{item.operator_id}})</text>
+          </view>
+          <view class="meta-row">
+            <text class="meta-label">日志编号：</text>
+            <text class="meta-id-text">{{item.id}}</text>
+          </view>
+          <view class="meta-row desc-row">
+            <text class="meta-label">操作描述：</text>
+            <text class="meta-desc">{{item.description || '无操作描述'}}</text>
+          </view>
+        </view>
+
+        <!-- 快照前后对比框 -->
+        <view class="snapshot-diff-box">
+          <view class="diff-header">
+            <text class="diff-title">🔍 数据操作前后快照对比 (JSON)</text>
+          </view>
+          <view class="diff-columns">
+            <view class="diff-col before-col">
+              <view class="col-title">修改前快照 (Before)</view>
+              <scroll-view scroll-y class="code-view">
+                <text>{{item.beforeText}}</text>
+              </scroll-view>
+            </view>
+            <view class="diff-col after-col">
+              <view class="col-title">修改后快照 (After)</view>
+              <scroll-view scroll-y class="code-view">
+                <text>{{item.afterText}}</text>
+              </scroll-view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 防篡改测试触发按钮 -->
+        <view class="card-footer">
+          <button 
+            class="btn-tamper-test" 
+            bindtap="onTestTamper" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            <text class="tamper-icon">⚠️</text>
+            <text>尝试删除/篡改此日志（测试底层拦截）</text>
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

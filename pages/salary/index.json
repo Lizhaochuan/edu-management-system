@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "教师课酬与薪资结算中心",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

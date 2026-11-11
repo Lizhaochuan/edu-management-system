@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "不可篡改操作日志",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

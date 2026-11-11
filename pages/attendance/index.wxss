@@ -1,0 +1,1675 @@
+/* pages/attendance/index.wxss */
+.attendance-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 80rpx;
+  box-sizing: border-box;
+}
+
+/* ── 顶部铁律横幅 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.15);
+}
+
+.banner-top {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.banner-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.banner-desc {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* ── 隐私隔离横幅 ── */
+.privacy-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: #eff6ff;
+  border-left: 6rpx solid #3b82f6;
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+  display: flex;
+  align-items: center;
+}
+
+.privacy-icon {
+  font-size: 26rpx;
+  margin-right: 10rpx;
+}
+
+.privacy-text {
+  font-size: 22rpx;
+  color: #1d4ed8;
+  line-height: 1.4;
+}
+
+/* ── Phase 3-A 课程已取消专属横幅 ── */
+.cancel-status-banner {
+  margin: 0 24rpx 18rpx 24rpx;
+  background: #fef2f2;
+  border: 2rpx solid #f87171;
+  border-radius: 14rpx;
+  padding: 18rpx 20rpx;
+}
+
+.cs-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.cs-icon {
+  font-size: 30rpx;
+  margin-right: 10rpx;
+}
+
+.cs-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.cs-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  font-size: 20rpx;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+
+/* ── 24小时修改窗口与审批状态条 ── */
+.window-bar {
+  margin: 0 24rpx 16rpx 24rpx;
+  border-radius: 12rpx;
+  padding: 14rpx 18rpx;
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.window-active {
+  background: #eff6ff;
+  border-left: 6rpx solid #2563eb;
+  color: #1e40af;
+}
+
+.window-locked {
+  background: #fef2f2;
+  border-left: 6rpx solid #ef4444;
+  color: #991b1b;
+}
+
+.window-pending {
+  background: #fef3c7;
+  border-left: 6rpx solid #f59e0b;
+  color: #92400e;
+}
+
+.window-icon {
+  font-size: 26rpx;
+  margin-right: 10rpx;
+}
+
+.window-txt {
+  flex: 1;
+}
+
+/* ── 标题操作栏 ── */
+.section-bar {
+  margin: 0 24rpx 14rpx 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-left {
+  display: flex;
+  align-items: baseline;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.section-count {
+  font-size: 22rpx;
+  color: #64748b;
+  margin-left: 10rpx;
+}
+
+.section-actions {
+  display: flex;
+  gap: 12rpx;
+}
+
+.btn-cancel-lesson-trigger {
+  font-size: 22rpx;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1rpx solid #fca5a5;
+  border-radius: 24rpx;
+  padding: 8rpx 18rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-create-schedule {
+  font-size: 22rpx;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 24rpx;
+  padding: 8rpx 20rpx;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+/* ── 排课滚动选择条 ── */
+.schedule-scroll {
+  white-space: nowrap;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  margin-bottom: 20rpx;
+}
+
+.schedule-pill {
+  display: inline-block;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 16rpx 22rpx;
+  margin-right: 16rpx;
+  border: 2rpx solid #e2e8f0;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+  min-width: 280rpx;
+}
+
+.schedule-pill-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.12);
+}
+
+.pill-cancelled {
+  border-color: #fca5a5 !important;
+  background: #fff5f5 !important;
+  opacity: 0.85;
+}
+
+.pill-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.pill-class-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pill-status-tag {
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.status-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-scheduled {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-pending_makeup_sign_approval {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.status-cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pill-time {
+  font-size: 22rpx;
+  color: #475569;
+  margin-bottom: 6rpx;
+}
+
+.pill-info {
+  font-size: 20rpx;
+  color: #2563eb;
+}
+
+/* ── 签到快照结果卡片 ── */
+.snapshot-card {
+  margin: 0 24rpx 24rpx 24rpx;
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  border: 2rpx solid #10b981;
+  box-shadow: 0 4rpx 16rpx rgba(16, 185, 129, 0.12);
+}
+
+.snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2rpx dashed #e2e8f0;
+  padding-bottom: 14rpx;
+  margin-bottom: 16rpx;
+}
+
+.snapshot-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.snapshot-icon {
+  font-size: 32rpx;
+  margin-right: 8rpx;
+}
+
+.snapshot-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.snapshot-time {
+  font-size: 18rpx;
+  color: #94a3b8;
+}
+
+.debt-notice-box {
+  background: #fef2f2;
+  border-radius: 10rpx;
+  padding: 14rpx 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.debt-notice-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.warn-icon {
+  font-size: 24rpx;
+  margin-right: 8rpx;
+}
+
+.warn-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.debt-notice-item {
+  font-size: 20rpx;
+  color: #dc2626;
+  line-height: 1.4;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+  background: #f8fafc;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  margin-bottom: 14rpx;
+}
+
+.grid-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.g-label {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.g-val {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 4rpx;
+}
+
+.highlight-headcount {
+  color: #059669;
+}
+
+.highlight-salary {
+  color: #dc2626;
+}
+
+.highlight-hours {
+  color: #2563eb;
+}
+
+.highlight-trial {
+  color: #d97706;
+}
+
+/* Phase 4-A 课酬核算细节透明条 */
+.fee-detail-strip {
+  background: #f1f5f9;
+  border-left: 6rpx solid #059669;
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  margin-top: 10rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.fds-row {
+  display: flex;
+  font-size: 20rpx;
+  line-height: 1.4;
+}
+
+.fds-label {
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fds-val {
+  color: #1e293b;
+  flex: 1;
+}
+
+.highlight-tier {
+  color: #047857;
+  font-weight: 700;
+}
+
+.changed-details-box {
+  background: #eff6ff;
+  border-radius: 10rpx;
+  padding: 14rpx 16rpx;
+  margin-top: 10rpx;
+}
+
+.cd-title {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 6rpx;
+  display: block;
+}
+
+.cd-item {
+  font-size: 20rpx;
+  color: #3b82f6;
+  line-height: 1.5;
+}
+
+/* ── 点名工作台容器 ── */
+.sheet-container {
+  padding: 0 24rpx;
+}
+
+.class-summary-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03);
+}
+
+.summary-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.class-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+  margin-right: 12rpx;
+}
+
+.course-tag {
+  font-size: 20rpx;
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-right: 12rpx;
+}
+
+.cancel-tag {
+  font-size: 20rpx;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.salary-pill {
+  font-size: 20rpx;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.summary-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.meta-item {
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.lock-item {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* 实时人头计数条 */
+.live-counter-bar {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 18rpx 10rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+}
+
+.counter-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.counter-num {
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.formal-num {
+  color: #059669;
+}
+
+.trial-num {
+  color: #d97706;
+}
+
+.absent-num {
+  color: #94a3b8;
+}
+
+.counter-label {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+}
+
+.counter-divider {
+  width: 2rpx;
+  height: 48rpx;
+  background: #e2e8f0;
+}
+
+/* 快捷切换栏 */
+.quick-toggle-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+
+.toggle-tip {
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.toggle-btns {
+  display: flex;
+  gap: 10rpx;
+}
+
+.btn-toggle-all {
+  font-size: 20rpx;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── 学生点名卡片网格 ── */
+.students-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  margin-bottom: 24rpx;
+}
+
+.student-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  border: 2rpx solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.card-present {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.card-trial-present {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.card-absent {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  opacity: 0.9;
+}
+
+.stu-click-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stu-info-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.stu-name-row {
+  display: flex;
+  align-items: center;
+}
+
+.stu-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+  margin-right: 10rpx;
+}
+
+.gender-tag {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.stu-badge-row {
+  margin-top: 6rpx;
+}
+
+.formal-badge {
+  font-size: 20rpx;
+  color: #059669;
+  font-weight: 500;
+}
+
+.trial-badge {
+  font-size: 20rpx;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.stu-status-pill {
+  font-size: 24rpx;
+  font-weight: 700;
+  padding: 8rpx 20rpx;
+  border-radius: 30rpx;
+}
+
+.pill-present {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.pill-absent {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* 迟到 / 早退勾选区 */
+.tag-actions-row {
+  display: flex;
+  align-items: center;
+  border-top: 1rpx dashed #cbd5e1;
+  padding-top: 12rpx;
+  margin-top: 14rpx;
+  gap: 16rpx;
+}
+
+.action-checkbox {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: #475569;
+  padding: 6rpx 14rpx;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1rpx solid #cbd5e1;
+  border-radius: 8rpx;
+}
+
+.cb-active {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #f59e0b;
+  font-weight: 600;
+}
+
+.cb-icon {
+  margin-right: 6rpx;
+}
+
+.rule-hint {
+  font-size: 18rpx;
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+/* Phase 3 补课预约插槽条 */
+.makeup-slot-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1rpx dashed #e2e8f0;
+  padding-top: 10rpx;
+  margin-top: 12rpx;
+}
+
+.makeup-hint {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.btn-book-makeup {
+  font-size: 20rpx;
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1rpx solid #d8b4fe;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* 隐私脱敏行 */
+.stu-privacy-row {
+  margin-top: 8rpx;
+}
+
+.privacy-tag {
+  font-size: 18rpx;
+  color: #64748b;
+}
+
+.admin-balance-tag {
+  font-size: 18rpx;
+  color: #2563eb;
+}
+
+/* 底部操作栏 */
+.submit-bar {
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.submit-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.submit-headcount {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.submit-deduct-tip {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+}
+
+.action-btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.btn-submit-attendance {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-radius: 14rpx;
+  padding: 18rpx 0;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+.btn-update-attendance {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-radius: 14rpx;
+  padding: 18rpx 0;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+.btn-makeup-request {
+  font-size: 24rpx;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1rpx solid #fde68a;
+  border-radius: 12rpx;
+  padding: 12rpx 0;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.locked-bar {
+  background: #fef2f2;
+  border-radius: 12rpx;
+  padding: 16rpx;
+}
+
+.pending-bar {
+  background: #eff6ff !important;
+}
+
+.locked-txt {
+  font-size: 22rpx;
+  color: #b91c1c;
+  line-height: 1.5;
+  display: block;
+}
+
+.pending-bar .locked-txt {
+  color: #1e40af !important;
+}
+
+/* 弹窗通用样式 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+.modal-box {
+  width: 100%;
+  max-height: 85vh;
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-lg {
+  max-height: 90vh;
+}
+
+.modal-header {
+  padding: 28rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.modal-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-close {
+  font-size: 34rpx;
+  color: #94a3b8;
+  padding: 0 10rpx;
+}
+
+.modal-body {
+  padding: 30rpx;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 20rpx 30rpx;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  border-top: 1rpx solid #f1f5f9;
+  background: #fafafa;
+}
+
+.makeup-modal-tip {
+  background: #eff6ff;
+  border-radius: 10rpx;
+  padding: 16rpx;
+}
+
+.mm-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 6rpx;
+  display: block;
+}
+
+.mm-txt {
+  font-size: 20rpx;
+  color: #3b82f6;
+  line-height: 1.5;
+  display: block;
+}
+
+/* Phase 3-A 取消课程弹窗专属样式 */
+.cancel-modal-banner {
+  background: #fef2f2;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  border-left: 6rpx solid #ef4444;
+}
+
+.cmb-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #991b1b;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.cmb-txt {
+  font-size: 20rpx;
+  color: #b91c1c;
+  line-height: 1.5;
+  display: block;
+}
+
+.options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-top: 10rpx;
+}
+
+.option-card {
+  background: #f8fafc;
+  border: 2rpx solid #cbd5e1;
+  border-radius: 14rpx;
+  padding: 18rpx 20rpx;
+  transition: all 0.2s ease;
+}
+
+.option-card-active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.1);
+}
+
+.opt-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.opt-radio {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.opt-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.opt-desc {
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.5;
+  display: block;
+}
+
+.form-group {
+  margin-bottom: 20rpx;
+}
+
+.form-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10rpx;
+  display: block;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-input {
+  width: 100%;
+  height: 72rpx;
+  background: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.btn-cancel {
+  font-size: 26rpx;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 12rpx;
+  padding: 12rpx 32rpx;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.btn-confirm {
+  font-size: 26rpx;
+  color: #ffffff;
+  background: #2563eb;
+  border-radius: 12rpx;
+  padding: 12rpx 36rpx;
+  margin: 0;
+  line-height: 1.5;
+  border: none;
+}
+
+.btn-cancel-confirm {
+  background: #dc2626 !important;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}
+
+/* ── Phase 3-B: 代课排课药丸与操作按钮样式 ── */
+.pill-substitute {
+  border-color: #f59e0b !important;
+  background: #fffbeb !important;
+}
+
+.pill-sub-tag {
+  color: #b45309;
+  font-weight: 600;
+  font-size: 20rpx;
+}
+
+.btn-substitute-trigger {
+  font-size: 22rpx;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1rpx solid #fcd34d;
+  border-radius: 24rpx;
+  padding: 8rpx 18rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-cancel-sub-trigger {
+  font-size: 22rpx;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 24rpx;
+  padding: 8rpx 18rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-complaint-trigger {
+  font-size: 22rpx;
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1rpx solid #fdba74;
+  border-radius: 24rpx;
+  padding: 8rpx 18rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── Phase 3-B: 代课排课提示横幅 ── */
+.substitute-info-banner {
+  margin: 0 24rpx 18rpx 24rpx;
+  background: #fffbeb;
+  border: 2rpx solid #f59e0b;
+  border-radius: 14rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sub-banner-left {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.sub-banner-icon {
+  font-size: 30rpx;
+  margin-right: 12rpx;
+  margin-top: 2rpx;
+}
+
+.sub-banner-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  flex: 1;
+}
+
+.sub-banner-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.sub-banner-desc {
+  font-size: 20rpx;
+  color: #b45309;
+  line-height: 1.4;
+}
+
+.btn-sub-complaint-pill {
+  font-size: 20rpx;
+  background: #ea580c;
+  color: #ffffff;
+  border-radius: 20rpx;
+  padding: 6rpx 16rpx;
+  line-height: 1.4;
+  margin-left: 12rpx;
+  white-space: nowrap;
+  border: none;
+}
+
+.sub-badge {
+  font-size: 20rpx;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1rpx solid #fde68a;
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+}
+
+/* ── Phase 3-B: 代课客诉历史记录卡片 ── */
+.complaints-section {
+  margin: 0 24rpx 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  border: 1rpx solid #fed7aa;
+  box-shadow: 0 2rpx 8rpx rgba(234, 88, 12, 0.05);
+}
+
+.cs-head {
+  margin-bottom: 14rpx;
+}
+
+.cs-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.complaint-card {
+  background: #fffaf5;
+  border: 1rpx solid #ffedd5;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.complaint-card:last-child {
+  margin-bottom: 0;
+}
+
+.c-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.c-student-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.c-decision-badge {
+  font-size: 20rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+}
+
+.decision-refund {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1rpx solid #fca5a5;
+}
+
+.decision-relesson {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1rpx solid #fde68a;
+}
+
+.decision-ignore {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1rpx solid #cbd5e1;
+}
+
+.c-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 12rpx;
+}
+
+.c-row {
+  font-size: 22rpx;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.c-label {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.refund-highlight {
+  color: #dc2626 !important;
+  font-weight: 700;
+}
+
+.relesson-highlight {
+  color: #d97706 !important;
+  font-weight: 700;
+}
+
+.c-card-footer {
+  border-top: 1rpx dashed #fed7aa;
+  padding-top: 8rpx;
+}
+
+.c-footer-txt {
+  font-size: 18rpx;
+  color: #94a3b8;
+}
+
+/* ── Phase 3-B 弹窗专属样式 ── */
+.sub-modal-tip {
+  background: #fffbeb;
+  border-left: 6rpx solid #f59e0b;
+  border-radius: 10rpx;
+  padding: 16rpx;
+}
+
+.smt-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: 6rpx;
+  display: block;
+}
+
+.smt-txt {
+  font-size: 20rpx;
+  color: #b45309;
+  line-height: 1.5;
+  display: block;
+}
+
+.complaint-modal-banner {
+  background: #fff7ed;
+  border-left: 6rpx solid #ea580c;
+  border-radius: 12rpx;
+  padding: 18rpx;
+}
+
+.picker-input {
+  width: 100%;
+  height: 72rpx;
+  background: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: #0f172a;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Phase 3-C: 管理员跨师补课待办工作台 ── */
+.admin-pending-makeup-banner {
+  margin: 0 24rpx 18rpx 24rpx;
+  background: #fffbeb;
+  border: 2rpx solid #f59e0b;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(245, 158, 11, 0.12);
+}
+
+.apmb-head {
+  margin-bottom: 14rpx;
+}
+
+.apmb-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.apmb-icon {
+  font-size: 28rpx;
+  margin-right: 10rpx;
+}
+
+.apmb-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.apmb-tip {
+  font-size: 20rpx;
+  color: #b45309;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.apmb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.apmb-item {
+  background: #ffffff;
+  border: 1rpx solid #fde68a;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.apmb-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  flex: 1;
+}
+
+.apmb-stu-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.apmb-class-desc {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.apmb-remarks {
+  font-size: 20rpx;
+  color: #d97706;
+}
+
+.btn-assign-cross {
+  font-size: 22rpx;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 20rpx;
+  padding: 8rpx 22rpx;
+  line-height: 1.4;
+  margin-left: 16rpx;
+  white-space: nowrap;
+  border: none;
+}
+
+/* ── Phase 3-C: 补课学员标签与缺勤补课状态 Badge ── */
+.makeup-badge {
+  font-size: 20rpx;
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1rpx solid #ddd6fe;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+}
+
+.makeup-locked-tip {
+  margin: 10rpx 0 6rpx 0;
+  background: #eef2ff;
+  border: 1rpx solid #c7d2fe;
+  border-radius: 8rpx;
+  padding: 8rpx 14rpx;
+  display: flex;
+  align-items: center;
+}
+
+.mlt-icon {
+  font-size: 22rpx;
+  margin-right: 8rpx;
+}
+
+.mlt-txt {
+  font-size: 20rpx;
+  color: #3730a3;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.makeup-status-badge {
+  font-size: 20rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  white-space: nowrap;
+}
+
+.badge-waived {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1rpx solid #cbd5e1;
+}
+
+.badge-pending-admin {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1rpx solid #fde68a;
+}
+
+.badge-scheduled {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1rpx solid #bbf7d0;
+}
+
+.badge-completed {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1rpx solid #bae6fd;
+}
+
+/* ── Phase 3-C: 补课弹窗专属样式 ── */
+.makeup-flow-tip {
+  background: #eef2ff;
+  border-left: 6rpx solid #4f46e5;
+  border-radius: 12rpx;
+  padding: 18rpx;
+}
+
+.mft-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #312e81;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.mft-txt {
+  font-size: 20rpx;
+  color: #4338ca;
+  line-height: 1.5;
+  display: block;
+}
+
+.admin-assign-tip {
+  background: #fffbeb;
+  border-left: 6rpx solid #f59e0b;
+  border-radius: 12rpx;
+  padding: 18rpx;
+}
+
+.aat-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #92400e;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.aat-txt {
+  font-size: 20rpx;
+  color: #b45309;
+  line-height: 1.5;
+  display: block;
+}
+
+.sub-mode-section {
+  margin-top: 18rpx;
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 14rpx;
+  padding: 18rpx;
+}
+
+.sub-mode-tabs {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
+.tab-btn {
+  flex: 1;
+  font-size: 22rpx;
+  text-align: center;
+  padding: 14rpx 8rpx;
+  background: #ffffff;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  color: #475569;
+}
+
+.tab-btn-active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.empty-schedules-tip {
+  font-size: 22rpx;
+  color: #dc2626;
+  background: #fee2e2;
+  border-radius: 8rpx;
+  padding: 14rpx 16rpx;
+  margin-top: 6rpx;
+}
+
+.new-solo-box {
+  margin-top: 14rpx;
+  background: #ffffff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 10rpx;
+  padding: 16rpx;
+}
+
+.time-range-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.time-col {
+  flex: 1;
+}
+
+.solo-hours-hint {
+  font-size: 20rpx;
+  color: #2563eb;
+  font-weight: 600;
+  display: block;
+  margin-top: 8rpx;
+}
+
+/* ── Phase 4-B: 原班累进补差明细台账卡片 ── */
+.diff-fees-section {
+  margin: 0 24rpx 20rpx 24rpx;
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(5, 150, 105, 0.05);
+}
+
+.dfs-head {
+  margin-bottom: 14rpx;
+}
+
+.dfs-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.dfs-icon {
+  font-size: 28rpx;
+  margin-right: 8rpx;
+}
+
+.dfs-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.dfs-tip {
+  font-size: 20rpx;
+  color: #047857;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.diff-card {
+  background: #ffffff;
+  border: 1rpx solid #dcfce7;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.diff-card:last-child {
+  margin-bottom: 0;
+}
+
+.df-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.df-stu {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.df-amount {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #059669;
+}
+
+.df-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-bottom: 8rpx;
+}
+
+.df-row {
+  font-size: 22rpx;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.df-label {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.df-footer {
+  border-top: 1rpx dashed #e2e8f0;
+  padding-top: 8rpx;
+}
+
+.df-time {
+  font-size: 18rpx;
+  color: #94a3b8;
+}

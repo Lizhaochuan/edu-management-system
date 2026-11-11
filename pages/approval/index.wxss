@@ -1,0 +1,382 @@
+/* pages/approval/index.wxss */
+.approval-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ── 规则提示条 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: #fff7ed;
+  border-left: 6rpx solid #ea580c;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  align-items: flex-start;
+  box-shadow: 0 2rpx 8rpx rgba(234, 88, 12, 0.08);
+}
+
+.rule-icon {
+  font-size: 30rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+}
+
+.rule-text {
+  font-size: 22rpx;
+  color: #9a3412;
+  line-height: 1.5;
+}
+
+.rule-highlight {
+  font-weight: 700;
+  color: #c2410c;
+}
+
+/* ── Tab 切换 ── */
+.tab-bar {
+  display: flex;
+  background: #ffffff;
+  margin: 0 24rpx 20rpx 24rpx;
+  border-radius: 14rpx;
+  padding: 8rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14rpx 0;
+  border-radius: 10rpx;
+  font-size: 26rpx;
+  color: #64748b;
+  font-weight: 600;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.tab-item.active {
+  background: #1a73e8;
+  color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(26, 115, 232, 0.25);
+}
+
+.tab-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 20rpx;
+  margin-left: 10rpx;
+}
+
+.tab-item.active .tab-badge {
+  background: #ffffff;
+  color: #1a73e8;
+}
+
+.gray-badge {
+  background: #94a3b8;
+}
+
+/* ── 列表容器 ── */
+.list-container {
+  padding: 0 24rpx;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 40rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.03);
+}
+
+.empty-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.empty-sub {
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-top: 10rpx;
+  text-align: center;
+}
+
+/* ── 审批单卡片 ── */
+.approval-card {
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx 20rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+  border: 2rpx solid transparent;
+}
+
+.card-self {
+  border-color: #fed7aa;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16rpx;
+  border-bottom: 2rpx solid #f1f5f9;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.type-tag {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+
+.type-config { background: #fee2e2; color: #dc2626; }
+.type-freeze { background: #e0e7ff; color: #4338ca; }
+.type-adjust { background: #fef3c7; color: #d97706; }
+.type-refund { background: #fce7f3; color: #be185d; }
+.type-transfer { background: #e0f2fe; color: #0369a1; }
+.type-attendance { background: #ecfdf5; color: #047857; }
+.type-salary { background: #fef08a; color: #854d0e; }
+.type-default { background: #f1f5f9; color: #475569; }
+
+.order-id {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.status-tag {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.status-pending  { background: #fef9c3; color: #a16207; }
+.status-approved { background: #dcfce7; color: #15803d; }
+.status-rejected { background: #fee2e2; color: #b91c1c; }
+
+/* ── 元信息 ── */
+.card-meta {
+  margin-top: 16rpx;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  line-height: 1.8;
+}
+
+.meta-label {
+  color: #64748b;
+  width: 130rpx;
+}
+
+.meta-value {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.proposer-name {
+  font-weight: 600;
+}
+
+.self-tag {
+  background: #ffedd5;
+  color: #c2410c;
+  font-size: 18rpx;
+  font-weight: 600;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  margin-left: 10rpx;
+}
+
+.require-role {
+  color: #2563eb;
+}
+
+.highlight-approver {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+/* ── 理由区域 ── */
+.reason-section {
+  margin-top: 14rpx;
+  background: #f8fafc;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.reason-label {
+  color: #475569;
+  font-weight: 600;
+}
+
+.reason-text {
+  color: #1e293b;
+}
+
+.reject-box {
+  margin-top: 14rpx;
+  background: #fef2f2;
+  border-left: 6rpx solid #ef4444;
+  border-radius: 6rpx;
+  padding: 12rpx 16rpx;
+  font-size: 22rpx;
+  color: #991b1b;
+}
+
+.reject-title {
+  font-weight: 700;
+}
+
+/* ── 快照对比 ── */
+.diff-section {
+  margin-top: 16rpx;
+}
+
+.diff-title {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10rpx;
+}
+
+.diff-grid {
+  display: flex;
+  justify-content: space-between;
+}
+
+.diff-col {
+  width: 48.5%;
+  border-radius: 10rpx;
+  overflow: hidden;
+  border: 1rpx solid #e2e8f0;
+}
+
+.diff-before {
+  background: #fffbfb;
+}
+
+.diff-after {
+  background: #f8fafc;
+}
+
+.col-head {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 8rpx 12rpx;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.diff-before .col-head {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.diff-after .col-head {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.json-code {
+  height: 120rpx;
+  padding: 10rpx;
+  font-family: monospace;
+  font-size: 18rpx;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-sizing: border-box;
+}
+
+/* ── 底部操作区 ── */
+.card-footer {
+  margin-top: 20rpx;
+  padding-top: 16rpx;
+  border-top: 2rpx solid #f1f5f9;
+}
+
+.self-warning {
+  font-size: 20rpx;
+  color: #c2410c;
+  background: #fff7ed;
+  padding: 6rpx 12rpx;
+  border-radius: 6rpx;
+  margin-bottom: 12rpx;
+  text-align: center;
+  font-weight: 500;
+}
+
+.btn-group {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-action {
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+  padding: 12rpx 32rpx;
+  margin-left: 16rpx;
+  line-height: 1.4;
+}
+
+.btn-reject {
+  background: #ffffff;
+  color: #dc2626;
+  border: 2rpx solid #fca5a5;
+}
+
+.btn-approve {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #ffffff;
+}
+
+.btn-disabled {
+  opacity: 0.55;
+}
+
+.no-permission-tip {
+  font-size: 20rpx;
+  color: #94a3b8;
+  text-align: center;
+  background: #f8fafc;
+  padding: 10rpx 0;
+  border-radius: 8rpx;
+}
+
+.audit-hint {
+  margin-top: 16rpx;
+  font-size: 18rpx;
+  color: #059669;
+  text-align: center;
+}

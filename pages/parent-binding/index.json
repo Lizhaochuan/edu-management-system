@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "家长绑定与通知授权",
+  "usingComponents": {
+    "role-switcher": "/components/role-switcher/index"
+  }
+}

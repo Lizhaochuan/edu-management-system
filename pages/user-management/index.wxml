@@ -1,0 +1,273 @@
+<!-- pages/user-management/index.wxml -->
+<view class="user-mgmt-page">
+  <!-- 1. 顶部角色模拟切换组件（方便现场切号检验死锁与测试） -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- ── 场景 A：非超管角色死锁拦截视图 ── -->
+  <view wx:if="{{!isSuperAdmin}}" class="lock-container">
+    <view class="lock-card">
+      <view class="lock-icon">🔒</view>
+      <view class="lock-title">权限受限</view>
+      <view class="lock-desc">
+        人员权限分配与身份赋权属于核心控制台，仅超级管理员（机构老板 / 合伙人）可进入操作。
+      </view>
+      <view class="lock-sub">
+        当前登录身份：【{{currentUser.name}} ({{currentUser.role}}）】无权修改系统人员身份。
+      </view>
+      <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
+        返回工作台首页
+      </button>
+    </view>
+  </view>
+
+  <!-- ── 场景 B：超级管理员授权管理视图 ── -->
+  <view wx:else class="mgmt-content">
+    <!-- 2. 控制台顶部横幅 -->
+    <view class="mgmt-header-card">
+      <view class="header-main">
+        <view class="header-title-box">
+          <text class="header-icon">👑</text>
+          <text class="header-title">机构人员与身份赋权中心</text>
+        </view>
+        <view class="header-desc">
+          所有用户登录后默认均为无身份访客，由超级管理员在此统一分配家长、教师、管理或超管权限。
+        </view>
+      </view>
+      <button class="btn-add-user" bindtap="onOpenAddModal" hover-class="btn-hover">
+        <text class="btn-add-icon">＋</text>
+        <text>预录入新成员账号</text>
+      </button>
+    </view>
+
+    <!-- 3. 角色分类筛选 Tab -->
+    <scroll-view class="tab-scroll" scroll-x enable-flex>
+      <view 
+        class="tab-item {{activeTab === 'all' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="all"
+      >
+        <text>全部</text>
+        <text class="badge">{{counts.all}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'guest' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="guest"
+      >
+        <text>待分配游客</text>
+        <text class="badge red-badge">{{counts.guest}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'parent' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="parent"
+      >
+        <text>家长</text>
+        <text class="badge">{{counts.parent}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'teacher' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="teacher"
+      >
+        <text>教师</text>
+        <text class="badge">{{counts.teacher}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'admin' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="admin"
+      >
+        <text>教务管理</text>
+        <text class="badge">{{counts.admin}}</text>
+      </view>
+      <view 
+        class="tab-item {{activeTab === 'super_admin' ? 'active' : ''}}" 
+        bindtap="onSwitchTab" 
+        data-tab="super_admin"
+      >
+        <text>超管合伙人</text>
+        <text class="badge">{{counts.super_admin}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 4. 用户列表 -->
+    <view class="user-list">
+      <view wx:if="{{filteredUsers.length === 0}}" class="empty-state">
+        <text class="empty-icon">👥</text>
+        <text class="empty-text">当前分类下暂无成员数据</text>
+      </view>
+
+      <view 
+        wx:for="{{filteredUsers}}" 
+        wx:key="id" 
+        class="user-card {{item.role === 'guest' ? 'card-guest-highlight' : ''}}"
+      >
+        <view class="card-left">
+          <view class="user-avatar avatar-{{item.role}}">
+            <text>{{item.name ? item.name[0] : '用'}}</text>
+          </view>
+          <view class="user-details">
+            <view class="name-row">
+              <text class="real-name">{{item.name}}</text>
+              <view class="user-role-badge {{item.badgeClass}}">
+                {{item.roleLabel}}
+              </view>
+              <text wx:if="{{item.isSelf}}" class="self-tag">当前账号</text>
+            </view>
+            <view class="phone-row">
+              <text class="phone-text">📱 {{item.phone || '未绑定手机'}}</text>
+              <text wx:if="{{item.tierName}}" class="tier-tag">{{item.tierName}}</text>
+            </view>
+            <view class="role-desc-row">{{item.roleDesc}}</view>
+          </view>
+        </view>
+
+        <view class="card-right">
+          <button 
+            class="btn-edit-role" 
+            bindtap="onOpenEditModal" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            {{item.role === 'guest' ? '⚡ 立即赋权' : '调整身份'}}
+          </button>
+          <button 
+            wx:if="{{!item.isSelf}}" 
+            class="btn-delete" 
+            bindtap="onDeleteUser" 
+            data-id="{{item.id}}"
+          >
+            删除
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：预录入新成员 ── -->
+  <view wx:if="{{showAddModal}}" class="modal-mask" bindtap="onCloseAddModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">预录入新成员账号</text>
+        <text class="modal-close" bindtap="onCloseAddModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">成员姓名 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="请输入姓名（如：李老师、王小乐妈妈）" 
+            value="{{addForm.name}}"
+            bindinput="onAddInputName"
+          />
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">手机号码（唯一凭据） <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="number"
+            placeholder="请输入 11 位手机号" 
+            value="{{addForm.phone}}"
+            bindinput="onAddInputPhone"
+          />
+          <text class="input-tip">用户首次使用此手机号登录时，将自动匹配预设身份。</text>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">指定初始角色 <text class="required">*</text></text>
+          <view class="role-selector">
+            <view 
+              wx:for="{{roleOptions}}" 
+              wx:key="value" 
+              class="role-opt-item {{addForm.role === item.value ? 'selected' : ''}}"
+              bindtap="onAddSelectRole"
+              data-role="{{item.value}}"
+            >
+              <text class="opt-name">{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{addForm.role === 'teacher'}}" class="form-group">
+          <text class="form-label">教师薪资档位</text>
+          <view class="tier-selector">
+            <view 
+              wx:for="{{tierOptions}}" 
+              wx:key="id" 
+              class="tier-opt-item {{addForm.teacher_tier_id === item.id ? 'selected' : ''}}"
+              bindtap="onAddSelectTier"
+              data-tier="{{item.id}}"
+            >
+              <text>{{item.name}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseAddModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitAdd">确认预录入并建档</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：身份重新赋权调整 ── -->
+  <view wx:if="{{showEditModal}}" class="modal-mask" bindtap="onCloseEditModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">分配与调整用户身份</text>
+        <text class="modal-close" bindtap="onCloseEditModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="user-brief-bar">
+          <text class="brief-name">{{editingUser.name}}</text>
+          <text class="brief-phone">📱 {{editingUser.phone}}</text>
+          <text class="brief-id">ID: {{editingUser.id}}</text>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">选择赋予的新身份角色：</text>
+          <view class="role-card-options">
+            <view 
+              wx:for="{{roleOptions}}" 
+              wx:key="value" 
+              class="role-choice-card {{editForm.role === item.value ? 'card-selected' : ''}}"
+              bindtap="onEditSelectRole"
+              data-role="{{item.value}}"
+            >
+              <view class="choice-top">
+                <text class="choice-name">{{item.label}}</text>
+                <text wx:if="{{editForm.role === item.value}}" class="choice-check">✓</text>
+              </view>
+              <text class="choice-desc">{{item.desc}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{editForm.role === 'teacher'}}" class="form-group">
+          <text class="form-label">教师课酬结算档位：</text>
+          <view class="tier-selector">
+            <view 
+              wx:for="{{tierOptions}}" 
+              wx:key="id" 
+              class="tier-opt-item {{editForm.teacher_tier_id === item.id ? 'selected' : ''}}"
+              bindtap="onEditSelectTier"
+              data-tier="{{item.id}}"
+            >
+              <text>{{item.name}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="audit-security-tip">
+          🛡️ 该赋权指令将永久记录至不可篡改操作日志（记录操作人与修改前后的快照）。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseEditModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitEdit">保存并立即生效</button>
+      </view>
+    </view>
+  </view>
+</view>

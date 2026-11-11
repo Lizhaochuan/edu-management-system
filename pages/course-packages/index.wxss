@@ -1,0 +1,1366 @@
+/* pages/course-packages/index.wxss */
+.package-page {
+  min-height: 100vh;
+  background-color: #f4f6fa;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ── 顶部铁律横幅 ── */
+.rule-banner {
+  margin: 0 24rpx 16rpx 24rpx;
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  border-radius: 16rpx;
+  padding: 22rpx 20rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 16rpx rgba(49, 46, 129, 0.15);
+}
+
+.banner-top {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 32rpx;
+  margin-right: 10rpx;
+}
+
+.banner-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+.banner-desc {
+  font-size: 22rpx;
+  color: #c7d2fe;
+  margin-top: 8rpx;
+  line-height: 1.5;
+}
+
+/* ── 数据看板横条 ── */
+.stats-panel {
+  margin: 0 24rpx 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx 10rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.stat-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.stat-gift {
+  color: #059669;
+}
+
+.stat-debt {
+  color: #dc2626 !important;
+}
+
+.stat-public {
+  color: #2563eb;
+}
+
+.stat-personal {
+  color: #d97706;
+}
+
+.stat-label {
+  font-size: 18rpx;
+  color: #64748b;
+  margin-top: 6rpx;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 40rpx;
+  background: #e2e8f0;
+}
+
+/* ── Phase 2-A 核心亮点：消课扣费留痕与原路逆向回滚看板 ── */
+.deduction-result-box {
+  margin: 0 24rpx 24rpx 24rpx;
+  background: #ffffff;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  border: 2rpx solid #6366f1;
+  box-shadow: 0 4rpx 16rpx rgba(99, 102, 241, 0.12);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2rpx dashed #e2e8f0;
+  padding-bottom: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.result-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.result-icon {
+  font-size: 32rpx;
+  margin-right: 8rpx;
+}
+
+.result-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #312e81;
+}
+
+.btn-rollback-trigger {
+  font-size: 22rpx;
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-radius: 30rpx;
+  padding: 8rpx 22rpx;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+.alert-strip {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  border-radius: 10rpx;
+  margin-bottom: 14rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.strip-debt {
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 6rpx solid #ef4444;
+}
+
+.strip-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border-left: 6rpx solid #f59e0b;
+}
+
+.strip-unlocked {
+  background: #ecfdf5;
+  color: #065f46;
+  border-left: 6rpx solid #10b981;
+}
+
+.alert-icon {
+  margin-right: 10rpx;
+  font-size: 26rpx;
+}
+
+.deduct-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+  background: #f8fafc;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.s-label {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.s-val {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #1e293b;
+  margin-top: 4rpx;
+}
+
+.highlight-paid {
+  color: #2563eb;
+}
+
+.highlight-gift {
+  color: #059669;
+}
+
+.breakdown-section {
+  margin-bottom: 16rpx;
+}
+
+.breakdown-title {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 10rpx;
+  display: block;
+}
+
+.breakdown-card {
+  background: #f1f5f9;
+  border-radius: 10rpx;
+  padding: 12rpx 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.bd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.bd-id {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.bd-tag {
+  font-size: 18rpx;
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.bd-body {
+  font-size: 20rpx;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.bd-row {
+  display: block;
+}
+
+.c-paid {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.c-gift {
+  color: #059669;
+  font-weight: 600;
+}
+
+.json-preview-box {
+  background: #1e293b;
+  border-radius: 10rpx;
+  padding: 14rpx;
+  margin-top: 10rpx;
+}
+
+.json-label {
+  font-size: 20rpx;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.json-code {
+  font-size: 18rpx;
+  color: #38bdf8;
+  font-family: monospace;
+  word-break: break-all;
+  white-space: pre-wrap;
+  display: block;
+}
+
+/* ── 操作栏 ── */
+.section-bar {
+  margin: 0 24rpx 16rpx 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4rpx;
+}
+
+.section-left {
+  display: flex;
+  align-items: baseline;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.section-count {
+  font-size: 22rpx;
+  color: #64748b;
+  margin-left: 12rpx;
+}
+
+.section-btns {
+  display: flex;
+  gap: 12rpx;
+}
+
+.btn-quick-deduct {
+  font-size: 22rpx;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+  border-radius: 28rpx;
+  padding: 10rpx 20rpx;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+.btn-add-package {
+  font-size: 22rpx;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border-radius: 28rpx;
+  padding: 10rpx 20rpx;
+  line-height: 1.4;
+  margin: 0;
+  border: none;
+}
+
+/* ── 课时包卡片列表 ── */
+.package-list {
+  padding: 0 24rpx;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.empty-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+
+.package-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border: 2rpx solid transparent;
+}
+
+.card-debt {
+  border-color: #fca5a5;
+  background: #fffafa;
+}
+
+.card-locked {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18rpx;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.student-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.course-badge {
+  font-size: 20rpx;
+  color: #4338ca;
+  background: #e0e7ff;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.locked-badge {
+  font-size: 20rpx;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
+.dest-badge {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.dest-public {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.dest-personal {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+/* 课时详情数据网格 */
+.hours-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+  background: #f8fafc;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  margin-bottom: 18rpx;
+}
+
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.cell-label {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.cell-val {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 6rpx;
+}
+
+.paid-val {
+  color: #2563eb;
+}
+
+.gift-val {
+  color: #059669;
+}
+
+/* 期数与到期日信息 */
+.card-meta {
+  border-top: 1rpx solid #f1f5f9;
+  padding-top: 14rpx;
+  margin-bottom: 16rpx;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: #64748b;
+  margin-bottom: 8rpx;
+  flex-wrap: wrap;
+}
+
+.meta-label {
+  color: #94a3b8;
+}
+
+.meta-val {
+  color: #334155;
+  margin-right: 14rpx;
+}
+
+.expire-pill {
+  font-size: 20rpx;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.debt-alert-row {
+  background: #fef2f2;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 6rpx;
+}
+
+.debt-icon {
+  margin-right: 8rpx;
+}
+
+.debt-text {
+  color: #dc2626;
+  font-size: 22rpx;
+}
+
+.debt-hours {
+  font-weight: 700;
+}
+
+.locked-info-row {
+  background: #fffbeb;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 6rpx;
+}
+
+.lock-icon {
+  margin-right: 8rpx;
+}
+
+.lock-desc {
+  color: #b45309;
+  font-size: 20rpx;
+}
+
+.offset-summary-row {
+  background: #ecfdf5;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 6rpx;
+}
+
+.offset-tag {
+  font-size: 18rpx;
+  background: #10b981;
+  color: #ffffff;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  margin-right: 8rpx;
+}
+
+.offset-text {
+  font-size: 20rpx;
+  color: #065f46;
+}
+
+/* 卡片底部操作 */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1rpx dashed #e2e8f0;
+  padding-top: 16rpx;
+}
+
+.pkg-id {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.btn-deduct-test {
+  font-size: 22rpx;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 24rpx;
+  padding: 6rpx 18rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── 弹窗通用样式 ── */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+.modal-box {
+  width: 100%;
+  max-height: 85vh;
+  background: #ffffff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-lg {
+  max-height: 90vh;
+}
+
+.modal-header {
+  padding: 28rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.modal-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-close {
+  font-size: 34rpx;
+  color: #94a3b8;
+  padding: 0 10rpx;
+}
+
+.modal-body {
+  padding: 30rpx;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.modal-footer {
+  padding: 20rpx 30rpx;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  border-top: 1rpx solid #f1f5f9;
+  background: #fafafa;
+}
+
+/* 快捷测试案例按钮组 */
+.quick-cases-box {
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.qc-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.qc-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.btn-qc {
+  font-size: 22rpx;
+  color: #3b82f6;
+  background: #eff6ff;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 8rpx;
+  text-align: left;
+  padding: 10rpx 16rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-qc-unlock {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+/* 表单组 */
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.form-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10rpx;
+  display: block;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.picker-input, .form-input {
+  width: 100%;
+  height: 72rpx;
+  background: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  color: #0f172a;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.dest-toggle-group {
+  display: flex;
+  gap: 16rpx;
+}
+
+.dest-btn {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.dest-btn-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.debt-warning-box {
+  background: #fef2f2;
+  border-left: 6rpx solid #ef4444;
+  border-radius: 8rpx;
+  padding: 14rpx 16rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
+}
+
+.term-date-tip {
+  font-size: 20rpx;
+  color: #0284c7;
+  margin-top: 8rpx;
+}
+
+.rollback-tip-box {
+  background: #fef2f2;
+  border-radius: 12rpx;
+  padding: 18rpx;
+}
+
+.rb-tip-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #991b1b;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.rb-tip-txt {
+  font-size: 22rpx;
+  color: #b91c1c;
+  line-height: 1.5;
+  display: block;
+}
+
+.btn-cancel {
+  font-size: 26rpx;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 12rpx;
+  padding: 12rpx 32rpx;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.btn-confirm {
+  font-size: 26rpx;
+  color: #ffffff;
+  background: #2563eb;
+  border-radius: 12rpx;
+  padding: 12rpx 36rpx;
+  margin: 0;
+  line-height: 1.5;
+  border: none;
+}
+
+.btn-rollback-confirm {
+  background: #dc2626 !important;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}
+
+/* ── Phase 5-A 冻结与调课时样式 ── */
+.footer-btn-group {
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.btn-footer {
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  line-height: 1.4;
+  margin: 0;
+  border-radius: 20rpx;
+  font-weight: 500;
+}
+
+.btn-freeze {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1rpx solid #bae6fd;
+}
+
+.btn-adjust {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1rpx solid #fde68a;
+}
+
+.freeze-info-row {
+  background: #f0f9ff;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 6rpx;
+}
+
+.freeze-icon {
+  margin-right: 8rpx;
+}
+
+.freeze-text {
+  font-size: 20rpx;
+  color: #0369a1;
+}
+
+.freeze-days {
+  font-weight: 700;
+}
+
+.freeze-tip-box, .adjust-tip-box {
+  background: #eff6ff;
+  border-left: 6rpx solid #2563eb;
+  padding: 12rpx 16rpx;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.ft-title, .at-title {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 4rpx;
+}
+
+.ft-txt, .at-txt {
+  display: block;
+  font-size: 20rpx;
+  color: #3b82f6;
+  line-height: 1.4;
+}
+
+.target-info-card {
+  background: #f8fafc;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.t-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+  margin-bottom: 8rpx;
+}
+
+.t-row:last-child {
+  margin-bottom: 0;
+}
+
+.t-label {
+  color: #64748b;
+}
+
+.t-val {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.preview-box {
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+  margin-top: 14rpx;
+}
+
+.preview-normal {
+  background: #f0fdf4;
+  border: 1rpx solid #bbf7d0;
+}
+
+.preview-error {
+  background: #fef2f2;
+  border: 1rpx solid #fecaca;
+}
+
+.p-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6rpx;
+}
+
+.p-content {
+  font-size: 22rpx;
+  color: #475569;
+}
+
+.p-val {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.p-warn {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #dc2626;
+  margin-top: 6rpx;
+}
+
+.dest-btn-danger.dest-btn-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.btn-disabled {
+  background: #cbd5e1 !important;
+  color: #94a3b8 !important;
+  pointer-events: none;
+}
+
+/* ── Phase 5-B 三转样式 ── */
+.btn-transfer {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1rpx solid #e9d5ff;
+}
+
+.scrollable-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.transfer-tip-box {
+  background: #faf5ff;
+  border-left: 6rpx solid #9333ea;
+  padding: 12rpx 16rpx;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.tt-title {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #6b21a8;
+  margin-bottom: 4rpx;
+}
+
+.tt-txt {
+  display: block;
+  font-size: 20rpx;
+  color: #7e22ce;
+  line-height: 1.4;
+}
+
+.radio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+}
+
+.radio-text {
+  margin-left: 10rpx;
+}
+
+.transfer-preview-card {
+  background: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  margin-top: 16rpx;
+}
+
+.tp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+  border-bottom: 1rpx solid #e2e8f0;
+  padding-bottom: 8rpx;
+}
+
+.tp-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tp-badge {
+  font-size: 18rpx;
+  font-weight: 600;
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.tp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.tp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 20rpx;
+}
+
+.tp-label {
+  color: #64748b;
+}
+
+.tp-val {
+  color: #1e293b;
+}
+
+.highlight-amount-row {
+  background: #ffffff;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  border: 1rpx dashed #cbd5e1;
+}
+
+.tp-val-money {
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.tp-summary {
+  font-size: 20rpx;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 10rpx 12rpx;
+  border-radius: 8rpx;
+  margin-top: 8rpx;
+  line-height: 1.4;
+}
+
+.scene-d-box {
+  background: #fef2f2;
+  border: 2rpx solid #ef4444;
+  border-radius: 10rpx;
+  padding: 14rpx 16rpx;
+  display: flex;
+  align-items: flex-start;
+  margin-top: 14rpx;
+}
+
+.sd-icon {
+  font-size: 28rpx;
+  margin-right: 10rpx;
+  margin-top: 2rpx;
+}
+
+.sd-txt {
+  font-size: 22rpx;
+  color: #b91c1c;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────
+ * Phase 5-C：退费核算引擎与四期到期顺延样式
+ * ───────────────────────────────────────── */
+.btn-scan-expiring {
+  font-size: 24rpx;
+  background: #fdf2f8;
+  color: #db2777;
+  border: 1rpx solid #fbcfe8;
+  border-radius: 8rpx;
+  padding: 8rpx 16rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.btn-refund {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.net-refund-total-row {
+  margin-top: 10rpx;
+  padding: 12rpx 16rpx;
+  background: #fef2f2;
+  border-radius: 8rpx;
+  border: 1rpx solid #fecaca;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tp-label-total {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.tp-val-total {
+  font-size: 34rpx;
+  font-weight: 900;
+  color: #dc2626;
+}
+
+.btn-danger {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.badge-personal {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.badge-public {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* 四期到期扫描弹窗样式 */
+.expiring-filter-bar {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e2e8f0;
+  margin-bottom: 16rpx;
+}
+
+.ef-label {
+  font-size: 24rpx;
+  color: #475569;
+  font-weight: 600;
+  margin-right: 12rpx;
+}
+
+.term-picker-box {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.term-picker-name {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.term-expire-date {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.expiring-hint-strip {
+  background: #eff6ff;
+  border: 1rpx solid #bfdbfe;
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 8rpx;
+}
+
+.eh-icon {
+  font-size: 24rpx;
+}
+
+.eh-txt {
+  font-size: 20rpx;
+  color: #1e40af;
+  line-height: 1.4;
+}
+
+.expiring-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.expiring-card {
+  background: #ffffff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.05);
+}
+
+.exp-expired {
+  border-color: #fca5a5;
+  background: #fffafa;
+}
+
+.exp-soon {
+  border-color: #fde68a;
+  background: #fffdf5;
+}
+
+.ec-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12rpx;
+}
+
+.ec-stu-info {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.ec-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ec-course {
+  font-size: 20rpx;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+}
+
+.ec-class {
+  font-size: 18rpx;
+  color: #94a3b8;
+}
+
+.ec-tag {
+  font-size: 18rpx;
+  font-weight: 600;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.tag-expired {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1rpx solid #fca5a5;
+}
+
+.tag-soon {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1rpx solid #fde68a;
+}
+
+.tag-normal {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1rpx solid #bbf7d0;
+}
+
+.ec-hours-row {
+  font-size: 20rpx;
+  color: #475569;
+  margin-bottom: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ec-expire-time {
+  font-size: 18rpx;
+  color: #64748b;
+}
+
+.ec-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  border-top: 1rpx solid #f1f5f9;
+  padding-top: 14rpx;
+}
+
+.btn-ec {
+  font-size: 22rpx;
+  padding: 8rpx 20rpx;
+  margin: 0;
+  line-height: 1.4;
+  border-radius: 6rpx;
+}
+
+.btn-ec-rollover {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1rpx solid #bbf7d0;
+}
+
+.btn-ec-refund {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1rpx solid #fca5a5;
+}
+
+

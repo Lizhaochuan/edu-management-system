@@ -1,0 +1,440 @@
+<!-- pages/salary/index.wxml -->
+<view class="salary-page">
+  <!-- 1. 顶部全局角色切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 身份与规则内控横幅 -->
+  <view class="rule-banner {{isTeacher ? 'banner-teacher' : 'banner-admin'}}">
+    <view class="banner-icon">{{isTeacher ? '🛡️' : '⚖️'}}</view>
+    <view class="banner-body">
+      <view class="banner-title">
+        {{isTeacher ? '教师端财务隐私隔离已生效' : '教务财务内控铁律已生效'}}
+      </view>
+      <view class="banner-desc" wx:if="{{isTeacher}}">
+        您当前以【{{currentUser.name}}】身份查看个人课酬账单。系统已对学生所有购课金额、剩余课时、折算单价、公私账去向执行严格物理隔离脱敏；系统严禁跨老师查看任何薪酬数据。
+      </view>
+      <view class="banner-desc" wx:else>
+        结算单一旦标记为【已结算 (settled)】即彻底锁死，严禁任何直接修改或删除！如核算后发现算错，严禁修改旧单据，必须走【薪资算错调账审批流】由超管批准后在下期发薪日自动挂入结清。
+      </view>
+    </view>
+  </view>
+
+  <!-- 3. 统计概览卡片 -->
+  <view class="summary-cards">
+    <view class="sum-card primary-card">
+      <view class="sum-label">{{isTeacher ? '我的累计实发课酬' : '已结算实发总额'}}</view>
+      <view class="sum-val">¥{{summary.totalDisbursed || 0}}</view>
+      <view class="sum-sub">包含正常、代课与补差</view>
+    </view>
+    <view class="sum-card">
+      <view class="sum-label">已锁定结算单</view>
+      <view class="sum-val text-green">{{summary.settledCount || 0}} <text class="sum-unit">份</text></view>
+      <view class="sum-sub">彻底锁死防篡改</view>
+    </view>
+    <view class="sum-card">
+      <view class="sum-label">草稿/待结算</view>
+      <view class="sum-val text-orange">{{summary.draftCount || 0}} <text class="sum-unit">份</text></view>
+      <view class="sum-sub">待财务核对确认</view>
+    </view>
+    <view class="sum-card" wx:if="{{!isTeacher}}">
+      <view class="sum-label">待结调账项</view>
+      <view class="sum-val text-blue">{{summary.pendingAdjCount || 0}} <text class="sum-unit">笔</text></view>
+      <view class="sum-sub">下期发薪自动挂入</view>
+    </view>
+  </view>
+
+  <!-- 4. Tab 切换栏 -->
+  <view class="tab-bar">
+    <view class="tab-item {{currentTab === 'settlement' ? 'active' : ''}}" bindtap="switchTab" data-tab="settlement">
+      <text class="tab-title">周期薪资结算单</text>
+      <text class="tab-badge" wx:if="{{settlements.length}}">{{settlements.length}}</text>
+    </view>
+    <view class="tab-item {{currentTab === 'adjustment' ? 'active' : ''}}" bindtap="switchTab" data-tab="adjustment">
+      <text class="tab-title">算错调账管理</text>
+      <text class="tab-badge" wx:if="{{adjustments.length}}">{{adjustments.length}}</text>
+    </view>
+    <view class="tab-item {{currentTab === 'fees' ? 'active' : ''}}" bindtap="switchTab" data-tab="fees">
+      <text class="tab-title">课酬明细台账</text>
+      <text class="tab-badge" wx:if="{{feesList.length}}">{{feesList.length}}</text>
+    </view>
+  </view>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- TAB 1: 周期薪资结算单 -->
+  <!-- ───────────────────────────────────────── -->
+  <view class="tab-content" wx:if="{{currentTab === 'settlement'}}">
+    <!-- 管理员操作工具条 -->
+    <view class="action-bar" wx:if="{{!isTeacher}}">
+      <view class="filter-row">
+        <picker mode="date" fields="month" value="{{selectedMonth}}" bindchange="onMonthChange">
+          <view class="picker-pill">
+            <text class="picker-label">周期: </text>
+            <text class="picker-val">{{selectedMonth}} ▾</text>
+          </view>
+        </picker>
+
+        <picker bindchange="onTeacherChange" value="{{teacherIndex}}" range="{{teacherList}}" range-key="name">
+          <view class="picker-pill">
+            <text class="picker-label">教师: </text>
+            <text class="picker-val">{{teacherList[teacherIndex].name || '全部老师'}} ▾</text>
+          </view>
+        </picker>
+      </view>
+
+      <button class="btn-primary" bindtap="onGenerateSettlement">
+        ⚡ 生成{{selectedMonth}}结算单
+      </button>
+    </view>
+
+    <!-- 结算单列表 -->
+    <view class="list-container">
+      <view class="empty-state" wx:if="{{settlements.length === 0}}">
+        <view class="empty-icon">📑</view>
+        <view class="empty-text">当前暂无薪资结算单</view>
+        <view class="empty-sub" wx:if="{{!isTeacher}}">点击上方“生成结算单”为老师汇总出账</view>
+      </view>
+
+      <view wx:for="{{settlements}}" wx:key="id" class="settle-card {{item.status === 'settled' ? 'card-settled' : 'card-draft'}}">
+        <view class="card-header">
+          <view class="header-left">
+            <text class="settle-no">{{item.settlement_no || item.id}}</text>
+            <text class="teacher-tag">{{item.teacher_name}}</text>
+            <text class="tier-tag">{{item.teacher_tier_name || '标准档'}}</text>
+          </view>
+          <view class="status-badge {{item.status === 'settled' ? 'badge-settled' : 'badge-draft'}}">
+            {{item.status === 'settled' ? '🔒 已结算·锁定' : '📝 草稿·待确认'}}
+          </view>
+        </view>
+
+        <!-- 周期与时间 -->
+        <view class="period-info">
+          <text class="period-text">结算周期: {{item.period}} ({{item.start_date}} ~ {{item.end_date}})</text>
+        </view>
+
+        <!-- 金额构成四要素网格 -->
+        <view class="fee-breakdown-grid">
+          <view class="breakdown-item">
+            <text class="breakdown-label">正常班课酬</text>
+            <text class="breakdown-val">¥{{item.regular_fee}}</text>
+            <text class="breakdown-sub">{{item.total_lessons - item.substitute_lessons}} 节</text>
+          </view>
+          <view class="breakdown-item">
+            <text class="breakdown-label">代课课酬</text>
+            <text class="breakdown-val text-blue">¥{{item.substitute_fee}}</text>
+            <text class="breakdown-sub">{{item.substitute_lessons}} 节</text>
+          </view>
+          <view class="breakdown-item">
+            <text class="breakdown-label">原班补差</text>
+            <text class="breakdown-val text-purple">¥{{item.makeup_diff_fee}}</text>
+            <text class="breakdown-sub">{{item.makeup_diff_count}} 人次</text>
+          </view>
+          <view class="breakdown-item">
+            <text class="breakdown-label">历史调账</text>
+            <text class="breakdown-val {{item.adjustments_fee >= 0 ? 'text-green' : 'text-red'}}">
+              {{item.adjustments_fee >= 0 ? '+' : ''}}¥{{item.adjustments_fee}}
+            </text>
+            <text class="breakdown-sub">{{item.adjustment_ids.length}} 笔</text>
+          </view>
+        </view>
+
+        <!-- 总计与操作栏 -->
+        <view class="card-footer">
+          <view class="total-wrap">
+            <text class="total-label">实发课酬合计: </text>
+            <text class="total-amount">¥{{item.total_salary}}</text>
+          </view>
+
+          <view class="btn-group">
+            <button class="btn-detail" bindtap="onViewSettlementDetail" data-id="{{item.id}}">
+              查看明细
+            </button>
+            <button 
+              wx:if="{{!isTeacher && item.status !== 'settled'}}" 
+              class="btn-settle" 
+              bindtap="onSettleConfirm" 
+              data-id="{{item.id}}"
+            >
+              🔒 确认结算并锁死
+            </button>
+          </view>
+        </view>
+
+        <!-- 锁定凭证 -->
+        <view class="lock-stamp" wx:if="{{item.status === 'settled'}}">
+          <text class="stamp-text">已锁定归档：{{item.settled_by_name}} 于 {{item.settled_at_short}} 操作</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- TAB 2: 算错调账管理 (Phase 4-C 核心) -->
+  <!-- ───────────────────────────────────────── -->
+  <view class="tab-content" wx:if="{{currentTab === 'adjustment'}}">
+    <view class="action-bar" wx:if="{{!isTeacher}}">
+      <view class="action-desc">
+        结算后算错绝不修改旧单据，统一通过发起调账走超管审批，超管批准后在下期结算自动抵扣/发放。
+      </view>
+      <button class="btn-primary" bindtap="openCreateAdjustmentModal">
+        + 发起薪资调账申请
+      </button>
+    </view>
+
+    <view class="list-container">
+      <view class="empty-state" wx:if="{{adjustments.length === 0}}">
+        <view class="empty-icon">⚖️</view>
+        <view class="empty-text">当前暂无调账申请记录</view>
+        <view class="empty-sub">结算后若发现核算有误，可发起补发或扣回申请</view>
+      </view>
+
+      <view wx:for="{{adjustments}}" wx:key="id" class="adj-card">
+        <view class="card-header">
+          <view class="header-left">
+            <text class="settle-no">{{item.adjustment_no}}</text>
+            <text class="teacher-tag">{{item.teacher_name}}</text>
+          </view>
+          <view class="status-badge {{item.statusBadgeClass}}">
+            {{item.statusText}}
+          </view>
+        </view>
+
+        <view class="adj-body">
+          <view class="adj-row">
+            <text class="adj-label">调账方向与金额：</text>
+            <text class="adj-amount {{item.direction === 'reissue' ? 'text-green' : 'text-red'}}">
+              {{item.direction === 'reissue' ? '【补发少拿课酬】 +' : '【扣回多拿课酬】 -'}}¥{{item.amount}}
+            </text>
+          </view>
+
+          <view class="adj-row">
+            <text class="adj-label">申请详细原因：</text>
+            <text class="adj-reason">{{item.reason}}</text>
+          </view>
+
+          <view class="adj-meta-grid">
+            <view class="meta-cell">
+              <text class="meta-label">申请人: </text>
+              <text class="meta-val">{{item.proposer_name}}</text>
+            </view>
+            <view class="meta-cell">
+              <text class="meta-label">申请时间: </text>
+              <text class="meta-val">{{item.created_at_short}}</text>
+            </view>
+            <view class="meta-cell" wx:if="{{item.approver_name}}">
+              <text class="meta-label">审批人: </text>
+              <text class="meta-val text-bold">{{item.approver_name}}</text>
+            </view>
+            <view class="meta-cell" wx:if="{{item.settled_in_settlement_id}}">
+              <text class="meta-label">结清挂靠: </text>
+              <text class="meta-val text-green">已结清 (随结算单归档)</text>
+            </view>
+          </view>
+
+          <view class="reject-box" wx:if="{{item.status === 'rejected'}}">
+            <text class="reject-label">驳回原因：</text>
+            <text class="reject-reason">{{item.reject_reason || '未通过审批'}}</text>
+          </view>
+        </view>
+
+        <view class="card-footer" wx:if="{{item.status === 'pending_super_admin_approval'}}">
+          <text class="tip-text">待超管在【审批中心】审核</text>
+          <button class="btn-goto-approval" bindtap="gotoApprovalPage">前往审批中心 ➔</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- TAB 3: 当期课酬明细台账 -->
+  <!-- ───────────────────────────────────────── -->
+  <view class="tab-content" wx:if="{{currentTab === 'fees'}}">
+    <view class="fees-filter-bar" wx:if="{{!isTeacher}}">
+      <picker bindchange="onTeacherChange" value="{{teacherIndex}}" range="{{teacherList}}" range-key="name">
+        <view class="picker-pill">
+          <text class="picker-label">筛选教师: </text>
+          <text class="picker-val">{{teacherList[teacherIndex].name || '全部老师'}} ▾</text>
+        </view>
+      </picker>
+      <text class="fees-count">共 {{feesList.length}} 笔明细</text>
+    </view>
+
+    <view class="list-container">
+      <view class="empty-state" wx:if="{{feesList.length === 0}}">
+        <view class="empty-icon">📊</view>
+        <view class="empty-text">当前暂无课酬明细</view>
+      </view>
+
+      <view wx:for="{{feesList}}" wx:key="id" class="fee-item-card">
+        <view class="fee-header">
+          <view class="fee-title-group">
+            <text class="fee-type-tag {{item.tagClass}}">{{item.typeTitle}}</text>
+            <text class="fee-class">{{item.class_name}}</text>
+          </view>
+          <view class="fee-amount">¥{{item.calculated_teacher_fee}}</view>
+        </view>
+
+        <view class="fee-info-row">
+          <text class="fee-date">📅 {{item.lesson_date}}</text>
+          <text class="fee-teacher">👨‍🏫 授课老师: {{item.teacher_name}}</text>
+          <text class="fee-headcount">👥 计费人头: {{item.effective_headcount}}人</text>
+        </view>
+
+        <view class="fee-sub-info" wx:if="{{item.fee_type === 'original_class_makeup_diff'}}">
+          <text class="diff-tag">原班累进补差：学员【{{item.student_name}}】补课，人头自 {{item.n_before}} 累进至 {{item.n_after}}</text>
+        </view>
+
+        <view class="fee-footer">
+          <text class="tier-hint">档位: {{item.tier_name}}</text>
+          <text class="settle-tag {{item.settlement_status === 'settled' ? 'tag-settled' : 'tag-unsettled'}}">
+            {{item.settlement_status === 'settled' ? '已归档结算' : '未结算'}}
+          </text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- 模态弹窗 1: 发起薪资调账申请 -->
+  <!-- ───────────────────────────────────────── -->
+  <view class="modal-mask" wx:if="{{showAdjModal}}">
+    <view class="modal-card">
+      <view class="modal-header">
+        <text class="modal-title">发起薪资调账申请（超管审批）</text>
+        <text class="modal-close" bindtap="closeAdjModal">✕</text>
+      </view>
+
+      <view class="modal-body">
+        <view class="modal-tip">
+          注：系统严禁篡改已结算历史账单。调账申请由超管批准后，将在该老师下一个发薪日结算单自动挂入结清。
+        </view>
+
+        <!-- 目标教师选择 -->
+        <view class="form-item">
+          <text class="form-label">调整对象（教师）<text class="required">*</text></text>
+          <picker bindchange="onAdjTeacherChange" value="{{adjTeacherIndex}}" range="{{teacherListNoAll}}" range-key="name">
+            <view class="form-picker">
+              {{teacherListNoAll[adjTeacherIndex].name || '请选择教师'}} ▾
+            </view>
+          </picker>
+        </view>
+
+        <!-- 调账方向 -->
+        <view class="form-item">
+          <text class="form-label">调账方向<text class="required">*</text></text>
+          <radio-group class="radio-row" bindchange="onAdjDirectionChange">
+            <label class="radio-label">
+              <radio value="reissue" checked="{{adjForm.direction === 'reissue'}}" color="#16a34a"/>
+              <text class="radio-text text-green">补发（少发了，+金额）</text>
+            </label>
+            <label class="radio-label">
+              <radio value="clawback" checked="{{adjForm.direction === 'clawback'}}" color="#dc2626"/>
+              <text class="radio-text text-red">扣回（多发了，-金额）</text>
+            </label>
+          </radio-group>
+        </view>
+
+        <!-- 调整金额 -->
+        <view class="form-item">
+          <text class="form-label">调整金额 (元)<text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            type="digit" 
+            placeholder="请输入正数金额（如 100.00）" 
+            value="{{adjForm.amount}}" 
+            bindinput="onAdjAmountInput"
+          />
+        </view>
+
+        <!-- 详细原因 -->
+        <view class="form-item">
+          <text class="form-label">调账详细原因（必填）<text class="required">*</text></text>
+          <textarea 
+            class="form-textarea" 
+            placeholder="请详细说明算错经过及调账原因（如：3月15日代课漏报出勤人头，补发差额¥60）" 
+            value="{{adjForm.reason}}" 
+            bindinput="onAdjReasonInput"
+          ></textarea>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeAdjModal">取消</button>
+        <button class="btn-submit" bindtap="submitSalaryAdjustment">提交超管审批</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ───────────────────────────────────────── -->
+  <!-- 模态弹窗 2: 查看结算单明细快照 (严格脱敏) -->
+  <!-- ───────────────────────────────────────── -->
+  <view class="modal-mask" wx:if="{{showDetailModal}}">
+    <view class="modal-card modal-large">
+      <view class="modal-header">
+        <text class="modal-title">结算单明细快照 [#{{selectedSettlement.settlement_no}}]</text>
+        <text class="modal-close" bindtap="closeDetailModal">✕</text>
+      </view>
+
+      <view class="modal-body scrollable-body">
+        <view class="detail-summary-card">
+          <view class="d-row">
+            <text class="d-label">授课教师：</text>
+            <text class="d-val text-bold">{{selectedSettlement.teacher_name}} ({{selectedSettlement.teacher_tier_name}})</text>
+          </view>
+          <view class="d-row">
+            <text class="d-label">结算周期：</text>
+            <text class="d-val">{{selectedSettlement.period}} ({{selectedSettlement.start_date}} ~ {{selectedSettlement.end_date}})</text>
+          </view>
+          <view class="d-row">
+            <text class="d-label">单据状态：</text>
+            <text class="d-val text-bold {{selectedSettlement.status === 'settled' ? 'text-green' : 'text-orange'}}">
+              {{selectedSettlement.status === 'settled' ? '🔒 已结算锁定' : '📝 草稿'}}
+            </text>
+          </view>
+          <view class="d-row total-highlight-row">
+            <text class="d-label">实发课酬合计：</text>
+            <text class="d-val-total">¥{{selectedSettlement.total_salary}}</text>
+          </view>
+        </view>
+
+        <!-- 课酬明细列表 -->
+        <view class="detail-section-title">课酬计费明细清单 (共 {{selectedSettlement.details_snapshot_json.lesson_fees.length || 0}} 项)</view>
+        <view class="snap-fees-list">
+          <view wx:for="{{selectedSettlement.details_snapshot_json.lesson_fees}}" wx:key="id" class="snap-item">
+            <view class="snap-line1">
+              <text class="snap-class">{{item.class_name}}</text>
+              <text class="snap-fee">¥{{item.calculated_teacher_fee}}</text>
+            </view>
+            <view class="snap-line2">
+              <text class="snap-date">📅 {{item.lesson_date}}</text>
+              <text class="snap-type">{{item.fee_type === 'original_class_makeup_diff' ? '原班补差' : (item.is_substitute ? '代课' : '正常上课')}}</text>
+              <text class="snap-head" wx:if="{{item.effective_headcount}}">出勤: {{item.effective_headcount}}人</text>
+              <text class="snap-head" wx:if="{{item.student_name}}">补课生: {{item.student_name}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 调账明细清单 -->
+        <view class="detail-section-title" wx:if="{{selectedSettlement.details_snapshot_json.adjustments.length > 0}}">
+          挂入结清的调账项 (共 {{selectedSettlement.details_snapshot_json.adjustments.length}} 笔)
+        </view>
+        <view class="snap-fees-list" wx:if="{{selectedSettlement.details_snapshot_json.adjustments.length > 0}}">
+          <view wx:for="{{selectedSettlement.details_snapshot_json.adjustments}}" wx:key="id" class="snap-item">
+            <view class="snap-line1">
+              <text class="snap-class">单号: {{item.adjustment_no}}</text>
+              <text class="snap-fee {{item.signed_amount >= 0 ? 'text-green' : 'text-red'}}">
+                {{item.signed_amount >= 0 ? '+' : ''}}¥{{item.signed_amount}}
+              </text>
+            </view>
+            <view class="snap-line2">
+              <text class="snap-reason">{{item.reason}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="closeDetailModal">关闭窗口</button>
+      </view>
+    </view>
+  </view>
+</view>

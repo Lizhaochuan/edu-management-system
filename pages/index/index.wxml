@@ -1,0 +1,119 @@
+<!-- pages/index/index.wxml -->
+<view class="workbench-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 当前登录人专属身份名牌 -->
+  <view class="user-profile-card">
+    <view class="profile-top">
+      <view class="avatar-large avatar-{{currentUser.role}}">
+        <text>{{currentUser.name ? currentUser.name[0] : '用'}}</text>
+      </view>
+      <view class="profile-meta">
+        <view class="meta-row1">
+          <text class="user-realname">{{currentUser.name}}</text>
+          <view class="role-badge-large {{roleInfo.badgeClass}}">
+            {{roleInfo.roleTitle}}
+          </view>
+        </view>
+        <view class="meta-row2">
+          <text class="meta-phone">📱 {{currentUser.phone || '未设置手机号'}}</text>
+          <text class="meta-id">ID: {{currentUser.id}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="permission-box">
+      <text class="permission-title">权限与职责隔离：</text>
+      <text class="permission-content">{{roleInfo.desc}}</text>
+    </view>
+  </view>
+
+  <!-- 3. 数据底座活跃指标概览 -->
+  <view class="stats-bar">
+    <view class="stat-item">
+      <text class="stat-num">{{stats.studentCount}}</text>
+      <text class="stat-label">学员库</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-num">{{stats.classCount}}</text>
+      <text class="stat-label">运行班级</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-num highlight-stat">{{stats.pendingApprovalCount}}</text>
+      <text class="stat-label">待办审批</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-num">{{stats.auditLogCount}}</text>
+      <text class="stat-label">审计日志</text>
+    </view>
+  </view>
+
+  <!-- 4. 访客未授权提示面板 -->
+  <view wx:if="{{currentUser.role === 'guest'}}" class="guest-panel">
+    <view class="guest-card">
+      <view class="guest-icon">⏳</view>
+      <view class="guest-title">您的账号尚未分配权限</view>
+      <view class="guest-desc">
+        系统遵循严格内控安全策略：新用户登录后默认无任何业务操作权限。请联系机构超级管理员（张校长）在【人员与权限授权中心】为您指派身份（家长/教师/管理）。
+      </view>
+      <button class="btn-claim-phone" bindtap="onClaimPhone" hover-class="btn-hover">
+        📱 输入手机号快速匹配认领身份
+      </button>
+      <view class="claim-tip">提示：若教务老师已预先录入您的手机号，点击上方按钮输入手机号即可直接激活！</view>
+    </view>
+  </view>
+
+  <!-- 5. 工作台功能卡片网格（正式角色可见） -->
+  <view wx:else class="grid-section">
+    <view class="section-header">
+      <view class="header-main">
+        <text class="section-title">工作台服务导航</text>
+        <text class="section-sub">（基于当前角色的视图隔离）</text>
+      </view>
+      <text class="module-count">已开放 {{visibleCards.length}} 项</text>
+    </view>
+
+    <view class="cards-grid">
+      <view 
+        wx:for="{{visibleCards}}" 
+        wx:key="id" 
+        class="card-item {{item.isReady ? 'card-ready' : 'card-pending'}}"
+        bindtap="onCardTap"
+        data-id="{{item.id}}"
+        hover-class="card-hover"
+      >
+        <view class="card-top">
+          <view class="card-icon-wrap">{{item.icon}}</view>
+          <view class="card-tag tag-{{item.tagType}}">{{item.tag}}</view>
+        </view>
+        <view class="card-title">{{item.name}}</view>
+        <view class="card-desc">{{item.desc}}</view>
+        <view class="card-action">
+          <text class="action-text">{{item.isReady ? '点击进入 ➔' : '建设中'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 5. 底部调试与底座工具区 -->
+  <view class="debug-panel">
+    <view class="debug-title">🛠️ 架构底座调试工具</view>
+    
+    <button class="btn-simulate" bindtap="onSimulateApproval" hover-class="btn-hover">
+      <text class="btn-icon">⚡</text>
+      <text>模拟发起一条调账审批 & 自动写入审计日志</text>
+    </button>
+
+    <button class="btn-reset" bindtap="onResetDatabase" hover-class="btn-hover">
+      <text class="btn-icon">🔄</text>
+      <text>一键重置演示数据库（恢复 10 表初始数据）</text>
+    </button>
+
+    <view class="tech-stack-tip">
+      原生微信小程序架构（WXML+WXSS+JS ES6）· 无第三方依赖 · 不可篡改安全底册
+    </view>
+  </view>
+</view>

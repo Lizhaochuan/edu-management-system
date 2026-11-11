@@ -1,0 +1,291 @@
+<!-- pages/parent-binding/index.wxml -->
+<view class="binding-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 核心业务铁律横幅 -->
+  <view class="rule-banner">
+    <view class="banner-top">
+      <text class="banner-icon">🔔</text>
+      <text class="banner-title">家校绑定与订阅通知铁律</text>
+    </view>
+    <view class="banner-desc">
+      支持爸爸妈妈等多个家长共同绑定同一个孩子；登记完成后立即处理微信订阅授权，同意走微信推送，不同意自动转入人工微信兜底！
+    </view>
+  </view>
+
+  <!-- ── 场景 A：家长用户视图 ── -->
+  <block wx:if="{{isParent}}">
+    <!-- 操作按钮栏 -->
+    <view class="action-bar">
+      <view class="bar-title-box">
+        <text class="bar-title">我绑定的孩子</text>
+        <text class="bar-sub">共 {{myChildren.length}} 位学员</text>
+      </view>
+      <view class="bar-btn-group">
+        <button class="btn-bind-exist" bindtap="onOpenBindExistingModal" hover-class="btn-hover">
+          ＋ 绑定已有孩子
+        </button>
+        <button class="btn-reg-new" bindtap="onOpenRegisterModal" hover-class="btn-hover">
+          ＋ 登记新孩子
+        </button>
+      </view>
+    </view>
+
+    <!-- 孩子卡片列表 -->
+    <view class="children-list">
+      <view wx:if="{{myChildren.length === 0}}" class="empty-state">
+        <text class="empty-icon">👶</text>
+        <text class="empty-text">当前暂未绑定任何孩子</text>
+        <text class="empty-sub">点击上方按钮，可快速绑定已有学员（如爸爸已绑，妈妈跟绑）或登记新孩子</text>
+      </view>
+
+      <view wx:for="{{myChildren}}" wx:key="id" class="child-card">
+        <!-- 头部 -->
+        <view class="card-header">
+          <view class="child-basic">
+            <text class="child-name">{{item.name}}</text>
+            <text class="child-gender">{{item.gender === 'male' ? '👦 男孩' : '👧 女孩'}}</text>
+            <text class="relation-tag">{{item.currentRelation}}</text>
+          </view>
+          <text class="child-id">ID: {{item.id}}</text>
+        </view>
+
+        <!-- 课时资产展示 -->
+        <view class="hours-summary-box">
+          <view class="hours-col">
+            <text class="hours-num">{{item.totalAvailableHours}}</text>
+            <text class="hours-label">可用总课时</text>
+          </view>
+          <view class="hours-divider"></view>
+          <view class="hours-col">
+            <text class="hours-num paid-num">{{item.totalPaidLeft}}</text>
+            <text class="hours-label">常规付费剩余</text>
+          </view>
+          <view class="hours-divider"></view>
+          <view class="hours-col">
+            <text class="hours-num gift-num">{{item.totalGiftLeft}}</text>
+            <text class="hours-label">赠送课时剩余</text>
+          </view>
+        </view>
+
+        <!-- 参加班级信息 -->
+        <view class="class-info-row">
+          <text class="info-label">在读班级：</text>
+          <text class="info-val">{{item.enrolledClasses.length > 0 ? item.enrolledClasses.join('、') : '暂未排入正式班级'}}</text>
+        </view>
+        <view wx:if="{{item.trialClasses.length > 0}}" class="class-info-row">
+          <text class="info-label">试听班级：</text>
+          <text class="info-val trial-val">{{item.trialClasses.join('、')}} (试听不扣课)</text>
+        </view>
+
+        <!-- 多家长绑定情况 -->
+        <view class="parents-group-box">
+          <text class="parents-group-title">👨‍👩‍👧‍👦 多家长共同绑定监护人列表 ({{item.allParents.length}}人)：</text>
+          <view class="parent-pills">
+            <view wx:for="{{item.allParents}}" wx:key="parent_id" class="parent-pill">
+              <text class="pill-rel">{{item.relation}}</text>
+              <text class="pill-phone">{{item.phone}}</text>
+              <text class="pill-auth {{item.subscribe_auth ? 'auth-yes' : 'auth-no'}}">
+                {{item.subscribe_auth ? '微信已开' : '人工兜底'}}
+              </text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 订阅消息授权状态卡片 -->
+        <view class="auth-card {{item.subscribe_auth ? 'auth-card-granted' : 'auth-card-denied'}}">
+          <view class="auth-left">
+            <text class="auth-icon">{{item.subscribe_auth ? '✓' : '⚠️'}}</text>
+            <view class="auth-text-wrap">
+              <text class="auth-title">
+                {{item.subscribe_auth ? '微信服务通知已授权开启' : '微信通知未授权（人工兜底中）'}}
+              </text>
+              <text class="auth-desc">
+                {{item.subscribe_auth ? '上课提醒、考勤签到与消课扣费明细将直接通过微信服务通知实时推送。' : '系统已将您的账号自动标记转入管理员“人工发微信兜底列表”，由教务人工通知。'}}
+              </text>
+            </view>
+          </view>
+          <button 
+            class="btn-toggle-auth {{item.subscribe_auth ? 'btn-gray' : 'btn-green'}}" 
+            bindtap="onToggleSubscribeAuth" 
+            data-id="{{item.id}}"
+            hover-class="btn-hover"
+          >
+            {{item.subscribe_auth ? '重新配置' : '一键开启微信推送'}}
+          </button>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ── 场景 B：管理员与超管看板视图 ── -->
+  <view wx:if="{{isAdmin}}" class="admin-notify-panel">
+    <view class="panel-header">
+      <view class="header-left">
+        <text class="panel-title">家校服务通知与人工兜底中枢</text>
+        <text class="panel-subtitle">集中监管未同意微信订阅消息的家长，提供人工微信与电话兜底服务</text>
+      </view>
+      <text class="fallback-count-badge">人工兜底名单: {{fallbackList.length}} 人</text>
+    </view>
+
+    <view class="fallback-list">
+      <view wx:if="{{fallbackList.length === 0}}" class="empty-state">
+        <text class="empty-icon">🎉</text>
+        <text class="empty-text">全校所有家长均已授权微信订阅消息！</text>
+        <text class="empty-sub">暂无需要人工发微信兜底的记录</text>
+      </view>
+
+      <view wx:for="{{fallbackList}}" wx:key="parent_id" class="fallback-card">
+        <view class="fallback-left">
+          <view class="fallback-user-row">
+            <text class="parent-name">{{item.parent_name}}</text>
+            <text class="rel-badge">{{item.relation}}</text>
+            <text class="for-student">（学员：{{item.student_name}}）</text>
+          </view>
+          <view class="phone-row">
+            <text class="phone-label">手机号：</text>
+            <text class="phone-num">{{item.phone}}</text>
+          </view>
+          <view class="fallback-status">
+            <text class="status-dot">●</text>
+            <text>家长拒绝授权微信订阅消息，请教务老师复制电话通过企业微信或短信进行人工兜底通知</text>
+          </view>
+        </view>
+        <button 
+          class="btn-copy-phone" 
+          bindtap="onCopyPhone" 
+          data-phone="{{item.phone}}"
+          hover-class="btn-hover"
+        >
+          复制号码
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：绑定已有学员 Modal（多对多/多对一绑定） ── -->
+  <view wx:if="{{showBindExistingModal}}" class="modal-mask" bindtap="onCloseBindExistingModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">绑定已有孩子（多家长绑定）</text>
+        <text class="modal-close" bindtap="onCloseBindExistingModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">选择要绑定的孩子 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{allStudents}}" 
+            range-key="name" 
+            value="{{bindForm.student_index}}" 
+            bindchange="onBindStudentChange"
+          >
+            <view class="picker-input">
+              <text>{{allStudents[bindForm.student_index].name}} (ID: {{allStudents[bindForm.student_index].id}})</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">您与孩子的亲属关系 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{relations}}" 
+            value="{{bindForm.relation_index}}" 
+            bindchange="onBindRelationChange"
+          >
+            <view class="picker-input">
+              <text>{{relations[bindForm.relation_index]}}</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+          <text class="input-tip">多家长支持：爸爸、妈妈、爷爷奶奶均可绑定同一个孩子，课时与通知独立流转。</text>
+        </view>
+
+        <view class="auth-notice-tip">
+          🔔 绑定提交后，系统将立即弹出微信订阅消息授权询问弹窗，请根据需要选择是否接收通知。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseBindExistingModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitBindExisting">确认绑定孩子</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：登记新孩子 Modal ── -->
+  <view wx:if="{{showRegisterModal}}" class="modal-mask" bindtap="onCloseRegisterModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">登记新孩子建档</text>
+        <text class="modal-close" bindtap="onCloseRegisterModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="form-group">
+          <text class="form-label">孩子姓名 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            placeholder="请输入孩子真实姓名" 
+            value="{{registerForm.name}}"
+            bindinput="onRegisterInputName"
+          />
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">孩子性别</text>
+          <view class="gender-selector">
+            <view 
+              class="gender-opt {{registerForm.gender === 'male' ? 'gender-selected' : ''}}"
+              bindtap="onRegisterGenderChange"
+              data-gender="male"
+            >
+              👦 男孩
+            </view>
+            <view 
+              class="gender-opt {{registerForm.gender === 'female' ? 'gender-selected' : ''}}"
+              bindtap="onRegisterGenderChange"
+              data-gender="female"
+            >
+              👧 女孩
+            </view>
+          </view>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">出生日期</text>
+          <picker mode="date" value="{{registerForm.birthday}}" bindchange="onRegisterBirthdayChange">
+            <view class="picker-input">
+              <text>{{registerForm.birthday || '请选择出生日期'}}</text>
+              <text class="arrow">📅</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">您与孩子的亲属关系 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{relations}}" 
+            value="{{registerForm.relation_index}}" 
+            bindchange="onRegisterRelationChange"
+          >
+            <view class="picker-input">
+              <text>{{relations[registerForm.relation_index]}}</text>
+              <text class="arrow">▾</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="auth-notice-tip">
+          🔔 登记提交后，系统将立即弹出微信订阅消息授权询问弹窗，请根据需要选择是否接收通知。
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseRegisterModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitRegister">确认登记并绑定</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,927 @@
+<!-- pages/attendance/index.wxml -->
+<view class="attendance-page">
+  <!-- 1. 顶部角色模拟切换组件 -->
+  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+
+  <!-- 2. 核心业务铁律横幅（Phase 4-B 全面核算） -->
+  <view class="rule-banner">
+    <view class="banner-top">
+      <text class="banner-icon">💰</text>
+      <text class="banner-title">课酬阶梯核算铁律与原班累进补差引擎</text>
+    </view>
+    <view class="banner-desc">
+      ① 无保底按人头查表(0人出勤¥0)；② 试听生绝不算人头；③ 按老师个人档位算；④ 跨师补课计入补课班人头封顶截断；⑤ 原老师补课执行原班累进补差：R[N_after] - R[N_before]，金额绝对守恒！
+    </view>
+  </view>
+
+  <!-- 3. 隐私隔离合规横幅（老师端生效） -->
+  <view wx:if="{{isTeacher}}" class="privacy-banner">
+    <text class="privacy-icon">🔒</text>
+    <text class="privacy-text">老师端隐私隔离保护已生效：学员在读剩余课时已完全脱敏隐藏，点名签到无感知消课。</text>
+  </view>
+
+  <!-- 4. Phase 3-C: 管理员跨师补课待办工作台 -->
+  <view wx:if="{{isAdmin && pendingMakeupRequests && pendingMakeupRequests.length > 0}}" class="admin-pending-makeup-banner">
+    <view class="apmb-head">
+      <view class="apmb-title-group">
+        <text class="apmb-icon">📋</text>
+        <text class="apmb-title">跨师补课待办工作台 (共 {{pendingMakeupRequests.length}} 笔待协调)：</text>
+      </view>
+      <text class="apmb-tip">老师已发起非本人跨师补课，请管理员协调时间与老师</text>
+    </view>
+    <view class="apmb-list">
+      <view wx:for="{{pendingMakeupRequests}}" wx:key="id" class="apmb-item">
+        <view class="apmb-item-info">
+          <text class="apmb-stu-name">{{item.student_name_snapshot}} (缺勤: {{item.original_hours_per_lesson}} 课时)</text>
+          <text class="apmb-class-desc">原班: {{item.class_name_snapshot}} (原老师: {{item.original_teacher_name_snapshot}} | 缺勤日期: {{item.absent_date}})</text>
+          <text wx:if="{{item.remarks}}" class="apmb-remarks">家长诉求说明: {{item.remarks}}</text>
+        </view>
+        <button class="btn-assign-cross" catchtap="onOpenAdminAssignMakeupModal" data-id="{{item.id}}" hover-class="btn-hover">
+          👉 安排跨师补课
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 4. 排课日程选择区 -->
+  <view class="section-bar">
+    <view class="section-left">
+      <text class="section-title">排课日程列表</text>
+      <text class="section-count">共 {{schedules.length}} 节课</text>
+    </view>
+    <view class="section-actions">
+      <!-- 管理员代课与取消操作 -->
+      <button 
+        wx:if="{{isAdmin && sheetData && sheetData.schedule.status !== 'cancelled'}}" 
+        class="btn-substitute-trigger" 
+        bindtap="onOpenSubstituteModal" 
+        hover-class="btn-hover"
+      >
+        {{sheetData.schedule.substitute_teacher_id ? '🔄 更换代课' : '🔄 安排代课'}}
+      </button>
+
+      <button 
+        wx:if="{{isAdmin && sheetData && sheetData.schedule.substitute_teacher_id && sheetData.schedule.status !== 'cancelled'}}" 
+        class="btn-cancel-sub-trigger" 
+        bindtap="onCancelSubstitute" 
+        hover-class="btn-hover"
+      >
+        ↩️ 恢复原老师
+      </button>
+
+      <button 
+        wx:if="{{isAdmin && sheetData && sheetData.schedule.substitute_teacher_id}}" 
+        class="btn-complaint-trigger" 
+        bindtap="onOpenComplaintModal" 
+        hover-class="btn-hover"
+      >
+        ⚠️ 代课客诉处理
+      </button>
+
+      <button 
+        wx:if="{{isAdmin && sheetData && sheetData.schedule.status !== 'cancelled'}}" 
+        class="btn-cancel-lesson-trigger" 
+        bindtap="onOpenCancelLessonModal" 
+        hover-class="btn-hover"
+      >
+        ❌ 取消本节课
+      </button>
+
+      <button class="btn-create-schedule" bindtap="onQuickCreateSchedule" hover-class="btn-hover">
+        ＋ 新建课次
+      </button>
+    </view>
+  </view>
+
+  <scroll-view class="schedule-scroll" scroll-x enable-flex>
+    <view 
+      wx:for="{{schedules}}" 
+      wx:key="id" 
+      class="schedule-pill {{selectedScheduleId === item.id ? 'schedule-pill-active' : ''}} {{item.status === 'cancelled' ? 'pill-cancelled' : ''}} {{item.substitute_teacher_id ? 'pill-substitute' : ''}}"
+      bindtap="onSelectSchedule"
+      data-id="{{item.id}}"
+    >
+      <view class="pill-top">
+        <text class="pill-class-name">{{item.class_name}}</text>
+        <text class="pill-status-tag status-{{item.status}}">
+          {{item.status === 'completed' ? '已签到' : (item.status === 'pending_makeup_sign_approval' ? '待审批补签' : (item.status === 'cancelled' ? '已取消' : '待签到'))}}
+        </text>
+      </view>
+      <view class="pill-time">
+        <text>{{item.lesson_date}} {{item.start_time}}-{{item.end_time}}</text>
+      </view>
+      <view class="pill-info">
+        <text wx:if="{{item.substitute_teacher_id}}" class="pill-sub-tag">🔄 代课: {{item.substitute_teacher_name_snapshot}}</text>
+        <text wx:else class="pill-hours">单节: {{item.hours_per_lesson}} 课时</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 5. 代课授课专属提示横幅（Phase 3-B 亮点） -->
+  <view wx:if="{{sheetData && sheetData.schedule.substitute_teacher_id}}" class="substitute-info-banner">
+    <view class="sub-banner-left">
+      <text class="sub-banner-icon">🔄</text>
+      <view class="sub-banner-texts">
+        <text class="sub-banner-title">本节排课已指定由【{{sheetData.schedule.substitute_teacher_name_snapshot || '代课老师'}}】代课授课</text>
+        <text class="sub-banner-desc">动态路由已生效：代课老师登录系统时直接路由至其签到表进行点名消课；全员家长代课通知已推送。</text>
+      </view>
+    </view>
+    <button 
+      wx:if="{{isAdmin}}" 
+      class="btn-sub-complaint-pill" 
+      bindtap="onOpenComplaintModal" 
+      hover-class="btn-hover"
+    >
+      ⚠️ 登记代课客诉
+    </button>
+  </view>
+
+  <!-- 6. 课程已取消横幅 -->
+  <view wx:if="{{sheetData && sheetData.schedule.status === 'cancelled'}}" class="cancel-status-banner">
+    <view class="cs-top">
+      <text class="cs-icon">🚫</text>
+      <text class="cs-title">本节课程已由管理员取消</text>
+    </view>
+    <view class="cs-desc">
+      <text>• 误签原路退回：本班学生该节课不扣课时，已扣课时已全额原路退回课时包；</text>
+      <text>• 老师课酬清零：授课老师当节课酬强制记为 ¥0 元；</text>
+      <text>• 家校通知：全班绑定家长（微信订阅/人工兜底）与授课老师已接收取消通知；</text>
+      <text>• 后续处理方式：{{sheetData.schedule.cancel_handle_mode === 'postpone_entire_class' ? '选项B (整班往后挪一节顺延新课表)' : '选项A (单独补课模式)'}}</text>
+    </view>
+  </view>
+
+  <!-- 7. 24小时修改窗口与审批状态条 -->
+  <view wx:if="{{sheetData && sheetData.schedule.status === 'completed'}}" class="window-bar {{sheetData.schedule.is_within_24_hours ? 'window-active' : 'window-locked'}}">
+    <text class="window-icon">{{sheetData.schedule.is_within_24_hours ? '⏱️' : '🔒'}}</text>
+    <text class="window-txt">
+      {{sheetData.schedule.is_within_24_hours ? ('24小时自主修改期内 (' + sheetData.schedule.remaining_hours_str + ')：老师可自主改签并自动原路回滚/补扣') : '已超过24小时自主修改期：系统已物理锁死，不可直接修改，请联系管理员走手工调课时审批流程'}}
+    </text>
+  </view>
+
+  <!-- 8. 签到成功/改签成功不可变快照面板 -->
+  <view wx:if="{{lastSubmitResult}}" class="snapshot-card">
+    <view class="snapshot-header">
+      <view class="snapshot-title-group">
+        <text class="snapshot-icon">🛡️</text>
+        <text class="snapshot-title">签到不可变快照与课酬核算</text>
+      </view>
+      <text class="snapshot-time">快照时间: {{lastSubmitResult.submitted_at || lastSubmitResult.modified_at}}</text>
+    </view>
+
+    <!-- 快照要素网格 -->
+    <view class="snapshot-grid">
+      <view class="grid-item">
+        <text class="g-label">实际授课人 (代课快照)</text>
+        <text class="g-val highlight-headcount">{{lastSubmitResult.teacher_tier_snapshot ? lastSubmitResult.teacher_tier_snapshot.teacher_name : '任课老师'}}</text>
+      </view>
+      <view class="grid-item">
+        <text class="g-label">正式出勤人头 (决定课酬)</text>
+        <text class="g-val highlight-headcount">{{lastSubmitResult.present_formal_headcount}} 人</text>
+      </view>
+      <view class="grid-item">
+        <text class="g-label">老师当节课酬 (Phase 4 实时核算)</text>
+        <text class="g-val highlight-salary">¥{{lastSubmitResult.calculated_teacher_fee || 0}} 元</text>
+      </view>
+      <view class="grid-item">
+        <text class="g-label">单节扣费快照 (系统自动算)</text>
+        <text class="g-val highlight-hours">{{lastSubmitResult.hours_per_lesson}} 课时/正式人</text>
+      </view>
+    </view>
+
+    <!-- Phase 4-A 课酬核算细节透明条 -->
+    <view wx:if="{{lastSubmitResult.fee_result}}" class="fee-detail-strip">
+      <view class="fds-row">
+        <text class="fds-label">计费出勤分解：</text>
+        <text class="fds-val">正式出勤 {{lastSubmitResult.fee_result.formal_present_count}}人 + 跨师补课 {{lastSubmitResult.fee_result.cross_makeup_count}}人 = 计费 {{lastSubmitResult.fee_result.effective_headcount}}人</text>
+      </view>
+      <view class="fds-row" wx:if="{{lastSubmitResult.fee_result.same_makeup_count > 0 || lastSubmitResult.fee_result.trial_present_count > 0 || lastSubmitResult.fee_result.is_truncated}}">
+        <text class="fds-label">铁律防呆核验：</text>
+        <text class="fds-val">
+          <text wx:if="{{lastSubmitResult.fee_result.same_makeup_count > 0}}">原师补课{{lastSubmitResult.fee_result.same_makeup_count}}人(不计入新课人头) </text>
+          <text wx:if="{{lastSubmitResult.fee_result.trial_present_count > 0}}">试听体验{{lastSubmitResult.fee_result.trial_present_count}}人(不算人头) </text>
+          <text wx:if="{{lastSubmitResult.fee_result.is_truncated}}" style="color: #dc2626;">已按班级封顶{{lastSubmitResult.fee_result.max_capacity}}人截断 </text>
+        </text>
+      </view>
+      <view class="fds-row">
+        <text class="fds-label">执行薪资档位：</text>
+        <text class="fds-val highlight-tier">{{lastSubmitResult.fee_result.tier_name}} (无保底阶梯结算)</text>
+      </view>
+    </view>
+
+    <!-- 改签明细留痕 -->
+    <view wx:if="{{lastSubmitResult.changed_details && lastSubmitResult.changed_details.length > 0}}" class="changed-details-box">
+      <text class="cd-title">24小时自主改签变动日志：</text>
+      <view wx:for="{{lastSubmitResult.changed_details}}" wx:key="*this" class="cd-item">
+        • {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 9. 代课客诉历史处理记录卡片（Phase 3-B 核心留痕） -->
+  <view wx:if="{{scheduleComplaints && scheduleComplaints.length > 0}}" class="complaints-section">
+    <view class="cs-head">
+      <text class="cs-title">⚠️ 本节课代课客诉留档记录 (共 {{scheduleComplaints.length}} 笔)：</text>
+    </view>
+    <view wx:for="{{scheduleComplaints}}" wx:key="id" class="complaint-card">
+      <view class="c-card-top">
+        <text class="c-student-name">{{item.student_name_snapshot}} ({{item.parent_relation_snapshot}})</text>
+        <text class="c-decision-badge decision-{{item.decision === '退还当节课时' ? 'refund' : (item.decision === '安排重上一节' ? 'relesson' : 'ignore')}}">
+          决定：{{item.decision}}
+        </text>
+      </view>
+      <view class="c-card-body">
+        <text class="c-row"><text class="c-label">家长不满意事由：</text>{{item.complaint_reason}}</text>
+        <text class="c-row"><text class="c-label">管理员决定理由：</text>{{item.decision_reason}}</text>
+        <text wx:if="{{item.is_refunded}}" class="c-row refund-highlight">⚡ 已原路退回课时包：{{item.refunded_hours}} 课时 (已冲减欠费并退还课时)</text>
+        <text wx:elif="{{item.can_relesson}}" class="c-row relesson-highlight">📅 已标记获得 1 次免费重上补课机会</text>
+      </view>
+      <view class="c-card-footer">
+        <text class="c-footer-txt">经办人: {{item.operator_name}} | 处理时间: {{item.handled_at}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 9.5 Phase 4-B 原班累进补差明细卡片（原师补课专属） -->
+  <view wx:if="{{scheduleDiffFees && scheduleDiffFees.length > 0}}" class="diff-fees-section">
+    <view class="dfs-head">
+      <view class="dfs-title-group">
+        <text class="dfs-icon">📈</text>
+        <text class="dfs-title">原班累进补差台账 (共 {{scheduleDiffFees.length}} 笔，金额守恒)：</text>
+      </view>
+      <text class="dfs-tip">原老师补课零增新课人头费，直接累进回溯原班缺勤基数结算差额</text>
+    </view>
+    <view wx:for="{{scheduleDiffFees}}" wx:key="id" class="diff-card">
+      <view class="df-top">
+        <text class="df-stu">补课学员: {{item.student_name}}</text>
+        <text class="df-amount">+¥{{item.calculated_teacher_fee}} 元</text>
+      </view>
+      <view class="df-body">
+        <text class="df-row"><text class="df-label">补差回溯基数：</text>原班人头从 {{item.n_before}}人 累进至 {{item.n_after}}人 (封顶 {{item.max_capacity}}人)</text>
+        <text class="df-row"><text class="df-label">原缺勤课次：</text>排课 #{{item.original_absent_schedule_id}} ({{item.absent_lesson_date}})</text>
+        <text class="df-row"><text class="df-label">执行薪资档位：</text>{{item.tier_name}} (差额算法: R[{{item.n_after}}] - R[{{item.n_before}}])</text>
+      </view>
+      <view class="df-footer">
+        <text class="df-time">结算老师: {{item.teacher_name}} | 产生时间: {{item.calculated_at}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 10. 当前排课点名签到工作台 -->
+  <view wx:if="{{sheetData}}" class="sheet-container">
+    <!-- 排课基本信息 -->
+    <view class="class-summary-card">
+      <view class="summary-top">
+        <text class="class-title">{{sheetData.class_info.name}}</text>
+        <text class="course-tag">{{sheetData.class_info.course_name}}</text>
+        <text wx:if="{{sheetData.schedule.substitute_teacher_id}}" class="sub-badge">代课: {{sheetData.schedule.substitute_teacher_name_snapshot}}</text>
+        <text wx:if="{{sheetData.schedule.status === 'cancelled'}}" class="cancel-tag">已取消 (课酬¥0)</text>
+        <text wx:elif="{{sheetData.schedule.calculated_teacher_fee > 0}}" class="salary-pill">
+          核算课酬: ¥{{sheetData.schedule.calculated_teacher_fee}}
+        </text>
+      </view>
+      <view class="summary-meta">
+        <text class="meta-item">
+          原执教老师：{{sheetData.class_info.teacher_name}} 
+          <text wx:if="{{sheetData.schedule.substitute_teacher_id}}" style="color: #d97706; font-weight: 600;">(本次由 {{sheetData.schedule.substitute_teacher_name_snapshot}} 代课)</text>
+        </text>
+        <text class="meta-item">上课时间：{{sheetData.schedule.lesson_date}} {{sheetData.schedule.start_time}}-{{sheetData.schedule.end_time}}</text>
+        <text class="meta-item lock-item">🔒 单节课时数：{{sheetData.schedule.hours_per_lesson}} 课时 (系统自动计算，绝无手动修改入口)</text>
+      </view>
+    </view>
+
+    <!-- 实时人头核算预览栏 -->
+    <view class="live-counter-bar">
+      <view class="counter-col">
+        <text class="counter-num formal-num">{{stats.formalPresentCount}}</text>
+        <text class="counter-label">正式出勤(算人头)</text>
+      </view>
+      <view class="counter-divider"></view>
+      <view class="counter-col">
+        <text class="counter-num trial-num">{{stats.trialPresentCount}}</text>
+        <text class="counter-label">试听出勤(不算人头)</text>
+      </view>
+      <view class="counter-divider"></view>
+      <view class="counter-col">
+        <text class="counter-num absent-num">{{stats.absentCount}}</text>
+        <text class="counter-label">未出勤(不扣费)</text>
+      </view>
+    </view>
+
+    <!-- 快捷全选按钮 -->
+    <view class="quick-toggle-bar">
+      <text class="toggle-tip">点击卡片点亮为出勤，支持补勾迟到/早退：</text>
+      <view class="toggle-btns" wx:if="{{!sheetData.schedule.is_locked_after_24h && sheetData.schedule.status !== 'cancelled'}}">
+        <button class="btn-toggle-all" bindtap="onSelectAllPresent" hover-class="btn-hover">全部出勤</button>
+        <button class="btn-toggle-all" bindtap="onSelectAllAbsent" hover-class="btn-hover">全部未出勤</button>
+      </view>
+    </view>
+
+    <!-- 点名学生列表 -->
+    <view class="students-grid">
+      <view 
+        wx:for="{{sheetData.students}}" 
+        wx:key="student_id" 
+        class="student-card {{attendanceMap[item.student_id].is_present ? (item.is_trial ? 'card-trial-present' : 'card-present') : 'card-absent'}}"
+      >
+        <!-- 卡片头部：点击姓名点亮/熄灭 -->
+        <view class="stu-click-area" bindtap="onToggleStudentPresent" data-id="{{item.student_id}}">
+          <view class="stu-info-left">
+            <view class="stu-name-row">
+              <text class="stu-name">{{item.name}}</text>
+              <text class="gender-tag">{{item.gender === 'female' ? '♀' : '♂'}}</text>
+            </view>
+            <view class="stu-badge-row">
+              <text wx:if="{{item.is_makeup}}" class="makeup-badge">🔄 补课学员 (原任课: {{item.original_teacher_name}}老师)</text>
+              <text wx:elif="{{item.is_trial}}" class="trial-badge">试听体验生 (绝不扣费/不算人头)</text>
+              <text wx:else class="formal-badge">正式学员 (扣{{sheetData.schedule.hours_per_lesson}}课时/计人头)</text>
+            </view>
+          </view>
+          
+          <view class="stu-status-pill {{attendanceMap[item.student_id].is_present ? 'pill-present' : 'pill-absent'}}">
+            {{attendanceMap[item.student_id].is_present ? '● 出勤' : '○ 未出勤'}}
+          </view>
+        </view>
+
+        <!-- 补课学员锁死扣费醒目提示 -->
+        <view wx:if="{{item.is_makeup}}" class="makeup-locked-tip">
+          <text class="mlt-icon">🔒</text>
+          <text class="mlt-txt">补课扣费锁死铁律：签到出勤将扣除原缺勤课时 {{item.original_hours_per_lesson}} 课时(原课次#{{item.original_absent_schedule_id}})</text>
+        </view>
+
+        <!-- 出勤附加勾选：迟到 / 早退 -->
+        <view wx:if="{{attendanceMap[item.student_id].is_present && sheetData.schedule.status !== 'cancelled'}}" class="tag-actions-row">
+          <view 
+            class="action-checkbox {{attendanceMap[item.student_id].is_late ? 'cb-active' : ''}}" 
+            catchtap="onToggleLate" 
+            data-id="{{item.student_id}}"
+          >
+            <text class="cb-icon">{{attendanceMap[item.student_id].is_late ? '☑' : '☐'}}</text>
+            <text class="cb-text">迟到</text>
+          </view>
+
+          <view 
+            class="action-checkbox {{attendanceMap[item.student_id].is_early_leave ? 'cb-active' : ''}}" 
+            catchtap="onToggleEarlyLeave" 
+            data-id="{{item.student_id}}"
+          >
+            <text class="cb-icon">{{attendanceMap[item.student_id].is_early_leave ? '☑' : '☐'}}</text>
+            <text class="cb-text">早退</text>
+          </view>
+
+          <text class="rule-hint">迟到早退均正常算人头扣课时</text>
+        </view>
+
+        <!-- ── 【Phase 3-C 缺勤学员补课预约操作条】 ── -->
+        <view wx:if="{{!attendanceMap[item.student_id].is_present && !item.is_trial && !item.is_makeup}}" class="makeup-slot-bar">
+          <text class="makeup-hint">未出勤学员 (不扣课时/不算人头)</text>
+          <view wx:if="{{item.makeup_status === 'waived'}}" class="makeup-status-badge badge-waived">
+            ⚪ 家长放弃补课 (课时保留)
+          </view>
+          <view wx:elif="{{item.makeup_status === 'pending_admin_assignment'}}" class="makeup-status-badge badge-pending-admin">
+            🟡 待管理员协调跨师补课
+          </view>
+          <view wx:elif="{{item.makeup_status === 'scheduled'}}" class="makeup-status-badge badge-scheduled">
+            🟢 已排定补课日程
+          </view>
+          <view wx:elif="{{item.makeup_status === 'completed'}}" class="makeup-status-badge badge-completed">
+            ✅ 补课已完成消课
+          </view>
+          <button 
+            wx:else 
+            class="btn-book-makeup" 
+            catchtap="onOpenMakeupBookingModal" 
+            data-id="{{item.student_id}}" 
+            hover-class="btn-hover"
+          >
+            📅 补课预约
+          </button>
+        </view>
+
+        <!-- 老师端隐私隔离保护验证说明 -->
+        <view class="stu-privacy-row">
+          <text wx:if="{{isTeacher}}" class="privacy-tag">🔒 课时余量已对老师端脱敏隐藏</text>
+          <text wx:elif="{{item.admin_debug_balance}}" class="admin-balance-tag">
+            [教务查验] 剩余可用: {{item.admin_debug_balance.total_available_hours}}课时 (欠:{{item.admin_debug_balance.debt_hours}})
+          </text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部操作栏 -->
+    <view class="submit-bar">
+      <view class="submit-info">
+        <text class="submit-headcount">核算人头：{{stats.formalPresentCount}} 正式生 + {{stats.trialPresentCount}} 试听生</text>
+        <text class="submit-deduct-tip">系统将自动为每位正式出勤生扣除 {{sheetData.schedule.hours_per_lesson}} 课时</text>
+      </view>
+
+      <!-- 场景 1：排课已取消 -->
+      <view wx:if="{{sheetData.schedule.status === 'cancelled'}}" class="locked-bar">
+        <text class="locked-txt">🚫 本节课已被取消，扣费已全部原路退回，老师课酬已清零记为 0 元。</text>
+      </view>
+
+      <!-- 场景 2：尚未签到，正常提交签到 -->
+      <view wx:elif="{{sheetData.schedule.status === 'scheduled'}}" class="action-btn-row">
+        <button class="btn-submit-attendance" bindtap="onSubmitAttendance" hover-class="btn-hover">
+          ✓ 确认提交点名签到
+        </button>
+        <button class="btn-makeup-request" bindtap="onOpenMakeupSignModal" hover-class="btn-hover">
+          📝 漏签补签申请 (超管审批)
+        </button>
+      </view>
+
+      <!-- 场景 3：已完成签到且在 24 小时以内，允许自主改签 -->
+      <view wx:elif="{{sheetData.schedule.status === 'completed' && sheetData.schedule.is_within_24_hours}}" class="action-btn-row">
+        <button class="btn-update-attendance" bindtap="onUpdateAttendanceWithin24Hours" hover-class="btn-hover">
+          ✏️ 保存 24 小时内自主改签 (原路回滚/补扣)
+        </button>
+      </view>
+
+      <!-- 场景 4：已超过 24 小时彻底锁死 -->
+      <view wx:elif="{{sheetData.schedule.status === 'completed' && sheetData.schedule.is_locked_after_24h}}" class="locked-bar">
+        <text class="locked-txt">🔒 本节课考勤已超过24小时，签到表已物理锁死，如需调课时请走审批流程。</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 1：漏签补签申请 Modal ── -->
+  <view wx:if="{{showMakeupSignModal}}" class="modal-mask" bindtap="onCloseMakeupSignModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">📝 申请下课漏签补签 (超管审批流)</text>
+        <text class="modal-close" bindtap="onCloseMakeupSignModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="makeup-modal-tip">
+          <text class="mm-title">🛡️ 漏签补签内控铁律：</text>
+          <text class="mm-txt">1. 系统绝不替老师自动签到；</text>
+          <text class="mm-txt">2. 补签申请将提交超级管理员审批；</text>
+          <text class="mm-txt">3. 超管审批通过后，方可正式扣减学生课时并锁死快照。</text>
+        </view>
+
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">漏签说明理由 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{makeupSignReason}}" 
+            bindinput="onMakeupReasonInput" 
+            placeholder="如 下课匆忙未点签到，申请补录"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseMakeupSignModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitMakeupSignRequest">提交超管审批</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 2：Phase 3-A 管理员取消单节排课 Modal (二选一模式) ── -->
+  <view wx:if="{{showCancelLessonModal}}" class="modal-mask" bindtap="onCloseCancelLessonModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">❌ 管理员取消课程 (最高权限)</text>
+        <text class="modal-close" bindtap="onCloseCancelLessonModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="cancel-modal-banner">
+          <text class="cmb-title">🛡️ 课程取消与联动三铁律：</text>
+          <text class="cmb-txt">① 不扣课时/误签原路退还：已扣课时全额原路退回课时包，冲减当节欠费；</text>
+          <text class="cmb-txt">② 授课老师当节课酬清零，强制记为 ¥0 元；</text>
+          <text class="cmb-txt">③ 自动触发全班绑定家长（微信订阅/人工兜底）与老师取消通知。</text>
+        </view>
+
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">取消事由说明 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{cancelForm.reason}}" 
+            bindinput="onCancelReasonInput" 
+            placeholder="如 暴雨恶劣天气停课通知"
+          />
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">后续处理方式 (核心二选一，绝不默认替代) <text class="required">*</text></text>
+          <view class="options-container">
+            <view 
+              class="option-card {{cancelForm.handle_mode === 'individual_makeup' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectCancelHandleMode" 
+              data-mode="individual_makeup"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{cancelForm.handle_mode === 'individual_makeup' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">选项 A：单独补课模式</text>
+              </view>
+              <text class="opt-desc">保持课表原定后续课次的时间不动；将缺课学生标记为可后续单独补课候选学员 (衔接 Phase 3-C)。</text>
+            </view>
+
+            <view 
+              class="option-card {{cancelForm.handle_mode === 'postpone_entire_class' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectCancelHandleMode" 
+              data-mode="postpone_entire_class"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{cancelForm.handle_mode === 'postpone_entire_class' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">选项 B：整班往后挪一节 (整班顺延)</text>
+              </view>
+              <text class="opt-desc">按每周规律将本班本次及后续所有未上课表整体往后顺延一周，学期顺延推迟一节，并自动推送新课表通知。</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseCancelLessonModal">放弃</button>
+        <button class="btn-confirm btn-cancel-confirm" bindtap="onSubmitCancelLesson">确认取消课程</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 3：Phase 3-B 管理员指派代课 Modal ── -->
+  <view wx:if="{{showSubstituteModal}}" class="modal-mask" bindtap="onCloseSubstituteModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">🔄 指派代课老师</text>
+        <text class="modal-close" bindtap="onCloseSubstituteModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="sub-modal-tip">
+          <text class="smt-title">📢 代课指派与家校通知铁律：</text>
+          <text class="smt-txt">1. 指派成功后，系统将自动向全班家长推送代课通知（明确哪节课、改由哪位老师上）；</text>
+          <text class="smt-txt">2. 代课老师登录后，这节课将动态路由至其签到表，由代课老师完成点名消课；</text>
+          <text class="smt-txt">3. 学生课时余额隐私隔离对代课老师同样严格生效。</text>
+        </view>
+
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">选择代课老师 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{availableTeachers}}" 
+            range-key="name" 
+            value="{{substituteForm.teacher_index}}" 
+            bindchange="onSubTeacherPickerChange"
+          >
+            <view class="picker-input">
+              {{availableTeachers[substituteForm.teacher_index].name || '请选择代课老师'}}
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-group">
+          <text class="form-label">代课原因说明 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{substituteForm.reason}}" 
+            bindinput="onSubReasonInput" 
+            placeholder="如 教师临时事务调休，特指派代课"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseSubstituteModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitAssignSubstitute">确认指派并下发通知</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 4：Phase 3-B 代课客诉登记与处理 Modal ── -->
+  <view wx:if="{{showComplaintModal}}" class="modal-mask" bindtap="onCloseComplaintModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">⚠️ 代课客诉登记与个案处理</text>
+        <text class="modal-close" bindtap="onCloseComplaintModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="complaint-modal-banner">
+          <text class="cmb-title">🛡️ 代课客诉内控规范：</text>
+          <text class="cmb-txt">所有代课客诉与处理决定完整留档备查并写入操作日志；若决定“退还当节课时”，系统立即调用 rollbackHours 严格原路退回！</text>
+        </view>
+
+        <!-- 选择涉及学员 -->
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">涉及学员/家长 <text class="required">*</text></text>
+          <picker 
+            mode="selector" 
+            range="{{sheetData.students}}" 
+            range-key="name" 
+            value="{{complaintForm.student_index}}" 
+            bindchange="onComplaintStudentChange"
+          >
+            <view class="picker-input">
+              {{sheetData.students[complaintForm.student_index].name || '请选择学员'}}
+            </view>
+          </picker>
+        </view>
+
+        <!-- 家长不满意原因 -->
+        <view class="form-group">
+          <text class="form-label">家长不满意的原因 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{complaintForm.complaint_reason}}" 
+            bindinput="onComplaintReasonInput" 
+            placeholder="如 代课老师教学节奏偏快，孩子跟不上"
+          />
+        </view>
+
+        <!-- 处理决定三选一 -->
+        <view class="form-group">
+          <text class="form-label">处理决定 (三选一枚举) <text class="required">*</text></text>
+          <view class="options-container">
+            <view 
+              class="option-card {{complaintForm.decision === '安排重上一节' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectComplaintDecision" 
+              data-decision="安排重上一节"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{complaintForm.decision === '安排重上一节' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">1. 安排重上一节</text>
+              </view>
+              <text class="opt-desc">标记该生获得一次重上/补课机会，后续在补课中心安排插班重听。</text>
+            </view>
+
+            <view 
+              class="option-card {{complaintForm.decision === '退还当节课时' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectComplaintDecision" 
+              data-decision="退还当节课时"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{complaintForm.decision === '退还当节课时' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">2. 退还当节课时 (联动原路退)</text>
+              </view>
+              <text class="opt-desc">若该生当节已扣费，系统立即调用 rollbackHours 严格原路退回该生当节所扣课时与冲减欠费。</text>
+            </view>
+
+            <view 
+              class="option-card {{complaintForm.decision === '不予处理' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectComplaintDecision" 
+              data-decision="不予处理"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{complaintForm.decision === '不予处理' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">3. 不予处理</text>
+              </view>
+              <text class="opt-desc">向家长做好沟通解释，客诉记录留档备查，不作课时退还或重上安排。</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 管理员决定的原因 -->
+        <view class="form-group">
+          <text class="form-label">管理员决定的原因 <text class="required">*</text></text>
+          <input 
+            class="form-input" 
+            value="{{complaintForm.decision_reason}}" 
+            bindinput="onComplaintDecisionReasonInput" 
+            placeholder="如 经教务核实教学反馈属实，予以退还当节课时"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseComplaintModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitComplaint">确认处理决定并留档</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 5：Phase 3-C 缺勤补课预约 Modal ── -->
+  <view wx:if="{{showMakeupModal}}" class="modal-mask" bindtap="onCloseMakeupModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">📅 学员【{{makeupForm.student_name}}】缺勤补课预约</text>
+        <text class="modal-close" bindtap="onCloseMakeupModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="makeup-flow-tip">
+          <text class="mft-title">🛡️ 补课铁律与防呆保障：</text>
+          <text class="mft-txt">① 补课期限铁律：不设单独期限，完全跟随课时包有效期，只要有未到期课时包绝不拦截；</text>
+          <text class="mft-txt">② 补课扣费锁死：签到出勤扣减课时强制锁定为 {{makeupForm.hours_needed}} 课时(原缺勤耗课)；</text>
+          <text class="mft-txt">③ 家长自由选择补或不补，学校不强求，若放弃课时安全保留原余额。</text>
+        </view>
+
+        <!-- 三种补课路径单选卡片 -->
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">请选择补课路径 <text class="required">*</text></text>
+          <view class="options-container">
+            <view 
+              class="option-card {{makeupForm.makeup_type === 'same_teacher' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectMakeupType" 
+              data-type="same_teacher"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{makeupForm.makeup_type === 'same_teacher' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">1. 自己补（原老师补）</text>
+              </view>
+              <text class="opt-desc">原执教老师直接安排：可选择挂入老师名下其他课次，或新建单独补课课次。</text>
+            </view>
+
+            <view 
+              class="option-card {{makeupForm.makeup_type === 'cross_teacher' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectMakeupType" 
+              data-type="cross_teacher"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{makeupForm.makeup_type === 'cross_teacher' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">2. 非本人补（别的老师补 / 跨师）</text>
+              </view>
+              <text class="opt-desc">生成跨师工单流转至管理员待办工作台，由管理员协调时间与其他老师。</text>
+            </view>
+
+            <view 
+              class="option-card {{makeupForm.makeup_type === 'waived' ? 'option-card-active' : ''}}" 
+              bindtap="onSelectMakeupType" 
+              data-type="waived"
+            >
+              <view class="opt-head">
+                <text class="opt-radio">{{makeupForm.makeup_type === 'waived' ? '🔘' : '⚪'}}</text>
+                <text class="opt-title">3. 不补（家长放弃补课）</text>
+              </view>
+              <text class="opt-desc">家长表示无需补课，本次缺勤课时安全保留在原课时包中，不作扣减。</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 路径 1 专属分支：自己补配置 -->
+        <view wx:if="{{makeupForm.makeup_type === 'same_teacher'}}" class="sub-mode-section">
+          <text class="form-label">原老师补课方式 <text class="required">*</text></text>
+          <view class="sub-mode-tabs">
+            <view 
+              class="tab-btn {{makeupForm.sub_mode === 'mount_existing' ? 'tab-btn-active' : ''}}" 
+              bindtap="onSelectMakeupSubMode" 
+              data-mode="mount_existing"
+            >
+              挂入名下课次 (余{{eligibleSelfSchedules.length}}节可选)
+            </view>
+            <view 
+              class="tab-btn {{makeupForm.sub_mode === 'new_solo' ? 'tab-btn-active' : ''}}" 
+              bindtap="onSelectMakeupSubMode" 
+              data-mode="new_solo"
+            >
+              新建单独补课课次
+            </view>
+          </view>
+
+          <!-- 分支 1-A：挂入原老师名下现有课次 -->
+          <view wx:if="{{makeupForm.sub_mode === 'mount_existing'}}" class="form-group" style="margin-top: 14rpx;">
+            <text class="form-label">选择挂入课次 (同课程同课时且未满封顶) <text class="required">*</text></text>
+            <view wx:if="{{eligibleSelfSchedules.length === 0}}" class="empty-schedules-tip">
+              暂无同课程且未满封顶的待开课次，请选择【新建单独补课课次】
+            </view>
+            <picker 
+              wx:else 
+              mode="selector" 
+              range="{{eligibleSelfSchedules}}" 
+              range-key="display_label" 
+              value="{{makeupForm.target_schedule_index}}" 
+              bindchange="onTargetScheduleChange"
+            >
+              <view class="picker-input">
+                {{eligibleSelfSchedules[makeupForm.target_schedule_index].display_label || '请选择课次'}}
+              </view>
+            </picker>
+          </view>
+
+          <!-- 分支 1-B：新建原老师单独补课 -->
+          <view wx:if="{{makeupForm.sub_mode === 'new_solo'}}" class="new-solo-box">
+            <view class="form-group">
+              <text class="form-label">补课日期 <text class="required">*</text></text>
+              <picker mode="date" value="{{makeupForm.solo_date}}" bindchange="onSoloDateChange">
+                <view class="picker-input">{{makeupForm.solo_date || '请选择日期'}}</view>
+              </picker>
+            </view>
+            <view class="time-range-row">
+              <view class="form-group time-col">
+                <text class="form-label">开始时间 <text class="required">*</text></text>
+                <picker mode="time" value="{{makeupForm.solo_start_time}}" bindchange="onSoloStartTimeChange">
+                  <view class="picker-input">{{makeupForm.solo_start_time}}</view>
+                </picker>
+              </view>
+              <view class="form-group time-col">
+                <text class="form-label">结束时间 <text class="required">*</text></text>
+                <picker mode="time" value="{{makeupForm.solo_end_time}}" bindchange="onSoloEndTimeChange">
+                  <view class="picker-input">{{makeupForm.solo_end_time}}</view>
+                </picker>
+              </view>
+            </view>
+            <text class="solo-hours-hint">单节耗课自动锁定为原缺勤课时：{{makeupForm.hours_needed}} 课时</text>
+          </view>
+        </view>
+
+        <!-- 备注与沟通情况 -->
+        <view class="form-group" style="margin-top: 14rpx;">
+          <text class="form-label">沟通说明 / 家长意向时间</text>
+          <input 
+            class="form-input" 
+            value="{{makeupForm.remarks}}" 
+            bindinput="onMakeupRemarksInput" 
+            placeholder="如 家长希望周六上午补课，或因生病调课"
+          />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseMakeupModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitMakeupBooking">确认提交预约</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 弹窗 6：Phase 3-C 管理员跨师补课安排 Modal ── -->
+  <view wx:if="{{showAdminAssignModal}}" class="modal-mask" bindtap="onCloseAdminAssignModal">
+    <view class="modal-box modal-lg" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">🛠️ 安排跨师补课 —— 学员【{{adminAssignForm.student_name}}】</text>
+        <text class="modal-close" bindtap="onCloseAdminAssignModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="admin-assign-tip">
+          <text class="aat-title">📢 跨师补课协调规则：</text>
+          <text class="aat-txt">① 跨师封顶硬性拦截：所选课次人数必须严格小于班级封顶人数(满员直接拦截)；</text>
+          <text class="aat-txt">② 补课老师签到表将直接出现该补课生，学生课时余额隐私脱敏同样生效；</text>
+          <text class="aat-txt">③ 扣费强制锁定原课时数，Phase 4 薪资引擎将据此核算跨师代课补差。</text>
+        </view>
+
+        <!-- 安排方式切换 -->
+        <view class="form-group" style="margin-top: 20rpx;">
+          <text class="form-label">跨师补课方式 <text class="required">*</text></text>
+          <view class="sub-mode-tabs">
+            <view 
+              class="tab-btn {{adminAssignForm.mode === 'mount_existing' ? 'tab-btn-active' : ''}}" 
+              bindtap="onSelectAdminAssignMode" 
+              data-mode="mount_existing"
+            >
+              插班挂载到其他班级课次 (余{{eligibleCrossSchedules.length}}节可选)
+            </view>
+            <view 
+              class="tab-btn {{adminAssignForm.mode === 'new_solo' ? 'tab-btn-active' : ''}}" 
+              bindtap="onSelectAdminAssignMode" 
+              data-mode="new_solo"
+            >
+              新建跨师单独补课
+            </view>
+          </view>
+        </view>
+
+        <!-- 模式 A：插班挂载 -->
+        <view wx:if="{{adminAssignForm.mode === 'mount_existing'}}" class="form-group">
+          <text class="form-label">选择目标课次 (同课程同耗课且未满封顶) <text class="required">*</text></text>
+          <view wx:if="{{eligibleCrossSchedules.length === 0}}" class="empty-schedules-tip">
+            暂无符合同课程同课时且未满封顶的课次，请选择【新建跨师单独补课】
+          </view>
+          <picker 
+            wx:else 
+            mode="selector" 
+            range="{{eligibleCrossSchedules}}" 
+            range-key="display_label" 
+            value="{{adminAssignForm.target_schedule_index}}" 
+            bindchange="onAdminTargetScheduleChange"
+          >
+            <view class="picker-input">
+              {{eligibleCrossSchedules[adminAssignForm.target_schedule_index].display_label || '请选择课次'}}
+            </view>
+          </picker>
+        </view>
+
+        <!-- 模式 B：新建跨师单独补课 -->
+        <view wx:if="{{adminAssignForm.mode === 'new_solo'}}" class="new-solo-box">
+          <view class="form-group">
+            <text class="form-label">指定补课授课老师 <text class="required">*</text></text>
+            <picker 
+              mode="selector" 
+              range="{{availableTeachers}}" 
+              range-key="name" 
+              value="{{adminAssignForm.teacher_index}}" 
+              bindchange="onAdminTeacherPickerChange"
+            >
+              <view class="picker-input">
+                {{availableTeachers[adminAssignForm.teacher_index].name || '请选择补课老师'}}
+              </view>
+            </picker>
+          </view>
+          <view class="form-group">
+            <text class="form-label">补课日期 <text class="required">*</text></text>
+            <picker mode="date" value="{{adminAssignForm.solo_date}}" bindchange="onAdminSoloDateChange">
+              <view class="picker-input">{{adminAssignForm.solo_date || '请选择日期'}}</view>
+            </picker>
+          </view>
+          <view class="time-range-row">
+            <view class="form-group time-col">
+              <text class="form-label">开始时间 <text class="required">*</text></text>
+              <picker mode="time" value="{{adminAssignForm.solo_start_time}}" bindchange="onAdminSoloStartTimeChange">
+                <view class="picker-input">{{adminAssignForm.solo_start_time}}</view>
+              </picker>
+            </view>
+            <view class="form-group time-col">
+              <text class="form-label">结束时间 <text class="required">*</text></text>
+              <picker mode="time" value="{{adminAssignForm.solo_end_time}}" bindchange="onAdminSoloEndTimeChange">
+                <view class="picker-input">{{adminAssignForm.solo_end_time}}</view>
+              </picker>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onCloseAdminAssignModal">取消</button>
+        <button class="btn-confirm" bindtap="onSubmitAdminAssignMakeup">确认安排并挂载</button>
+      </view>
+    </view>
+  </view>
+</view>
