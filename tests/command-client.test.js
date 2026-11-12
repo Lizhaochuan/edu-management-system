@@ -110,3 +110,63 @@ test('closing Web event subscription cancels scheduled reconnect and prevents re
  instances[0].onerror();const retry=[...timers.values()][0];
  subscription.close();assert.equal(timers.size,0);retry();assert.equal(instances.length,1);
 });
+
+test('two different Web actions during initial context fetch cannot overwrite an uncertain envelope',async()=>{
+ const storage=new Map();const window={location:{origin:'http://test'}};const posts=[];
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const fetch=async(url,options={})=>{
+  if(url.endsWith('/context'))return {ok:true,json:async()=>({code:0,data:{version:7,snapshot:{}}})};
+  posts.push(JSON.parse(options.body));throw new Error('lost response');
+ };
+ vm.runInNewContext(webSource,{window,fetch,sessionStorage,crypto:{randomUUID:()=>String(posts.length)+'original-request'},Map,Promise});
+ await Promise.allSettled([window.api.purchasePackage({payment_reference:'p1'}),window.api.purchasePackage({payment_reference:'p2'})]);
+ assert.equal(posts.length,1);
+ assert.equal(JSON.parse([...storage.values()][0]).envelope.params.payment_reference,'p1');
+});
+
+test('permission failure on retry preserves the uncertain Web envelope',async()=>{
+ const storage=new Map();const window={location:{origin:'http://test'}};let attempt=0;const posts=[];
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const fetch=async(url,options={})=>{
+  if(url.endsWith('/context'))return {ok:true,json:async()=>({code:0,data:{version:7}})};
+  posts.push(JSON.parse(options.body));attempt++;
+  if(attempt===1)throw new Error('lost response');
+  if(attempt===2)return {ok:false,status:403,json:async()=>({message:'revoked'})};
+  return {ok:true,json:async()=>({code:0,data:{result:{accepted:true},replayed:true}})};
+ };
+ vm.runInNewContext(webSource,{window,fetch,sessionStorage,crypto:{randomUUID:()=>String(attempt)+'original-key'},Map,Promise});
+ await assert.rejects(window.api.purchasePackage({payment_reference:'p1'}),/lost response/);
+ await assert.rejects(window.api.purchasePackage({payment_reference:'p1'}),/revoked/);
+ assert.equal(storage.size,1);
+ await window.api.purchasePackage({payment_reference:'p1'});
+ assert.equal(posts[2].idempotencyKey,posts[0].idempotencyKey);
+});
+
+test('native late command response after account switch stays pending for the original user',async()=>{
+ const storage=new Map([['auth_token','original']]);const requests=[];const module={exports:{}};
+ const wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),removeStorageSync:k=>storage.delete(k),request(o){
+  if(o.url.endsWith('/context'))o.success({statusCode:200,data:{code:0,data:{user_id:'original-user',version:7,snapshot:{}}}});
+  else requests.push(o);
+ }};
+ vm.runInNewContext(source,{module,require:()=>({SERVER_API_BASE:'http://test'}),wx,Map,Promise,Date,Math});
+ const pending=module.exports.run('package.purchase',{payment_reference:'p1'});
+ const rejected=assert.rejects(pending,/登录身份/);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(requests[0].header.Authorization,'Bearer original');
+ storage.set('auth_token','another-account');
+ requests[0].success({statusCode:200,data:{code:0,data:{result:{private_result:true},version:8}}});
+ await rejected;
+ assert.ok(storage.get('pending_business_command_original-user'));
+});
+
+test('Web context from previous login is rejected after identity changes',async()=>{
+ const window={location:{origin:'http://test'}};let finish;
+ const fetch=async url=>{
+  if(url.endsWith('/me'))return {ok:true,json:async()=>({data:{user:{id:'new-user',role:'admin',name:'New'}}})};
+  return new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({code:0,data:{version:1,snapshot:{private:'old'}}})})});
+ };
+ vm.runInNewContext(webSource,{window,fetch,Map,Promise});
+ const old=window.api.commandContext();const rejected=assert.rejects(old,/登录身份/);
+ await window.api.whoAmI();finish();await rejected;
+ assert.equal(window.api._commandContext,null);
+});

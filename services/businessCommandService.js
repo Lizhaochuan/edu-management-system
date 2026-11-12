@@ -34,6 +34,15 @@ function identity(req) {
   return session.user;
 }
 
+// Apply on EVERY response, including receipts written before redaction changed.
+function projectResponse(response, operator) {
+  if (operator.role !== 'teacher' || !response.result) return response;
+  const pick = (value, keys) => Object.fromEntries(keys.filter(k => Object.hasOwn(value,k)).map(k => [k,value[k]]));
+  const result=pick(response.result,['success','schedule_id','class_id','class_name','lesson_date','hours_per_lesson','initial_present_headcount','present_formal_headcount','present_trial_count','absent_count','submitted_at','modified_at','approval_id','status']);
+  if (Array.isArray(response.result.attendees)) result.attendees=response.result.attendees.map(a=>pick(a,['student_id','student_name','is_trial','status','is_late','is_early_leave','deducted_hours']));
+  return {...response,result};
+}
+
 // Server-owned registry. New operations must supply their own permission check,
 // strict parameter validator and synchronous database-only handler.
 const commands = Object.freeze({
@@ -75,12 +84,12 @@ function createExecutor(registry) {
     const previous = state.receipts.find(r => r.key === key);
     if (previous) {
       if (previous.fingerprint !== fingerprint) fail(409, 'IDEMPOTENCY_CONFLICT', '幂等键已用于其他请求');
-      return { ...previous.response, replayed: true };
+      return projectResponse({ ...previous.response, replayed: true }, operator);
     }
     if (state.version !== envelope.expectedVersion) fail(409, 'VERSION_CONFLICT', '数据已变更，请刷新后重试');
     // Never silently evict a receipt and permit an old financial request to rerun.
     if (state.receipts.length >= MAX_RECEIPTS) fail(503, 'RECEIPT_CAPACITY', '幂等记录已满，需要服务端维护');
-    return db.transaction(() => {
+    const response = db.transaction(() => {
       const result = spec.handle({ params: envelope.params, operator: Object.freeze({ ...operator }) });
       if (result && typeof result.then === 'function') throw new Error('Command handlers must be synchronous');
       // Clone before commit so non-serializable results cannot commit and then fail
@@ -90,6 +99,7 @@ function createExecutor(registry) {
         command: envelope.command, response });
       return { ...response, replayed: false };
     }, operator);
+    return projectResponse(response, operator);
   };
 }
 
