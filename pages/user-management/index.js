@@ -16,6 +16,7 @@ const TIER_OPTIONS = [
 ]
 
 Page({
+  noOp() {},
   data: {
     currentUser: null,
     isSuperAdmin: false,

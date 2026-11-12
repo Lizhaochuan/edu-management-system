@@ -106,7 +106,7 @@ if (!isMiniProgram) {
   try {
     _fs = require('fs')
     _path = require('path')
-    _dbFilePath = _path.join(__dirname, '..', 'data', 'db.json')
+    _dbFilePath = process.env.DB_FILE || _path.join(__dirname, '..', 'data', 'db.json')
   } catch (e) {}
 }
 

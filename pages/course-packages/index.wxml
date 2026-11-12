@@ -10,7 +10,7 @@
       <text class="banner-title">课时扣费引擎与逆向回滚铁律</text>
     </view>
     <view class="banner-desc">
-      ① 多包FIFO（先到期先扣）；② 包内先扣付费后扣赠送；③ 余额不足扣至0记欠绝不记负；④ 可用&lt;4课时预警联动家校；⑤ 上课消课优先物理破锁；⑥ 原路回滚先退赠送后退付费对称逆操作！
+      ① 多包FIFO（先到期先扣）；② 包内先扣付费后扣赠送；③ 余额不足扣至0记欠绝不记负；④ 可用课时少于4课时预警联动家校；⑤ 上课消课优先物理破锁；⑥ 原路回滚先退赠送后退付费对称逆操作！
     </view>
   </view>
 
@@ -257,7 +257,7 @@
 
   <!-- ── 弹窗 1：买课登记 Modal ── -->
   <view wx:if="{{showPurchaseModal}}" class="modal-mask" bindtap="onClosePurchaseModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">登记新购课时包（独立买课）</text>
         <text class="modal-close" bindtap="onClosePurchaseModal">✕</text>
@@ -404,7 +404,7 @@
 
   <!-- ── 弹窗 2：Phase 2-A 消课扣费与测试弹窗 ── -->
   <view wx:if="{{showDeductModal}}" class="modal-mask" bindtap="onCloseDeductModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">⚡ 课堂消课扣费 (Phase 2-A 引擎)</text>
         <text class="modal-close" bindtap="onCloseDeductModal">✕</text>
@@ -416,7 +416,7 @@
           <view class="qc-btns">
             <button class="btn-qc" bindtap="onApplyQuickCase" data-case="fifo">① 多包FIFO(先到期+先付费后赠送)</button>
             <button class="btn-qc" bindtap="onApplyQuickCase" data-case="debt">② 余额不足透支记欠(不为负数)</button>
-            <button class="btn-qc" bindtap="onApplyQuickCase" data-case="warning">③ &lt;4课时预警与家校通知</button>
+            <button class="btn-qc" bindtap="onApplyQuickCase" data-case="warning">③ 少于4课时预警与家校通知</button>
             <button class="btn-qc btn-qc-unlock" bindtap="onApplyQuickCase" data-case="unlock">④ 审批锁定并发破锁</button>
           </view>
         </view>
@@ -483,7 +483,7 @@
 
   <!-- ── 弹窗 3：精准原路逆向回滚 Modal ── -->
   <view wx:if="{{showRollbackModal}}" class="modal-mask" bindtap="onCloseRollbackModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">🔄 原路精准逆向回滚 (rollbackHours)</text>
         <text class="modal-close" bindtap="onCloseRollbackModal">✕</text>
@@ -515,7 +515,7 @@
 
   <!-- ── 弹窗 4：课时冻结申请 Modal (Phase 5-A 90天双封顶) ── -->
   <view wx:if="{{showFreezeModal}}" class="modal-mask" bindtap="onCloseFreezeModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">❄️ 课时冻结申请 (90天双封顶)</text>
         <text class="modal-close" bindtap="onCloseFreezeModal">✕</text>
@@ -569,7 +569,7 @@
 
   <!-- ── 弹窗 5：管理员手工调课时 Modal (Phase 5-A 超管独批·防负数·并发锁) ── -->
   <view wx:if="{{showAdjustModal}}" class="modal-mask" bindtap="onCloseAdjustModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">⚖️ 管理员手工调课时 (超管独批)</text>
         <text class="modal-close" bindtap="onCloseAdjustModal">✕</text>
@@ -674,7 +674,7 @@
 
   <!-- ── 弹窗 6：核心教务三转 Modal (Phase 5-B 转人 / 转课 / 转班) ── -->
   <view wx:if="{{showTransferModal}}" class="modal-mask" bindtap="onCloseTransferModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">🔄 核心教务三转申请 (超管独批)</text>
         <text class="modal-close" bindtap="onCloseTransferModal">✕</text>
@@ -877,7 +877,7 @@
 
   <!-- ── 弹窗 7：退费清算 Modal (Phase 5-C 退费核算引擎与超管审批) ── -->
   <view wx:if="{{showRefundModal}}" class="modal-mask" bindtap="onCloseRefundModal">
-    <view class="modal-box modal-box-large" catchtap="true">
+    <view class="modal-box modal-box-large" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">💸 课时退费清算申请 (超管独批)</text>
         <text class="modal-close" bindtap="onCloseRefundModal">✕</text>
@@ -996,7 +996,7 @@
 
   <!-- ── 弹窗 8：四期到期扫描与顺延 / 不续退费 Modal (Phase 5-C) ── -->
   <view wx:if="{{showExpiringModal}}" class="modal-mask" bindtap="onCloseExpiringModal">
-    <view class="modal-box modal-box-large" catchtap="true">
+    <view class="modal-box modal-box-large" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">📅 四期到期扫描与顺延处理</text>
         <text class="modal-close" bindtap="onCloseExpiringModal">✕</text>
@@ -1087,7 +1087,7 @@
 
   <!-- ── 弹窗 9：期末顺延确认与补费 Modal (Phase 5-C) ── -->
   <view wx:if="{{showRolloverModal}}" class="modal-mask" bindtap="onCloseRolloverModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">🔄 期末顺延确认 (顺延续费)</text>
         <text class="modal-close" bindtap="onCloseRolloverModal">✕</text>

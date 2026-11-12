@@ -6,6 +6,7 @@ const transferRefundService = require('../../services/transferRefundService')
 const db = require('../../services/db')
 
 Page({
+  noOp() {},
   data: {
     currentUser: null,
     isAdmin: false, // super_admin 或 admin 可操作

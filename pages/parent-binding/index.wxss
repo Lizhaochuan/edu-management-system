@@ -43,8 +43,9 @@
 .action-bar {
   margin: 0 24rpx 18rpx 24rpx;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
 }
 
 .bar-title {
@@ -61,6 +62,7 @@
 
 .bar-btn-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
 }
 
@@ -132,6 +134,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
   margin-bottom: 16rpx;
 }
 
@@ -317,6 +321,7 @@
   display: flex;
   align-items: flex-start;
   flex: 1;
+  min-width: 0;
   margin-right: 16rpx;
 }
 
@@ -377,8 +382,9 @@
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10rpx;
   margin-bottom: 20rpx;
   padding-bottom: 16rpx;
   border-bottom: 1rpx solid #f1f5f9;
@@ -421,10 +427,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .fallback-left {
   flex: 1;
+  min-width: 0;
 }
 
 .fallback-user-row {

@@ -111,6 +111,13 @@ test('health does not disclose database metrics', async () => {
   assert.equal(result.data.total_records,undefined);
   assert.equal(result.data.total_tables,undefined);
 });
+
+test('missing static requests fall back without crashing subsequent page and API requests',async()=>{
+ for(const route of ['/missing-client-route','/favicon.ico','/login.html','/api/status']) {
+  const response=await call(route);
+  assert.equal(response.status,200,route);
+ }
+});
 test('headers alone cannot impersonate super admin or access SSE', async () => {
   const headers = { 'X-User-Id':'u_sa1','X-User-Role':'super_admin' };
   assert.equal((await call('/api/db/all','GET',undefined,headers)).status,401);

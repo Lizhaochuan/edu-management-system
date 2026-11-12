@@ -5,6 +5,7 @@ const db = require('../../services/db')
 const RELATIONS = ['母亲', '父亲', '爷爷', '奶奶', '姥姥', '姥爷', '其他监护人']
 
 Page({
+  noOp() {},
   data: {
     currentUser: null,
     isParent: false,

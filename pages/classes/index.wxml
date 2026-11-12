@@ -186,7 +186,7 @@
 
   <!-- ── 弹窗 1：新建班级 Modal（定五样） ── -->
   <view wx:if="{{showCreateModal}}" class="modal-mask" bindtap="onCloseCreateModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">新建教学班级（建班定五样）</text>
         <text class="modal-close" bindtap="onCloseCreateModal">✕</text>
@@ -321,7 +321,7 @@
 
   <!-- ── 弹窗 2：正式排班 / 插班算费 Modal ── -->
   <view wx:if="{{showEnrollModal}}" class="modal-mask" bindtap="onCloseEnrollModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">排入班级 / 插班算费</text>
         <text class="modal-close" bindtap="onCloseEnrollModal">✕</text>
@@ -397,7 +397,7 @@
 
   <!-- ── 弹窗 3：登记试听生 Modal ── -->
   <view wx:if="{{showTrialModal}}" class="modal-mask" bindtap="onCloseTrialModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">登记试听生（不占名额不扣课）</text>
         <text class="modal-close" bindtap="onCloseTrialModal">✕</text>
@@ -444,7 +444,7 @@
 
   <!-- ── 弹窗 4：更换授课老师 Modal ── -->
   <view wx:if="{{showChangeTeacherModal}}" class="modal-mask" bindtap="onCloseChangeTeacherModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">更换班级授课教师（历史切割）</text>
         <text class="modal-close" bindtap="onCloseChangeTeacherModal">✕</text>

@@ -166,7 +166,7 @@
 
   <!-- ── 弹窗 1：绑定已有学员 Modal（多对多/多对一绑定） ── -->
   <view wx:if="{{showBindExistingModal}}" class="modal-mask" bindtap="onCloseBindExistingModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">绑定已有孩子（多家长绑定）</text>
         <text class="modal-close" bindtap="onCloseBindExistingModal">✕</text>
@@ -217,7 +217,7 @@
 
   <!-- ── 弹窗 2：登记新孩子 Modal ── -->
   <view wx:if="{{showRegisterModal}}" class="modal-mask" bindtap="onCloseRegisterModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">登记新孩子建档</text>
         <text class="modal-close" bindtap="onCloseRegisterModal">✕</text>

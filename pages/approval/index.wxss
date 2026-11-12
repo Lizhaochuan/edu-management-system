@@ -136,6 +136,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
   padding-bottom: 16rpx;
   border-bottom: 2rpx solid #f1f5f9;
 }
@@ -143,6 +145,8 @@
 .header-left {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
 }
 
 .type-tag {
@@ -339,6 +343,8 @@
 .btn-group {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .btn-action {

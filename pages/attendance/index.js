@@ -6,6 +6,7 @@ const salaryEngineService = require('../../services/salaryEngineService')
 const db = require('../../services/db')
 
 Page({
+  noOp() {},
   data: {
     currentUser: null,
     isTeacher: false,
