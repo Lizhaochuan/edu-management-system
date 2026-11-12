@@ -2,7 +2,7 @@ name: Node regression tests
 
 on:
   pull_request:
-    branches: [work, main]
+    branches: [work, main, 'chatgpt/integration-05']
   push:
     branches: ['chatgpt/**']
 
@@ -28,3 +28,4 @@ jobs:
           find pages components services web-admin/js scripts -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Run isolated tests
         run: npm test
+

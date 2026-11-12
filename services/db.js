@@ -46,6 +46,58 @@ let _nodeMemoryDb = null
 let _fs = null
 let _path = null
 let _dbFilePath = null
+let _transaction = null
+const WRITE_STATE = '__server_write_state'
+
+function _clone(value) { return JSON.parse(JSON.stringify(value)) }
+
+function _writeState() {
+  const state = _loadNodeDb()[WRITE_STATE]
+  if (state === undefined) return { version: 0, receipts: [] }
+  if (!state || !Number.isSafeInteger(state.version) || state.version < 0 ||
+      !Array.isArray(state.receipts)) throw new Error('Invalid server write metadata')
+  return state
+}
+
+function getWriteState() {
+  if (isMiniProgram) throw new Error('Server writes require Node.js')
+  return _clone(_writeState())
+}
+
+function saveCommandReceipt(receipt) {
+  if (!_transaction) throw new Error('Command receipts require a transaction')
+  const state = getWriteState()
+  state.receipts.push(_clone(receipt))
+  _nodeMemoryDb[WRITE_STATE] = state
+}
+
+// Synchronous handlers run to completion without yielding the event loop. Reject
+// reentry rather than allow one transaction to observe another's staged state.
+// Never perform network I/O, notifications or await inside this boundary.
+function transaction(handler, operator) {
+  if (isMiniProgram) throw new Error('Server writes require Node.js')
+  if (_transaction) throw new Error('Nested/concurrent transaction is not allowed')
+  if (typeof handler !== 'function' || handler.constructor.name === 'AsyncFunction') {
+    throw new Error('Transaction handler must be synchronous')
+  }
+  const before = _loadNodeDb()
+  _nodeMemoryDb = _clone(before)
+  _transaction = { operator }
+  try {
+    const result = handler()
+    if (result && typeof result.then === 'function') throw new Error('Async transaction is not allowed')
+    _transaction = null
+    _persistNodeDb()
+    return result
+  } catch (error) {
+    // Staged writes were never persisted. Rollback needs no second disk write,
+    // which could itself fail when the disk is full or permissions are lost.
+    _nodeMemoryDb = before
+    throw error
+  } finally {
+    _transaction = null
+  }
+}
 
 if (!isMiniProgram) {
   try {
@@ -60,10 +112,14 @@ function _loadNodeDb() {
   if (_fs && _fs.existsSync(_dbFilePath)) {
     try {
       const raw = _fs.readFileSync(_dbFilePath, 'utf8')
-      _nodeMemoryDb = JSON.parse(raw)
+      const loaded = JSON.parse(raw)
+      if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded)) {
+        throw new Error('Database root must be an object')
+      }
+      _nodeMemoryDb = loaded
       return _nodeMemoryDb
     } catch (e) {
-      console.warn('[db] load db.json failed, falling back to seed:', e)
+      throw new Error('Cannot read database; refusing to overwrite historical data', { cause: e })
     }
   }
   _nodeMemoryDb = _buildSeedData()
@@ -72,7 +128,12 @@ function _loadNodeDb() {
 }
 
 function _persistNodeDb() {
+  if (_transaction) return
   if (!_fs || !_dbFilePath || !_nodeMemoryDb) return
+  const state = _writeState()
+  if (state.version >= Number.MAX_SAFE_INTEGER) throw new Error('Database version exhausted')
+  const nextState = { ...state, version: state.version + 1 }
+  const candidate = { ..._nodeMemoryDb, [WRITE_STATE]: nextState }
   const dir = _path.dirname(_dbFilePath)
   if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true })
   // Replace an entire JSON file atomically instead of truncating it in place.
@@ -80,8 +141,12 @@ function _persistNodeDb() {
   const temp = _path.join(dir, '.db-write-' + process.pid + '-' + Date.now() + '-' +
     Math.random().toString(16).slice(2) + '.tmp')
   try {
-    _fs.writeFileSync(temp, JSON.stringify(_nodeMemoryDb, null, 2), { encoding:'utf8', flag:'wx' })
+    _fs.writeFileSync(temp, JSON.stringify(candidate, null, 2), { encoding:'utf8', flag:'wx', mode:0o600 })
+    // Flush the complete candidate before the atomic rename (single local disk).
+    const fd = _fs.openSync(temp, 'r')
+    try { _fs.fsyncSync(fd) } finally { _fs.closeSync(fd) }
     _fs.renameSync(temp, _dbFilePath)
+    _nodeMemoryDb[WRITE_STATE] = nextState
   } catch (e) {
     console.error('[db] persist db.json failed; latest mutation was NOT durably saved:', e)
     throw e
@@ -139,6 +204,7 @@ function _genId() {
 
 /** 获取当前操作人信息（从 App globalData 读取） */
 function _currentUser() {
+  if (!isMiniProgram && _transaction && _transaction.operator) return _transaction.operator
   try {
     if (typeof getApp === 'function') {
       const app = getApp()
@@ -175,6 +241,7 @@ function _writeAuditLog(action, targetTable, targetRecordId, beforeSnapshot, aft
     _writeStorageTable(TABLES.AUDIT_LOGS, logs)
     return log
   } catch (e) {
+    if (_transaction) throw e
     console.warn('[db] audit log write failed:', e)
     return null
   }
@@ -842,7 +909,11 @@ function _buildSeedData() {
 function initDatabase(forceReset = false) {
   if (!isMiniProgram) {
     if (forceReset || !_fs || !_fs.existsSync(_dbFilePath)) {
+      // Even an explicitly enabled development reseed must not reuse versions
+      // or forget completed command keys within the same database lineage.
+      const state = (_nodeMemoryDb || (_fs && _fs.existsSync(_dbFilePath))) ? getWriteState() : null
       _nodeMemoryDb = _buildSeedData()
+      if (state) _nodeMemoryDb[WRITE_STATE] = state
       _persistNodeDb()
     } else {
       _loadNodeDb()
@@ -937,7 +1008,8 @@ function dumpAll() {
     })
     return data
   }
-  return _loadNodeDb()
+  const { [WRITE_STATE]: _internal, ...business } = _loadNodeDb()
+  return business
 }
 
 /** 全库覆盖写入（用于服务端恢复或测试重置） */
@@ -948,7 +1020,8 @@ function replaceAll(newDb) {
     })
     return
   }
-  _nodeMemoryDb = Object.assign({}, newDb)
+  const state = getWriteState()
+  _nodeMemoryDb = Object.assign({}, newDb, { [WRITE_STATE]: state })
   _persistNodeDb()
 }
 
@@ -967,5 +1040,9 @@ module.exports = {
   startAutoSync,
   dumpAll,
   replaceAll,
+  transaction,
+  getWriteState,
+  saveCommandReceipt,
   SERVER_API_BASE,
 }
+

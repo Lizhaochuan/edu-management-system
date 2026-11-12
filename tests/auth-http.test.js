@@ -200,3 +200,113 @@ test('static web file server refuses encoded traversal into prefix-matching sibl
   assert.equal(outside.status,403);
   assert.doesNotMatch(JSON.stringify(outside.data),/DO_NOT_EXPOSE/);
 });
+
+async function commandSession(userId = 'u_sa1') {
+  const login = await signIn(userId);
+  return { Authorization: 'Bearer ' + login.data.data.token };
+}
+async function commandEnvelope(headers, key = 'http-command-00000001') {
+  const response = await call('/api/commands/version', 'GET', undefined, headers);
+  assert.equal(response.status, 200);
+  return { command: 'system.writeProbe', params: { label: 'http_probe' },
+    idempotencyKey: key, expectedVersion: response.data.data.version };
+}
+
+test('command endpoint authenticates both Cookie and Bearer, rejects forged roles and operation escalation', async () => {
+  assert.equal((await call('/api/commands/version')).status, 401);
+  assert.equal((await call('/api/commands/execute', 'POST', {},
+    { 'X-User-Role': 'super_admin', 'X-User-Id': 'u_sa1' })).status, 401);
+  const admin = await commandSession('u_adm1');
+  const p = await commandEnvelope(admin);
+  assert.equal((await call('/api/commands/execute', 'POST', p,
+    { ...admin, 'X-User-Role': 'super_admin' })).status, 403);
+  const parent = await commandSession('u_par1');
+  assert.equal((await call('/api/commands/version', 'GET', undefined, parent)).status, 403);
+  const login = await signIn('u_sa1');
+  const headers = { Cookie: cookie(login) };
+  const envelope = await commandEnvelope(headers, 'http-cookie-00000001');
+  assert.equal((await call('/api/commands/execute', 'POST', envelope, headers)).status, 200);
+  assert.equal((await call('/api/commands/execute', 'GET', undefined, headers)).status, 403);
+});
+
+test('concurrent distinct commands at one version have exactly one winner and one conflict', async () => {
+  const headers = await commandSession();
+  const p = await commandEnvelope(headers, 'http-race-0000000001');
+  const snapshot = await call('/api/db/all', 'GET', undefined, headers);
+  const results = await Promise.all([
+    call('/api/commands/execute', 'POST', p, headers),
+    call('/api/commands/execute', 'POST', { ...p, idempotencyKey: 'http-race-0000000002' }, headers)
+  ]);
+  assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
+  assert.equal(results.find(r => r.status === 409).data.code, 'VERSION_CONFLICT');
+  const latest = await commandEnvelope(headers);
+  assert.equal(latest.expectedVersion, p.expectedVersion + 1);
+  const after = await call('/api/db/all', 'GET', undefined, headers);
+  assert.deepEqual(after.data.data, snapshot.data.data);
+  assert.equal(after.data.data.__server_write_state, undefined);
+});
+
+test('concurrent duplicate HTTP submissions produce one durable receipt and stable responses', async () => {
+  const headers = await commandSession();
+  const p = await commandEnvelope(headers, 'http-duplicate-00001');
+  const results = await Promise.all(Array.from({ length: 8 }, () =>
+    call('/api/commands/execute', 'POST', p, headers)));
+  assert.ok(results.every(r => r.status === 200));
+  assert.equal(results.filter(r => !r.data.data.replayed).length, 1);
+  assert.ok(results.every(r => r.data.data.version === p.expectedVersion + 1));
+  assert.ok(results.every(r => r.data.data.result.label === 'http_probe'));
+  const conflict = await call('/api/commands/execute', 'POST',
+    { ...p, params: { label: 'changed' } }, headers);
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.data.code, 'IDEMPOTENCY_CONFLICT');
+});
+
+function rawCommand(body, headers) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port,
+      path: '/api/commands/execute', method: 'POST', headers }, res => {
+      let result = '';
+      res.on('data', c => { result += c; });
+      res.on('end', () => resolve({ status: res.statusCode, data: JSON.parse(result) }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+test('command HTTP parser rejects malformed, oversized and extra-identity payloads without changing version', async () => {
+  const headers = await commandSession();
+  const p = await commandEnvelope(headers, 'http-invalid-0000001');
+  assert.equal((await rawCommand('{broken', headers)).status, 400);
+  assert.equal((await rawCommand('x'.repeat(17 * 1024), headers)).status, 413);
+  assert.equal((await call('/api/commands/execute', 'POST', { ...p, role: 'super_admin' }, headers)).status, 400);
+  assert.equal((await call('/api/commands/execute', 'POST', { ...p,
+    params: { table: 'users', id: 'u_sa1', patch: { role: 'admin' } } }, headers)).status, 400);
+  assert.equal((await commandEnvelope(headers)).expectedVersion, p.expectedVersion);
+});
+
+test('logout while command body is in flight prevents execution after earlier route authentication', async () => {
+  const headers = await commandSession();
+  const p = await commandEnvelope(headers, 'http-revoked-0000001');
+  const body = JSON.stringify(p);
+  const response = new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port,
+      path: '/api/commands/execute', method: 'POST', headers: {
+        ...headers, 'Content-Length': Buffer.byteLength(body), Expect: '100-continue'
+      } }, res => {
+      res.resume();
+      res.on('end', () => resolve(res.statusCode));
+    });
+    req.on('error', reject);
+    req.on('continue', async () => {
+      try {
+        req.write(body.slice(0, 1));
+        assert.equal((await call('/api/auth/logout', 'POST', {}, headers)).status, 200);
+        req.end(body.slice(1));
+      } catch (error) { req.destroy(); reject(error); }
+    });
+    req.flushHeaders();
+  });
+  assert.equal(await response, 401);
+});
+
