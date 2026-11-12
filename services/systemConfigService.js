@@ -7,8 +7,9 @@ const { normalizeManualRates } = require('./salaryRateConfig')
  * 校验当前登录人是否为管理员或超级管理员（老师与家长无权操作）
  */
 function checkAdminPermission() {
-  const app = getApp()
-  const user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
+  const serverUser = db.getTransactionOperator()
+  const app = serverUser ? null : getApp()
+  const user = serverUser || (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
   if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
     throw new Error('权限拦截：仅教务管理(admin)或超级管理员(super_admin)可操作参数设置')
   }
@@ -58,6 +59,7 @@ const systemConfigService = {
    * @param {Object} params - { termId, newExpireDate, reason }
    */
   submitTermExpireDateRequest(params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.term',data:params})
     const user = checkAdminPermission()
     const { termId, newExpireDate, reason } = params
 
@@ -123,6 +125,7 @@ const systemConfigService = {
    * @param {Object} params - { course_name, class_type_name, max_capacity, unit_price, hours_per_lesson, reason }
    */
   submitCreateCourseClassTypeRequest(params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.courseCreate',data:params})
     const user = checkAdminPermission()
     const { course_name, class_type_name, max_capacity, unit_price, hours_per_lesson, reason } = params
 
@@ -176,6 +179,7 @@ const systemConfigService = {
    * @param {Object} params - { max_capacity, unit_price, hours_per_lesson, reason }
    */
   submitUpdateCourseClassTypeRequest(id, params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.courseUpdate',data:params,target_id:id})
     const user = checkAdminPermission()
     const { max_capacity, unit_price, hours_per_lesson, reason } = params
 
@@ -264,6 +268,7 @@ const systemConfigService = {
   },
 
   submitPartnerTeacherRatesRequest(params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.partnerRates',data:params})
     const user = checkAdminPermission()
     const { headcount_rates_json, reason } = params
     if (!reason || !reason.trim()) throw new Error('设置合伙人老师课时费必须说明理由')
@@ -286,6 +291,7 @@ const systemConfigService = {
 
   /** Partner is a teaching category; it never grants super-admin privileges. */
   submitTeacherCategoryRequest(teacherId, params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.teacherCategory',data:params,target_id:teacherId})
     const user = checkAdminPermission()
     const { teacher_category, teacher_tier_id, reason } = params
     if (!reason || !reason.trim()) throw new Error('调整教师类别必须填写理由')
@@ -320,6 +326,7 @@ const systemConfigService = {
    * @param {Object} params - { name, headcount_rates_json, maxCapacity, reason }
    */
   submitCreateTeacherTierRequest(params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.tierCreate',data:params})
     const user = checkAdminPermission()
     const { name, headcount_rates_json, maxCapacity, reason } = params
 
@@ -369,6 +376,7 @@ const systemConfigService = {
    * @param {Object} params - { name, headcount_rates_json, maxCapacity, reason }
    */
   submitUpdateTeacherTierRequest(tierId, params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.tierUpdate',data:params,target_id:tierId})
     const user = checkAdminPermission()
     const { name, headcount_rates_json, maxCapacity, reason } = params
 
@@ -422,6 +430,7 @@ const systemConfigService = {
    * @param {Object} params - { custom_tier_rates_json, maxCapacity, reason }
    */
   submitTeacherCustomRateRequest(teacherId, params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.teacherRates',data:params,target_id:teacherId})
     const user = checkAdminPermission()
     const { custom_tier_rates_json, maxCapacity, reason } = params
 
@@ -473,6 +482,7 @@ const systemConfigService = {
    * @param {Object} params - { reason }
    */
   submitTeacherResetTierRequest(teacherId, params) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'config.teacherReset',data:params,target_id:teacherId})
     const user = checkAdminPermission()
     const { reason } = params
 
@@ -558,3 +568,4 @@ const systemConfigService = {
 }
 
 module.exports = systemConfigService
+

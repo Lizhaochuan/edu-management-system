@@ -1,3 +1,4 @@
+const commands = require('../../services/commandClient')
 // pages/course-packages/index.js
 // 课时包账本与 Phase 2-A 扣费/回滚控制台
 const packageAccountService = require('../../services/packageAccountService')
@@ -137,7 +138,8 @@ Page({
     this.initData()
   },
 
-  onShow() {
+  async onShow() {
+    try { await commands.refresh(); await commands.recoverPending() } catch (err) { wx.showModal({title:"读取服务端失败",content:err.message,showCancel:false}); return }
     this.initData()
   },
 
@@ -324,7 +326,7 @@ Page({
     })
   },
 
-  onSubmitPurchase() {
+  async onSubmitPurchase() {
     const form = this.data.purchaseForm
     const student = this.data.students.find(s => s.id === form.student_id)
     const course = this.data.courses.find(c => c.id === form.course_id)
@@ -335,14 +337,15 @@ Page({
     }
 
     try {
-      const res = packageAccountService.purchasePackage(student.id, {
+      const res = await commands.run('package.purchase', {
+        student_id:student.id, payment_reference:form.payment_reference,
         course_id: course.id,
-        paid_hours_total: form.paid_hours_total,
-        gift_hours_total: form.gift_hours_total,
-        total_amount: form.total_amount,
+        paid_hours_total: Number(form.paid_hours_total),
+        gift_hours_total: Number(form.gift_hours_total),
+        total_amount: Number(form.total_amount),
         account_destination: form.account_destination,
         term_id: form.term_id,
-        remark: form.remark
+        ...(form.remark ? {remark:form.remark} : {})
       })
 
       this.setData({ showPurchaseModal: false })
@@ -474,55 +477,12 @@ Page({
       })
       wx.showToast({ title: '已载入4课时预警案例', icon: 'none' })
     } else if (caseType === 'unlock') {
-      // 案例4：审批并发破锁测试（先将某个包加上审批锁，消课时触发自动破锁与废止单据）
-      const pkg = this.data.packages[0]
-      if (pkg) {
-        // 模拟一个待审单
-        const mockAppId = 'app_test_' + Date.now().toString(36)
-        db.insert(
-          db.TABLES.APPROVAL_REQUESTS,
-          {
-            id: mockAppId,
-            request_type: 'refund',
-            proposer_id: 'u_adm1',
-            proposer_name: '王教务主管',
-            reason: '【测试锁】家长申请退费待超管审批中',
-            before_data_json: JSON.stringify({ package_id: pkg.id, paid_hours_left: pkg.paid_hours_left }),
-            after_data_json: JSON.stringify({ package_id: pkg.id, refund_hours: 5 }),
-            status: 'pending'
-          },
-          `[测试审批加锁] 为课时包 #${pkg.id} 模拟生成未决审批单 #${mockAppId}`
-        )
-        // 给课时包加锁
-        db.update(
-          db.TABLES.COURSE_PACKAGES,
-          pkg.id,
-          {
-            lock_status: 'pending_approval_locked',
-            locked_by_approval_id: mockAppId
-          },
-          `[测试审批加锁] 课时包 #${pkg.id} 锁定挂接待审单 #${mockAppId}`
-        )
-
-        this.loadPackages()
-
-        this.setData({
-          'deductForm.student_id': pkg.student_id,
-          'deductForm.course_id': pkg.course_id,
-          'deductForm.hours_needed': '1.5',
-          'deductForm.context_desc': '【测试4: 并发破锁】实际上课消课具有最高物理优先级，破锁并废止单据'
-        })
-        wx.showModal({
-          title: '已模拟审批加锁！',
-          content: `课时包 #${pkg.id} 当前已处于 [pending_approval_locked] 状态，挂载未决单据 #${mockAppId}。\n点击“执行扣费”将验证上课消课自动破锁并将单据置为 [invalidated_by_attendance]！`,
-          showCancel: false
-        })
-      }
+      wx.showToast({title:'请通过服务端审批创建锁定，不再提供本地模拟写入',icon:'none'})
     }
   },
 
   /** 提交消课扣费 */
-  onSubmitDeduct() {
+  async onSubmitDeduct() {
     const form = this.data.deductForm
     if (!form.student_id || !form.course_id) {
       wx.showToast({ title: '学员或课程不能为空', icon: 'none' })
@@ -530,13 +490,15 @@ Page({
     }
 
     try {
-      const res = packageAccountService.deductHours({
+      const res = await commands.run('hours.deduct', {
+        event_id: this._deductEvent || (this._deductEvent = commands.key()),
         student_id: form.student_id,
         course_id: form.course_id,
-        hours_needed: form.hours_needed,
+        hours_needed: Number(form.hours_needed),
         context_desc: form.context_desc
       })
 
+      this._deductEvent = null
       this.setData({
         showDeductModal: false,
         deductTarget: null,
@@ -603,15 +565,12 @@ Page({
     })
   },
 
-  onSubmitRollback() {
+  async onSubmitRollback() {
     const { lastDeductionResult, rollbackReason } = this.data
     if (!lastDeductionResult) return
 
     try {
-      const rollbackRes = packageAccountService.rollbackHours(
-        lastDeductionResult.deducted_detail_obj,
-        rollbackReason
-      )
+      const rollbackRes = await commands.run('hours.rollback', {deduction_id:lastDeductionResult.deduction_id,reason:rollbackReason})
 
       this.setData({
         showRollbackModal: false,
@@ -691,7 +650,7 @@ Page({
     })
   },
 
-  onSubmitFreeze() {
+  async onSubmitFreeze() {
     const { freezeTarget, freezeForm, currentUser } = this.data
     if (!freezeTarget) return
 
@@ -707,7 +666,7 @@ Page({
     }
 
     try {
-      const res = transferRefundService.submitFreezeRequest({
+      const res = await transferRefundService.submitFreezeRequest({
         package_id: freezeTarget.id,
         freeze_days: days,
         reason: freezeForm.reason.trim()
@@ -898,7 +857,7 @@ Page({
     }
   },
 
-  onSubmitTransfer() {
+  async onSubmitTransfer() {
     const { transferTarget, transferForm, transferTargetStudents, transferTargetCourses, transferTargetClasses, transferPreview, transferErrorMsg, currentUser } = this.data
     if (!transferTarget) return
 
@@ -933,7 +892,7 @@ Page({
     }
 
     try {
-      const res = transferRefundService.submitTransferRequest({
+      const res = await transferRefundService.submitTransferRequest({
         package_id: transferTarget.id,
         transfer_type: transferForm.transfer_type,
         hours_to_transfer: parseFloat(transferForm.hours_to_transfer),
@@ -1072,7 +1031,7 @@ Page({
     })
   },
 
-  onSubmitAdjust() {
+  async onSubmitAdjust() {
     const { adjustTarget, adjustForm, previewAdjustHours, currentUser } = this.data
     if (!adjustTarget) return
 
@@ -1094,7 +1053,7 @@ Page({
     }
 
     try {
-      const res = transferRefundService.submitManualHourAdjust({
+      const res = await transferRefundService.submitManualHourAdjust({
         package_id: adjustTarget.id,
         direction: adjustForm.direction,
         paid_hours_delta: paidDelta,
@@ -1288,7 +1247,7 @@ Page({
     }
   },
 
-  onSubmitTransfer() {
+  async onSubmitTransfer() {
     const { transferTarget, transferForm, transferTargetStudents, transferTargetCourses, transferTargetClasses, transferPreview, transferErrorMsg, currentUser } = this.data
     if (!transferTarget) return
 
@@ -1323,7 +1282,7 @@ Page({
     }
 
     try {
-      const res = transferRefundService.submitTransferRequest({
+      const res = await transferRefundService.submitTransferRequest({
         package_id: transferTarget.id,
         transfer_type: transferForm.transfer_type,
         hours_to_transfer: parseFloat(transferForm.hours_to_transfer),
@@ -1462,7 +1421,7 @@ Page({
   },
 
   /** 提交退费清算审批（超管独批） */
-  onSubmitRefund() {
+  async onSubmitRefund() {
     const { refundTarget, refundForm, refundPreview, currentUser } = this.data
     if (!refundTarget || !refundPreview) return
 
@@ -1472,7 +1431,7 @@ Page({
     }
 
     try {
-      const res = transferRefundService.submitRefundRequest({
+      const res = await transferRefundService.submitRefundRequest({
         package_id: refundTarget.id,
         handling_fee: parseFloat(refundForm.handling_fee || 0),
         refund_method: refundForm.refund_method,
@@ -1650,3 +1609,4 @@ Page({
     }
   }
 })
+

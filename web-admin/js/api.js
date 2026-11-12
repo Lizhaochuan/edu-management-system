@@ -42,10 +42,43 @@ const api = {
     if (!response.ok) {
       let detail = '';
       try { detail = (await response.json()).message || ''; } catch (_err) {}
-      throw new Error(detail || `HTTP ${response.status} ${response.statusText}`);
+      const error = new Error(detail || `HTTP ${response.status} ${response.statusText}`); error.status=response.status; throw error;
     }
     return await response.json();
   },
+
+  async commandContext() {
+    const res = await this.request('/api/commands/context');
+    this._commandContext = res.data;
+    return res;
+  },
+  async executeCommand(command, params) {
+    const signature = JSON.stringify([currentIdentity.id,command,params]);
+    this._runningCommands = this._runningCommands || new Map();
+    if (this._runningCommands.has(signature)) return this._runningCommands.get(signature);
+    const task = (async () => {
+      let saved = JSON.parse(sessionStorage.getItem('pending_business_command_'+currentIdentity.id) || 'null');
+      if (saved && saved.signature !== signature) throw new Error('有未确认操作，请先使用原参数重试');
+      if (!saved) {
+        if (!this._commandContext) await this.commandContext();
+        saved = {signature,envelope:{command,params,idempotencyKey:crypto.randomUUID(),expectedVersion:this._commandContext.version}};
+        sessionStorage.setItem('pending_business_command_'+currentIdentity.id,JSON.stringify(saved));
+      }
+      try {
+        const res = await this.request('/api/commands/execute',{method:'POST',body:JSON.stringify(saved.envelope)});
+        sessionStorage.removeItem('pending_business_command_'+currentIdentity.id);
+        this._commandContext = null;
+        return {code:0,data:res.data.result};
+      } catch (error) {
+        if (error.status >= 400 && error.status < 500) { sessionStorage.removeItem('pending_business_command_'+currentIdentity.id); this._commandContext=null; }
+        throw error;
+      }
+    })().finally(() => this._runningCommands.delete(signature));
+    this._runningCommands.set(signature,task);
+    return task;
+  },
+  async submitAttendance(scheduleId, inputs) { return this.executeCommand('attendance.submit',{schedule_id:scheduleId,attendance_inputs:inputs}); },
+  async updateAttendance(scheduleId, inputs) { return this.executeCommand('attendance.update',{schedule_id:scheduleId,attendance_inputs:inputs}); },
 
   // 1. 获取服务状态
   async getStatus() {
@@ -84,30 +117,21 @@ const api = {
 
   // 7. 获取全库数据
   async getAllDb() {
-    return await this.request('/api/db/all');
+    const res=await this.commandContext();
+    return {code:0,data:res.data.snapshot};
   },
 
   // ─────────────────────────────────────────
   // Phase 6-B：超管审批中心 API
   // ─────────────────────────────────────────
   async getApprovals(params = {}) {
+    await this.commandContext();
     const qs = new URLSearchParams(params).toString();
     return await this.request(`/api/approvals?${qs}`);
   },
 
-  async approveApproval(approvalId) {
-    return await this.request('/api/approvals/approve', {
-      method: 'POST',
-      body: JSON.stringify({ approval_id: approvalId })
-    });
-  },
-
-  async rejectApproval(approvalId, rejectReason) {
-    return await this.request('/api/approvals/reject', {
-      method: 'POST',
-      body: JSON.stringify({ approval_id: approvalId, reject_reason: rejectReason })
-    });
-  },
+  async approveApproval(approvalId) { return this.executeCommand('approval.approve',{approval_id:approvalId}); },
+  async rejectApproval(approvalId,rejectReason) { return this.executeCommand('approval.reject',{approval_id:approvalId,reject_reason:rejectReason}); },
 
   // ─────────────────────────────────────────
   // Phase 6-B：教务与排课管理 API
@@ -199,26 +223,11 @@ const api = {
   // ─────────────────────────────────────────
   // Phase 6-B：财务、三转退费与薪资结算 API
   // ─────────────────────────────────────────
-  async purchasePackage(payload) {
-    return await this.request('/api/finance/purchase', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async purchasePackage(payload) { return this.executeCommand('package.purchase',payload); },
 
-  async freezePackage(payload) {
-    return await this.request('/api/finance/freeze', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async freezePackage(payload) { return this.executeCommand('approval.propose',{type:'freeze',data:payload}); },
 
-  async adjustPackageHours(payload) {
-    return await this.request('/api/finance/adjust-hours', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async adjustPackageHours(payload) { return this.executeCommand('approval.propose',{type:'adjustHours',data:payload}); },
 
   async previewTransfer(payload) {
     return await this.request('/api/finance/transfer/preview', {
@@ -227,12 +236,7 @@ const api = {
     });
   },
 
-  async submitTransfer(payload) {
-    return await this.request('/api/finance/transfer/submit', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async submitTransfer(payload) { return this.executeCommand('approval.propose',{type:'transfer',data:payload}); },
 
   async previewRefund(payload) {
     return await this.request('/api/finance/refund/preview', {
@@ -241,12 +245,7 @@ const api = {
     });
   },
 
-  async submitRefund(payload) {
-    return await this.request('/api/finance/refund/submit', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async submitRefund(payload) { return this.executeCommand('approval.propose',{type:'refund',data:payload}); },
 
   async rolloverTerm(payload) {
     return await this.request('/api/finance/rollover', {
@@ -274,12 +273,7 @@ const api = {
     });
   },
 
-  async submitSalaryAdjustment(payload) {
-    return await this.request('/api/salary/adjustment', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+  async submitSalaryAdjustment(payload) { return this.executeCommand('approval.propose',{type:'salaryAdjustment',data:payload}); },
 
   // 8. 建立 SSE 实时长连接
   connectSSE(onMessage, onStatusChange) {
@@ -334,3 +328,4 @@ const api = {
 };
 
 window.api = api;
+

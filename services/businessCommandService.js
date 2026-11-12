@@ -37,6 +37,7 @@ function identity(req) {
 // Server-owned registry. New operations must supply their own permission check,
 // strict parameter validator and synchronous database-only handler.
 const commands = Object.freeze({
+  ...require('./businessOperations')({ fail }),
   'system.writeProbe': Object.freeze({
     authorize: user => user.role === 'super_admin',
     validate: params => exactObject(params, ['label']) &&

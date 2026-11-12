@@ -1,3 +1,4 @@
+const commands = require('../../services/commandClient')
 // pages/salary/index.js
 // 教师课酬与薪资结算中心（Phase 4-C 结算单锁定、算错调账审批与脱敏校验）
 const db = require('../../services/db')
@@ -48,7 +49,8 @@ Page({
     this.initUserAndTeachers()
   },
 
-  onShow() {
+  async onShow() {
+    try { await commands.refresh(); await commands.recoverPending() } catch (err) { wx.showModal({title:"读取失败",content:err.message,showCancel:false}); return }
     this.refreshAllData()
   },
 
@@ -387,7 +389,7 @@ Page({
   },
 
   /** 提交薪资调账申请 */
-  submitSalaryAdjustment() {
+  async submitSalaryAdjustment() {
     const { adjForm, currentUser } = this.data
 
     if (!adjForm.teacher_id) {
@@ -407,7 +409,7 @@ Page({
     }
 
     try {
-      salaryEngineService.createSalaryAdjustment({
+      await salaryEngineService.createSalaryAdjustment({
         teacher_id: adjForm.teacher_id,
         direction: adjForm.direction,
         amount: amount,
@@ -437,3 +439,4 @@ Page({
     })
   }
 })
+

@@ -1,3 +1,4 @@
+const commands = require('../../services/commandClient')
 // pages/attendance/index.js
 // 课堂点名签到、24H改签、排课异动、代课流转、缺勤补课与累进补差（Phase 2 ~ Phase 4）
 const attendanceService = require('../../services/attendanceService')
@@ -104,7 +105,8 @@ Page({
     this.initData(options && options.schedule_id)
   },
 
-  onShow() {
+  async onShow() {
+    try { await commands.refresh(); await commands.recoverPending() } catch (err) { wx.showModal({title:"读取服务端失败",content:err.message,showCancel:false}); return }
     this.initData()
   },
 
@@ -360,7 +362,7 @@ Page({
   // ─────────────────────────────────────────
   // 1. 初次提交点名签到
   // ─────────────────────────────────────────
-  onSubmitAttendance() {
+  async onSubmitAttendance() {
     const { selectedScheduleId, attendanceMap, sheetData, currentUser } = this.data
     if (!selectedScheduleId || !sheetData) {
       wx.showToast({ title: '未选中有效排课', icon: 'none' })
@@ -370,11 +372,7 @@ Page({
     const attendanceInputs = Object.keys(attendanceMap).map(id => attendanceMap[id])
 
     try {
-      const res = attendanceService.submitAttendance(
-        selectedScheduleId,
-        attendanceInputs,
-        currentUser
-      )
+      const res = await commands.run('attendance.submit', {schedule_id:selectedScheduleId, attendance_inputs:attendanceInputs.map(({student_id,is_present,is_late,is_early_leave}) => ({student_id,is_present,is_late,is_early_leave}))})
 
       this.setData({
         lastSubmitResult: res,
@@ -416,18 +414,14 @@ Page({
   // ─────────────────────────────────────────
   // 2. 24 小时内自主改签提交
   // ─────────────────────────────────────────
-  onUpdateAttendanceWithin24Hours() {
+  async onUpdateAttendanceWithin24Hours() {
     const { selectedScheduleId, attendanceMap, sheetData, currentUser } = this.data
     if (!selectedScheduleId || !sheetData) return
 
     const attendanceInputs = Object.keys(attendanceMap).map(id => attendanceMap[id])
 
     try {
-      const res = attendanceService.updateAttendanceWithin24Hours(
-        selectedScheduleId,
-        attendanceInputs,
-        currentUser
-      )
+      const res = await commands.run('attendance.update', {schedule_id:selectedScheduleId, attendance_inputs:attendanceInputs.map(({student_id,is_present,is_late,is_early_leave}) => ({student_id,is_present,is_late,is_early_leave}))})
 
       this.setData({
         lastSubmitResult: Object.assign({}, res, {
@@ -486,19 +480,14 @@ Page({
     this.setData({ makeupSignReason: e.detail.value })
   },
 
-  onSubmitMakeupSignRequest() {
+  async onSubmitMakeupSignRequest() {
     const { selectedScheduleId, attendanceMap, makeupSignReason, currentUser } = this.data
     if (!selectedScheduleId) return
 
     const attendanceInputs = Object.keys(attendanceMap).map(id => attendanceMap[id])
 
     try {
-      const res = attendanceService.requestMakeupAttendance(
-        selectedScheduleId,
-        attendanceInputs,
-        makeupSignReason,
-        currentUser
-      )
+      const res = await commands.run('attendance.requestMakeup', {schedule_id:selectedScheduleId,attendance_inputs:attendanceInputs.map(({student_id,is_present,is_late,is_early_leave}) => ({student_id,is_present,is_late,is_early_leave})),reason:makeupSignReason})
 
       this.setData({ showMakeupSignModal: false })
       this.loadSchedules(selectedScheduleId)
@@ -1049,3 +1038,4 @@ Page({
     }
   }
 })
+
