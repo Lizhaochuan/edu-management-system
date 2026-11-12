@@ -223,3 +223,41 @@ test('explicit development reset keeps command receipts and never reuses a versi
   assert.equal(f.db.getWriteState().version, response.version + 1);
   assert.equal(f.commands.execute(req, p).replayed, true);
 }));
+
+test('failed legacy writes cannot leak into a later successful command commit', () => run(f => {
+  const req = f.req();
+  const operations = [
+    () => f.db.insert(f.db.TABLES.STUDENTS, { id: 'failed_insert' }),
+    () => f.db.update(f.db.TABLES.STUDENTS, 'stu_1', { name: 'failed_update' }),
+    () => f.db.remove(f.db.TABLES.STUDENTS, 'stu_1'),
+    () => f.db.replaceAll({ ...f.db.dumpAll(), students: [] }),
+    () => f.db.initDatabase(true)
+  ];
+  // Make reset observably different from the fixture's initial business state.
+  f.db.update(f.db.TABLES.STUDENTS, 'stu_2', { name: 'keep_after_failed_reset' });
+  const stable = JSON.stringify(f.db.dumpAll());
+  const stableVersion = f.db.getWriteState().version;
+  const stableBytes = fs.readFileSync(f.file, 'utf8');
+  for (const operation of operations) {
+    const rename = fs.renameSync;
+    fs.renameSync = () => { throw new Error('INJECTED legacy commit failure'); };
+    try { assert.throws(operation, /INJECTED legacy commit failure/); }
+    finally { fs.renameSync = rename; }
+    assert.equal(JSON.stringify(f.db.dumpAll()), stable);
+    assert.equal(f.db.getWriteState().version, stableVersion);
+    assert.equal(fs.readFileSync(f.file, 'utf8'), stableBytes);
+  }
+  f.commands.execute(req, f.envelope());
+  f.reload();
+  assert.equal(JSON.stringify(f.db.dumpAll()), stable);
+}));
+
+test('legacy single-row writes roll back when their audit cannot be serialized', () => run(f => {
+  const before = fs.readFileSync(f.file, 'utf8');
+  const version = f.db.getWriteState().version;
+  assert.throws(() => f.db.insert(f.db.TABLES.STUDENTS,
+    { id: 'bad_legacy_audit', unsupported: 1n }), /BigInt/);
+  assert.equal(f.db.getById(f.db.TABLES.STUDENTS, 'bad_legacy_audit'), null);
+  assert.equal(f.db.getWriteState().version, version);
+  assert.equal(fs.readFileSync(f.file, 'utf8'), before);
+}));

@@ -279,6 +279,9 @@ function getById(tableName, id) {
  * @returns {Object} 插入后的完整记录
  */
 function insert(tableName, record, description) {
+  if (!isMiniProgram && !_transaction) {
+    return transaction(() => insert(tableName, record, description))
+  }
   const rows = getTable(tableName)
   const now = new Date().toISOString()
   const newRecord = Object.assign({}, record, {
@@ -315,6 +318,9 @@ function insert(tableName, record, description) {
  * @throws 如果目标表是 audit_logs，直接抛错（铁律）
  */
 function update(tableName, id, patch, description) {
+  if (!isMiniProgram && !_transaction) {
+    return transaction(() => update(tableName, id, patch, description))
+  }
   if (tableName === TABLES.AUDIT_LOGS) {
     throw new Error('系统安全铁律：操作日志不可修改或删除')
   }
@@ -362,6 +368,9 @@ function update(tableName, id, patch, description) {
  * @throws 如果目标表是 audit_logs，直接抛错（铁律）
  */
 function remove(tableName, id, description) {
+  if (!isMiniProgram && !_transaction) {
+    return transaction(() => remove(tableName, id, description))
+  }
   if (tableName === TABLES.AUDIT_LOGS) {
     throw new Error('系统安全铁律：操作日志不可修改或删除')
   }
@@ -908,6 +917,9 @@ function _buildSeedData() {
  */
 function initDatabase(forceReset = false) {
   if (!isMiniProgram) {
+    if (forceReset && !_transaction && (_nodeMemoryDb || (_fs && _fs.existsSync(_dbFilePath)))) {
+      return transaction(() => initDatabase(true))
+    }
     if (forceReset || !_fs || !_fs.existsSync(_dbFilePath)) {
       // Even an explicitly enabled development reseed must not reuse versions
       // or forget completed command keys within the same database lineage.
@@ -1020,6 +1032,7 @@ function replaceAll(newDb) {
     })
     return
   }
+  if (!_transaction) return transaction(() => replaceAll(newDb))
   const state = getWriteState()
   _nodeMemoryDb = Object.assign({}, newDb, { [WRITE_STATE]: state })
   _persistNodeDb()
