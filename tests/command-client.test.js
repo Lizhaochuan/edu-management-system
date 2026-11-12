@@ -72,3 +72,41 @@ test('native migrated handlers contain no direct local attendance, debit, purcha
     assert.doesNotMatch(code,/(attendanceService\.(submitAttendance|updateAttendanceWithin24Hours|requestMakeupAttendance)|packageAccountService\.(purchasePackage|deductHours|rollbackHours)|\w+Service\.(apply\w+Approval|reject\w+Approval))\(/);
   }
 });
+
+test('foreground version notification does not overwrite cache or advance a draft version; stopping ignores late replies',async()=>{
+ const storage=new Map([['auth_token','token']]);const timers=new Map();let sequence=0;let versionReply;
+ const module={exports:{}};const notices=[];
+ const wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),request(o){
+  if(o.url.endsWith('/context'))o.success({statusCode:200,data:{code:0,data:{user_id:'u_sa1',version:1,snapshot:{students:[{id:'original'}]}}}});
+  else versionReply=o;
+ }};
+ vm.runInNewContext(source,{module,require:()=>({SERVER_API_BASE:'http://test'}),wx,Map,Promise,Date,Math,setTimeout:fn=>{timers.set(++sequence,fn);return sequence},clearTimeout:id=>timers.delete(id)});
+ await module.exports.refresh();module.exports.startSync(v=>notices.push(v));
+ versionReply.success({statusCode:200,data:{code:0,data:{version:2}}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(notices,[2]);assert.equal(storage.get('students')[0].id,'original');
+ const poll=[...timers.values()][0];timers.clear();poll();module.exports.stopSync();
+ versionReply.success({statusCode:200,data:{code:0,data:{version:3}}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(notices,[2]);assert.equal(timers.size,0);
+});
+
+test('late refresh from previous login cannot populate the next user cache',async()=>{
+ const storage=new Map([['auth_token','old']]);const requests=[];const module={exports:{}};
+ const wx={getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>storage.set(k,v),request:o=>requests.push(o)};
+ vm.runInNewContext(source,{module,require:()=>({SERVER_API_BASE:'http://test'}),wx,Map,Promise,Date,Math});
+ const old=module.exports.refresh();const rejected=assert.rejects(old,/登录身份/);
+ storage.set('auth_token','new');const current=module.exports.refresh();
+ requests[1].success({statusCode:200,data:{code:0,data:{user_id:'new',version:5,snapshot:{students:[{id:'new'}]}}}});await current;
+ requests[0].success({statusCode:200,data:{code:0,data:{user_id:'old',version:1,snapshot:{students:[{id:'old'}]}}}});await rejected;
+ assert.equal(storage.get('students')[0].id,'new');
+});
+
+test('closing Web event subscription cancels scheduled reconnect and prevents reopening',()=>{
+ const instances=[];const timers=new Map();let sequence=0;const window={location:{origin:'http://test'}};
+ class Events {constructor(){instances.push(this)}addEventListener(){}close(){this.closed=true}}
+ vm.runInNewContext(webSource,{window,EventSource:Events,setTimeout:fn=>{timers.set(++sequence,fn);return sequence},clearTimeout:id=>timers.delete(id),Map,Promise});
+ const subscription=window.api.connectSSE(()=>{},()=>{});
+ instances[0].onerror();const retry=[...timers.values()][0];
+ subscription.close();assert.equal(timers.size,0);retry();assert.equal(instances.length,1);
+});

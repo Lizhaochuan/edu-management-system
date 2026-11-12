@@ -50,6 +50,10 @@ const app = createApp({
           this.liveEventCount++;
           this.updateLastSyncTime();
 
+          if (event === 'version') {
+            this.showToast('服务端数据有更新，请刷新当前业务列表；未提交内容会保留');
+            this.fetchAnomalyMetrics();
+          }
           if (event === 'mutation') {
             this.showToast(`[实时数据更新] ${data.table} 执行了 ${data.action} 操作！`);
             this.fetchAnomalyMetrics();
@@ -115,3 +119,4 @@ window.api.whoAmI().then((user) => {
 }).catch(() => {
   window.location.replace('/login.html');
 });
+

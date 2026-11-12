@@ -338,3 +338,38 @@ test('teacher context is scoped and a concurrent real sign-in only deducts once'
   assert.equal((await call('/api/approvals/approve','POST',{},admin)).status,428);
 });
 
+test('committed command notifies Web once; Web cookie and native Bearer read the same committed state',async()=>{
+ const login=await signIn('u_sa1');
+ const bearer={Authorization:'Bearer '+login.data.data.token};
+ const web={Cookie:cookie(login)};
+ const events=[];
+ let stream,request;
+ await new Promise((resolve,reject)=>{
+  request=http.get({hostname:'127.0.0.1',port,path:'/api/events',headers:web},res=>{
+   stream=res;let buffer='';res.on('data',chunk=>{
+    buffer+=chunk;let end;
+    while((end=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);if(frame.startsWith('event: version')){events.push(JSON.parse(frame.split('data: ')[1]).data);resolve();}}
+   });
+  });request.on('error',reject);
+ });
+ try {
+  const p=await commandEnvelope(bearer,'sync-notification-00001');
+  const result=await call('/api/commands/execute','POST',p,bearer);
+  assert.equal(result.status,200);
+  await new Promise(resolve=>setTimeout(resolve,50));
+  assert.equal(events.length,2);
+  assert.deepEqual(events[1],{version:result.data.data.version});
+  assert.equal((await call('/api/commands/execute','POST',p,bearer)).data.data.replayed,true);
+  assert.equal((await call('/api/commands/execute','POST',{...p,command:'unknown'},bearer)).status,400);
+  await new Promise(resolve=>setTimeout(resolve,50));assert.equal(events.length,2);
+  const [native, browser]=await Promise.all([call('/api/commands/context','GET',undefined,bearer),call('/api/commands/context','GET',undefined,web)]);
+  assert.deepEqual(native.data.data,browser.data.data);
+  assert.equal(native.data.data.version,events[1].version);
+  const ended=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('revoked SSE stayed open')),2000);stream.once('end',()=>{clearTimeout(timer);resolve()})});
+  await call('/api/auth/logout','POST',{},web);
+  const replacement=await commandSession();const next=await commandEnvelope(replacement,'sync-notification-00002');
+  await call('/api/commands/execute','POST',next,replacement);
+  await ended;
+ } finally {request.destroy();if(stream)stream.destroy();}
+});
+
