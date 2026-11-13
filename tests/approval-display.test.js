@@ -142,3 +142,55 @@ test('approval page populates readable change rows while preserving review contr
   assert.equal(page.data.pendingList[0].rows[0].afterText,'¥110 / 课时');
   assert.equal(Object.hasOwn(page.data.pendingList[0],'beforeJsonText'),false);
 });
+
+
+test('freeze request shows the requested days and cumulative freeze in natural language',()=>{
+  const result=formatApprovalChange({
+    request_type:'freeze_hours',status:'pending',
+    before_data_json:JSON.stringify({package_id:'pkg_1',total_frozen_days:15}),
+    after_data_json:JSON.stringify({package_id:'pkg_1',freeze_days:10,
+      total_frozen_days_after:25,requested_days:10,reason:'家庭外出'})
+  });
+  assert.ok(result.rows.some(row=>row.label==='冻结天数'&&row.afterText==='10 天'));
+  assert.ok(result.rows.some(row=>row.label==='累计冻结天数'&&
+    row.beforeText==='15 天'&&row.afterText==='25 天'));
+  assert.doesNotMatch(JSON.stringify(result),/total_frozen_days_after|package_id|requested_days/);
+});
+
+test('manual adjustments show the before and after hour balance, not field names',()=>{
+  const result=formatApprovalChange({
+    status:'pending',
+    before_data_json:{paid_hours_left:15,gift_hours_left:3},
+    after_data_json:{package_id:'pkg_1',direction:'decrease',
+      paid_hours_delta:2,gift_hours_delta:1,paid_hours_after:13,gift_hours_after:2}
+  });
+  assert.ok(result.rows.some(row=>row.label==='剩余付费课时'&&
+    row.beforeText==='15 课时'&&row.afterText==='13 课时'));
+  assert.ok(result.rows.some(row=>row.label==='剩余赠送课时'&&
+    row.beforeText==='3 课时'&&row.afterText==='2 课时'));
+  assert.ok(result.rows.some(row=>row.label==='调整方向'&&row.afterText==='扣减课时'));
+});
+
+test('refund summary presents human amounts with currency symbols',()=>{
+  const result=formatApprovalChange({
+    request_type:'refund',status:'pending',
+    before_data_json:{account_destination:'进入公账',paid_hours_left:8},
+    after_data_json:{package_id:'pkg_1',gross_refund:1440,
+      handling_fee:15,net_refund:1425,refund_method:'微信转账',summary_desc:'raw info'}
+  });
+  assert.ok(result.rows.some(row=>row.label==='预计应退金额'&&row.afterText==='¥1440 元'));
+  assert.ok(result.rows.some(row=>row.label==='预计实际退款'&&row.afterText==='¥1425 元'));
+  assert.doesNotMatch(JSON.stringify(result),/gross_refund|net_refund|summary_desc/);
+});
+
+test('teacher reset makes removal of independent rate visible as a business choice',()=>{
+  const result=formatApprovalChange({
+    request_type:'config_change',status:'pending',
+    before_data_json:{is_custom_rate:true,custom_tier_rates_json:{1:125,2:155}},
+    after_data_json:{is_custom_rate:false,custom_tier_rates_json:null}
+  });
+  assert.ok(result.rows.some(row=>row.label==='使用独立课酬标准'&&
+    row.beforeText==='使用单独课酬'&&row.afterText==='跟随统一薪酬档位'));
+  assert.ok(result.rows.some(row=>row.label==='教师个人课酬设置'&&
+    row.afterText==='恢复按照统一教师档位计算'));
+});
