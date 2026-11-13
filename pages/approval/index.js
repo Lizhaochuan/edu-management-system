@@ -121,12 +121,13 @@ Page({
       students: db.getTable(db.TABLES.STUDENTS) || [],
       courses: db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES) || [],
       terms: db.getTable(db.TABLES.TERMS) || [],
-      classes: db.getTable(db.TABLES.CLASSES) || []
+      classes: db.getTable(db.TABLES.CLASSES) || [],
+      schedules: db.getTable(db.TABLES.SCHEDULES_AND_ATTENDANCE) || []
     }
 
     rawList.forEach(item => {
       const typeConf = TYPE_CONFIG[item.request_type] || {
-        label: item.request_type || '通用单据',
+        label: '其他审批事项（需核对类型）',
         badgeClass: 'type-default',
         requireRoleText: '需对应权限审批'
       }

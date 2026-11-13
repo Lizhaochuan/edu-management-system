@@ -1,5 +1,6 @@
 // pages/audit-logs/index.js
 const db = require('../../services/db')
+const auditDisplay = require('../../services/auditDisplay')
 
 Page({
   data: {
@@ -64,23 +65,17 @@ Page({
     }
   },
 
-  /** 格式化 JSON 快照展示 */
-  formatSnapshot(val) {
-    if (!val) return '（无快照 / 初始状态）'
-    if (typeof val === 'string') {
-      try {
-        const obj = JSON.parse(val)
-        return JSON.stringify(obj, null, 2)
-      } catch (e) {
-        return val
-      }
-    }
-    return JSON.stringify(val, null, 2)
-  },
-
   /** 读取所有审计日志并倒序排序 */
   loadAuditLogs() {
     const rawLogs = db.getTable(db.TABLES.AUDIT_LOGS) || []
+    const lookups={
+      users:db.getTable(db.TABLES.USERS)||[],
+      students:db.getTable(db.TABLES.STUDENTS)||[],
+      courses:db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES)||[],
+      terms:db.getTable(db.TABLES.TERMS)||[],
+      tiers:db.getTable(db.TABLES.TEACHER_TIERS)||[],
+      classes:db.getTable(db.TABLES.CLASSES)||[]
+    }
 
     const logs = rawLogs.map(item => {
       let actionTagClass = 'action-default'
@@ -92,8 +87,7 @@ Page({
       return Object.assign({}, item, {
         actionTagClass,
         formattedTime: this.formatDate(item.action_time),
-        beforeText: this.formatSnapshot(item.before_snapshot_json),
-        afterText: this.formatSnapshot(item.after_snapshot_json)
+        ...auditDisplay.auditChange(item,lookups)
       })
     })
 

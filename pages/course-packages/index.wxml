@@ -98,10 +98,14 @@
       </view>
     </view>
 
-    <!-- 结构化留痕 JSON 预览 -->
-    <view class="json-preview-box">
-      <text class="json-label">结构化留痕数据 (deducted_detail_json)：</text>
-      <text class="json-code">{{lastDeductionResult.deducted_detail_json}}</text>
+    <!-- 直接说明扣课的业务结果，原始明细留在审计系统内 -->
+    <view class="deduction-readable-box">
+      <text class="deduction-readable-title">本次扣课结果</text>
+      <text class="deduction-readable-line">付费课时扣除：{{lastDeductionResult.paid_deducted}} 课时</text>
+      <text class="deduction-readable-line">赠送课时扣除：{{lastDeductionResult.gift_deducted}} 课时</text>
+      <text class="deduction-readable-line" wx:if="{{lastDeductionResult.debt_added > 0}}">因余额不足，新增欠课：{{lastDeductionResult.debt_added}} 课时</text>
+      <text class="deduction-readable-line" wx:if="{{lastDeductionResult.current_balance}}">该学员当前可用课时：{{lastDeductionResult.current_balance.total_available_hours}} 课时</text>
+      <text class="deduction-readable-note">详细扣减批次已在上方按课时包列出，业务操作记录保存在系统审计中。</text>
     </view>
   </view>
 

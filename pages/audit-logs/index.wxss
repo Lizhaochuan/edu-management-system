@@ -240,64 +240,23 @@
   font-weight: 500;
 }
 
-/* ── JSON快照对比 ── */
+/* ── 人能读懂的业务操作变化 ── */
 .snapshot-diff-box {
   margin-top: 18rpx;
+  border: 2rpx solid #e2e8f0;
   background: #f8fafc;
+  padding: 20rpx;
   border-radius: 12rpx;
-  padding: 16rpx;
-  border: 1rpx solid #e2e8f0;
 }
-
-.diff-header {
-  margin-bottom: 12rpx;
-}
-
-.diff-title {
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #334155;
-}
-
-.diff-columns {
-  display: flex;
-  justify-content: space-between;
-}
-
-.diff-col {
-  width: 48.5%;
-  border-radius: 8rpx;
-  overflow: hidden;
-  border: 1rpx solid #cbd5e1;
-  background: #ffffff;
-}
-
-.col-title {
-  font-size: 20rpx;
-  font-weight: 600;
-  padding: 8rpx 10rpx;
-}
-
-.before-col .col-title {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.after-col .col-title {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.code-view {
-  height: 130rpx;
-  padding: 10rpx;
-  font-family: monospace;
-  font-size: 18rpx;
-  color: #1e293b;
-  white-space: pre-wrap;
-  word-break: break-all;
-  box-sizing: border-box;
-}
+.diff-title { display:block; font-size:26rpx; font-weight:700; color:#203653; margin-bottom:16rpx; }
+.audit-change-row { padding:15rpx; background:white; border:2rpx solid #e0e8f4; border-radius:10rpx; margin-bottom:12rpx; }
+.audit-change-name { display:block; color:#27364c; font-size:26rpx; font-weight:600; margin-bottom:10rpx; }
+.audit-change-values { display:flex; align-items:center; gap:8rpx; }
+.audit-change-value { flex:1; min-width:0; padding:10rpx; background:#edf4fc; border-radius:8rpx; box-sizing:border-box; }
+.audit-change-caption { display:block; color:#64748b; font-size:20rpx; margin-bottom:6rpx; }
+.audit-change-text { display:block; font-size:24rpx; color:#19334e; font-weight:600; line-height:1.5; overflow-wrap:break-word; word-break:break-word; }
+.audit-change-arrow { flex-shrink:0; color:#64748b; font-size:24rpx; }
+.audit-note { display:block; color:#617188; font-size:22rpx; line-height:1.6; margin-top:12rpx; }
 
 /* ── 篡改测试按钮 ── */
 .card-footer {

@@ -10,6 +10,13 @@ const FIELDS = {
   fixed_expire_date:['学期到期日','date'],
   expire_date:['课时包到期日','date'],
   start_date:['开始日期','date'],
+  lesson_date:['上课日期','date'],
+  schedule_id:['涉及课次','schedule'],
+  class_name:['班级名称','text'],
+  teacher_name:['教师姓名','text'],
+  previous_status:['原考勤状态','status'],
+  lock_status:['课时包锁定状态','lock'],
+  adjustment_no:['工资调账单号','reference'],
   teacher_category:['教师类别','category'],
   is_custom_rate:['使用独立课酬标准','custom_rate'],
   teacher_tier_id:['适用教师薪酬档位','tier'],
@@ -38,6 +45,14 @@ const FIELDS = {
   gift_hours_forfeited:['退款后作废赠送课时','hours'],
   unit_price_snapshot:['课时原单价','yuan'],
   refund_amount:['预计退款金额','yuan'],
+  target_unit_price:['目标课程单价','yuan'],
+  target_paid_hours:['转入付费课时','hours'],
+  target_gift_hours:['转入赠送课时','hours'],
+  target_total_hours:['转入课时合计','hours'],
+  target_lessons:['可转入课程次数','lessons'],
+  transferred_paid_value:['转出付费课时折算金额','yuan'],
+  raw_target_paid_hours:['按原金额折算的付费课时','hours'],
+  target_hours_per_lesson:['目标课程每次课时数','hours'],
   top_up_amount:['需要补交金额','yuan'],
   signed_amount:['工资调账金额','yuan'],
   handling_fee:['退费手续费','yuan'],
@@ -70,18 +85,23 @@ const FIELDS = {
 const RATE_KEYS = ['headcount_rates_json','custom_tier_rates_json'];
 const MAPPED = {
   category:{ordinary:'普通教师',partner:'合伙人教师'},
+  lock:{normal:'正常可用',frozen:'已冻结',pending_approval_locked:'审批期间锁定',refunded:'已退费'},
   role:{super_admin:'超级管理员',admin:'教务管理员',teacher:'教师',parent:'家长'},
   status:{active:'启用',inactive:'停用',disabled:'停用',pending:'待处理',approved:'已通过',
-    rejected:'已驳回',settled:'已结算',draft:'待核对草稿'},
+    rejected:'已驳回',settled:'已结算',draft:'待核对草稿',
+    pending_super_admin_approval:'待超管审批',approved_pending_settlement:'已批准，待结算',
+    scheduled:'待上课',completed:'已完成',pending_makeup_sign_approval:'待补签审批'},
   direction:{add:'增加',deduct:'扣减',increase:'增加课时',decrease:'扣减课时',reissue:'补发',clawback:'扣回'},
   custom_rate:{true:'使用单独课酬',false:'跟随统一薪酬档位'},
   transfer_type:{transfer_student:'转给另一位学员',transfer_course:'转到另一门课程',transfer_class:'转到另一班级'},
-  remainder:{refund:'退款处理',keep:'保留剩余课时',forfeit:'剩余课时作废'}, 
+  remainder:{refund:'退款处理',keep:'保留剩余课时',forfeit:'剩余课时作废',
+    top_up:'按新课程课时标准补差价',refund_change:'余额按规定找零退款'}, 
   account:{'进入公账':'对公账户','进入个人账户':'个人账户'},
   term_type:{spring:'春季',summer:'暑假',autumn:'秋季',winter:'寒假'}
 };
 const RECORDS = {
   tier:['tiers','name'],teacher:['users','name'],student:['students','name'],
+  schedule:['schedules','lesson_date'],
   course:['courses','course_name'],term:['terms','name'],class:['classes','class_name']
 };
 const OWN = Object.prototype.hasOwnProperty;
@@ -103,10 +123,12 @@ function numberText(value) {
 function renderValue(value,type,lookup) {
   if (value===undefined) return '原记录未提供';
   if (value===null || value==='') return '未设置';
-  if (type==='yuan') return '¥'+numberText(value)+' / 单位';
+  if (type==='yuan') return '¥'+numberText(value)+' 元';
+  if (type==='reference') return typeof value==='string' && /^[A-Za-z0-9_-]{1,100}$/.test(value) ? '已登记（详见业务记录）' : '编号需核对';
   if (type==='person') return numberText(value)+' 人';
   if (type==='hours') return numberText(value)+' 课时';
   if (type==='days') return numberText(value)+' 天';
+  if (type==='lessons') return numberText(value)+' 次课';
   if (type==='date') return String(value).slice(0,10);
   if (MAPPED[type]) {
     const translated=MAPPED[type][String(value)];
@@ -115,6 +137,9 @@ function renderValue(value,type,lookup) {
   if (RECORDS[type]) {
     const [list,label]=RECORDS[type];
     const row=(lookup[list]||[]).find(r=>r.id===value);
+    if (type==='schedule' && row) {
+      return (row.lesson_date||'日期待核对')+' 的课程（第'+(row.lesson_index||'?')+'次课）';
+    }
     return row && row[label] ? String(row[label]) : '相关记录（名称待核对）';
   }
   if (typeof value==='boolean') return value?'是':'否';
@@ -156,7 +181,7 @@ function formatApprovalChange(item, lookup={}) {
     'related_settlement_id','is_personal_account','source_student_id','source_course_id',
     'source_expire_date','source_unit_price','source_package_id','course_id',
     'paid_hours_total','gift_hours_total','paid_hours_used','gift_hours_used',
-    'total_hours_used','expire_date','total_hours_left','snapshot_balance',
+    'total_hours_used','total_hours_left','snapshot_balance',
     'requested_days','reason']);
   const add=(label,from,to,kind,knownBefore)=>{
     if (knownBefore && compareValues(from,to)) return;
@@ -169,6 +194,31 @@ function formatApprovalChange(item, lookup={}) {
   };
   for (const key of Object.keys(after)) {
     if (metadata.has(key)) continue;
+    if (key === 'schedule_id' && item.request_type === 'makeup_attendance') {
+      rows.push({label:'申请补签的课次',beforeText:'此前尚未补签',
+        afterText:renderValue(after[key],'schedule',lookup),changed:true});
+      continue;
+    }
+    if (key === 'attendance_inputs') {
+      if (!Array.isArray(after[key]) || after[key].length > 200) {
+        unknown.push('attendance'); continue;
+      }
+      if (!after[key].length) {
+        rows.push({label:'补签学员',beforeText:'未提供',afterText:'未选择学员',changed:true});
+      }
+      for (const input of after[key]) {
+        if (!input || typeof input.student_id !== 'string' || typeof input.is_present !== 'boolean') {
+          unknown.push('attendance');continue;
+        }
+        const found=(lookup.students||[]).find(x=>x.id===input.student_id);
+        const label='补签学员：'+(found&&found.name?found.name:'姓名待核对的学员');
+        const detail=input.is_present?'出勤':'缺勤';
+        const flags=[input.is_late===true?'迟到':null,input.is_early_leave===true?'早退':null].filter(Boolean);
+        rows.push({label,beforeText:'尚未补签',
+          afterText:detail+(flags.length?'（'+flags.join('、')+'）':''),changed:true});
+      }
+      continue;
+    }
     if (key === 'custom_tier_rates_json' && after[key] === null) {
       rows.push({label:'教师个人课酬设置',
         beforeText:before[key] ? '原为独立课酬标准' : '原未单独设置',
