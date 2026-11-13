@@ -157,3 +157,60 @@ test('audit page loads the right translated rows without changing existing datab
   assert.equal(Object.hasOwn(page.data.logs[0],'beforeText'),false);
   assert.equal(JSON.stringify(originals),snapshot,'reading audit must never mutate source logs');
 });
+
+
+test('transfer request explains where the student goes and how money is converted',()=>{
+  const result=formatApprovalChange({
+    request_type:'transfer',status:'pending',
+    before_data_json:{student_id:'stu1',course_id:'courseA',
+      paid_hours_left:10,unit_price_snapshot:120},
+    after_data_json:{transfer_type:'transfer_course',
+      target_course_id:'courseB',target_course_name:'高级自然拼读',
+      target_paid_hours:8,transferred_paid_value:960,
+      refund_amount:40,top_up_amount:0,remainder_option:'refund_change'}
+  },{courses:[{id:'courseA',course_name:'自然拼读'},{id:'courseB',course_name:'高级自然拼读'}]});
+  assert.ok(result.rows.some(x=>x.label==='申请转移方式' && x.afterText==='转到另一门课程'));
+  assert.ok(result.rows.some(x=>x.label==='转入课程' && x.afterText==='高级自然拼读'));
+  assert.ok(result.rows.some(x=>x.label==='转入付费课时' && x.afterText==='8 课时'));
+  assert.ok(result.rows.some(x=>x.label==='预计退款金额' && x.afterText==='¥40 元'));
+  assert.ok(result.rows.some(x=>x.label==='剩余课时处理方式' && x.afterText.includes('找零退款')));
+  assert.doesNotMatch(JSON.stringify(result),/target_course_id|refund_amount|remainder_option/);
+});
+
+test('salary adjustment approvals show the real teacher, amount and approval status',()=>{
+  const result=formatApprovalChange({
+    request_type:'salary_adjustment',status:'pending',before_data_json:null,
+    after_data_json:{id:'adjustment01',teacher_id:'teacher1',
+      teacher_name:'王老师',direction:'clawback',amount:100,signed_amount:-100,
+      status:'pending_super_admin_approval',reason:'上月课酬纠错'}
+  },{users:[{id:'teacher1',name:'王老师'}]});
+  assert.ok(result.rows.some(x=>x.label==='教师' && x.afterText==='王老师'));
+  assert.ok(result.rows.some(x=>x.label==='金额' && x.afterText==='¥100 元'));
+  assert.ok(result.rows.some(x=>x.label==='调整方向' && x.afterText==='扣回'));
+  assert.ok(result.rows.some(x=>x.label==='状态' && x.afterText==='待超管审批'));
+  assert.doesNotMatch(JSON.stringify(result),/pending_super_admin_approval|adjustment01/);
+});
+
+test('payment audit translates stored cent amounts into exact RMB values',()=>{
+  const result=auditChange({
+    action:'INSERT',target_table:'business_write_events',
+    before_snapshot_json:null,
+    after_snapshot_json:{kind:'payment_receipt',reference:'private-bank-reference',
+      amount_cents:180055,account_destination:'进入公账',status:'pending'}
+  });
+  assert.ok(result.rows.some(x=>x.label==='到账金额'&&x.afterText==='¥1800.55 元'));
+  assert.ok(result.rows.some(x=>x.label==='收款账户'&&x.afterText==='对公账户'));
+  assert.doesNotMatch(JSON.stringify(result),/private-bank-reference|amount_cents/);
+});
+
+test('historical approvals with unrecognized records never render hidden technical values',()=>{
+  const result=formatApprovalChange({
+    request_type:'config_change',status:'pending',
+    before_data_json:{confidential_payload:{token:'old'}},
+    after_data_json:{confidential_payload:{token:'new'},unit_price:150}
+  });
+  assert.equal(result.rows.length,1);
+  assert.equal(result.rows[0].afterText,'¥150 元');
+  assert.match(result.note,/核对原始记录/);
+  assert.doesNotMatch(JSON.stringify(result),/confidential_payload|token/);
+});
