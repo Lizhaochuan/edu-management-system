@@ -265,9 +265,12 @@ const api = {
   async submitRefund(payload) { return this.executeCommand('approval.propose',{type:'refund',data:payload}); },
 
   async rolloverTerm(payload) {
-    return await this.request('/api/finance/rollover', {
-      method: 'POST',
-      body: JSON.stringify(payload)
+    // Only zero-fee rollovers are allowed until top-up receipts can be verified.
+    return this.executeCommand('finance.rollover',{
+      package_id:payload.package_id,
+      target_term_id:payload.target_term_id,
+      top_up_fee:payload.top_up_fee === undefined ? 0 : Number(payload.top_up_fee),
+      ...(payload.remark === undefined ? {} : {remark:payload.remark})
     });
   },
 
@@ -277,17 +280,13 @@ const api = {
   },
 
   async generateSettlement(payload) {
-    return await this.request('/api/salary/generate-settlement', {
-      method: 'POST',
-      body: JSON.stringify(payload)
+    return this.executeCommand('salary.generate',{
+      teacher_id:payload.teacher_id,period:payload.period
     });
   },
 
   async settleSalary(settlementId) {
-    return await this.request('/api/salary/settle', {
-      method: 'POST',
-      body: JSON.stringify({ settlement_id: settlementId })
-    });
+    return this.executeCommand('salary.settle',{settlement_id:settlementId});
   },
 
   async submitSalaryAdjustment(payload) { return this.executeCommand('approval.propose',{type:'salaryAdjustment',data:payload}); },
