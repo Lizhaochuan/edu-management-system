@@ -5,10 +5,10 @@ let context = null
 let contextToken = null
 const running = new Map()
 function key() { return 'cmd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) }
-function request(route, method = 'GET', data) {
+function request(route, method = 'GET', data, token = wx.getStorageSync('auth_token')) {
   return new Promise((resolve, reject) => wx.request({
     url: db.SERVER_API_BASE + route, method, data, timeout:10000,
-    header: { Authorization: 'Bearer ' + wx.getStorageSync('auth_token'), 'Content-Type':'application/json' },
+    header: { Authorization: 'Bearer ' + token, 'Content-Type':'application/json' },
     success(res) {
       if (res.statusCode >= 200 && res.statusCode < 300 && res.data.code === 0) return resolve(res.data.data)
       const error = new Error((res.data && res.data.message) || '服务端拒绝请求')
@@ -57,6 +57,7 @@ function run(command, params) {
   if (running.has(flightKey)) return running.get(flightKey)
   const task = (async () => {
     if (!context || contextToken !== scope) await refresh()
+    if (scope !== String(wx.getStorageSync('auth_token'))) throw new Error('登录身份已变化，请重新读取')
     const storageKey='pending_business_command_'+context.user_id
     const saved=wx.getStorageSync(storageKey)
     if (saved && saved.signature !== signature) throw new Error('有未确认操作，请先使用原参数重试')
@@ -64,14 +65,15 @@ function run(command, params) {
     // Save before sending. This is an exact retry envelope, not a balance source.
     wx.setStorageSync(storageKey,{scope:context.user_id,signature,envelope})
     let response
-    try { response = await request('/api/commands/execute','POST',envelope) }
+    try { response = await request('/api/commands/execute','POST',envelope,scope) }
     catch (error) {
-      if (error.status >= 400 && error.status < 500) {
+      if ([400,404,409,413,428].includes(error.status)) {
         wx.removeStorageSync(storageKey)
         try { await refresh() } catch (_e) {}
       }
       throw error
     }
+    if (scope !== String(wx.getStorageSync('auth_token'))) throw new Error('登录身份已变化，原操作请重新登录后确认')
     wx.removeStorageSync(storageKey)
     try { await refresh() } catch (_e) { context = null; wx.showToast({title:'操作成功，请刷新查看',icon:'none'}) }
     return response.result

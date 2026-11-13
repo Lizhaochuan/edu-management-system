@@ -19,6 +19,7 @@ const api = {
     const payload = await response.json();
     const user = payload && payload.data && payload.data.user;
     if (!user || !user.id) return null;
+    if (user.id !== currentIdentity.id) this._commandContext=null;
     currentIdentity = {
       id:user.id, name:user.name, role:user.role,
       roleText: user.role === 'super_admin' ? '超级管理员' :
@@ -48,7 +49,10 @@ const api = {
   },
 
   async commandContext() {
+    const userId=currentIdentity.id;
     const res = await this.request('/api/commands/context');
+    if (currentIdentity.id !== userId) throw new Error('登录身份已变化，请重新读取');
+    if (this._commandContext && res.data.version < this._commandContext.version) return {code:0,data:this._commandContext};
     this._commandContext = res.data;
     return res;
   },
@@ -56,24 +60,33 @@ const api = {
     const signature = JSON.stringify([currentIdentity.id,command,params]);
     this._runningCommands = this._runningCommands || new Map();
     if (this._runningCommands.has(signature)) return this._runningCommands.get(signature);
+    // Reserve before the first await: a second action must not overwrite an
+    // uncertain request while both are waiting for their initial read.
+    if (this._activeCommand) throw new Error('有操作正在确认，请等待或重试原操作');
+    const userId=currentIdentity.id;
+    const storageKey='pending_business_command_'+userId;
+    this._activeCommand=signature;
     const task = (async () => {
-      let saved = JSON.parse(sessionStorage.getItem('pending_business_command_'+currentIdentity.id) || 'null');
+      let saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
       if (saved && saved.signature !== signature) throw new Error('有未确认操作，请先使用原参数重试');
       if (!saved) {
         if (!this._commandContext) await this.commandContext();
+        if (currentIdentity.id !== userId) throw new Error('登录身份已变化，请重新读取');
         saved = {signature,envelope:{command,params,idempotencyKey:crypto.randomUUID(),expectedVersion:this._commandContext.version}};
-        sessionStorage.setItem('pending_business_command_'+currentIdentity.id,JSON.stringify(saved));
+        sessionStorage.setItem(storageKey,JSON.stringify(saved));
       }
       try {
+        if (currentIdentity.id !== userId) throw new Error('登录身份已变化，原操作请重新登录后确认');
         const res = await this.request('/api/commands/execute',{method:'POST',body:JSON.stringify(saved.envelope)});
-        sessionStorage.removeItem('pending_business_command_'+currentIdentity.id);
+        if (currentIdentity.id !== userId) throw new Error('登录身份已变化，原操作请重新登录后确认');
+        sessionStorage.removeItem(storageKey);
         this._commandContext = null;
         return {code:0,data:res.data.result};
       } catch (error) {
-        if (error.status >= 400 && error.status < 500) { sessionStorage.removeItem('pending_business_command_'+currentIdentity.id); this._commandContext=null; }
+        if ([400,404,409,413,428].includes(error.status)) { sessionStorage.removeItem(storageKey); this._commandContext=null; }
         throw error;
       }
-    })().finally(() => this._runningCommands.delete(signature));
+    })().finally(() => { this._runningCommands.delete(signature); this._activeCommand=null; });
     this._runningCommands.set(signature,task);
     return task;
   },

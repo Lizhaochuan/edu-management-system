@@ -513,6 +513,20 @@ const packageAccountService = {
       throw new Error('回滚数据缺失 student_id 或 course_id')
     }
 
+    // Validate all original destinations before changing any balance. A refund,
+    // transfer or paid-off debt requires a new reviewed adjustment, not a stale
+    // replay of credits into the old package (or an arbitrary replacement debt).
+    const originalPackages = new Set(packages_breakdown.map(item => item.package_id));
+    if (total_debt_added > 0) originalPackages.add(debt_package_id);
+    for (const packageId of originalPackages) {
+      const original = db.getById(db.TABLES.COURSE_PACKAGES, packageId);
+      if (!original || original.student_id !== student_id || original.course_id !== course_id || original.lock_status === 'refunded' || original.refund_status === 'refunded' || original.lock_status === 'pending_approval_locked') {
+        throw new Error('原课时包已变更或不存在，请通过人工调课时审批处理');
+      }
+      if (db.getTable(db.TABLES.TRANSFER_RECORDS).some(t => t.source_package_id === packageId && (!detail.timestamp || t.created_at >= detail.timestamp))) throw new Error('原课时包已发生三转，请通过人工调课时审批处理');
+    }
+    if (total_debt_added > 0 && Number(db.getById(db.TABLES.COURSE_PACKAGES,debt_package_id).debt_hours || 0) < total_debt_added) throw new Error('原欠费已经冲抵，请通过人工调课时审批处理');
+
     const student = db.getById(db.TABLES.STUDENTS, student_id)
     const course = db.getById(db.TABLES.COURSES_AND_CLASS_TYPES, course_id)
     const studentName = student ? student.name : (detail.student_name || '学员')

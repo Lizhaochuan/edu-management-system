@@ -226,3 +226,49 @@ test('proposal numeric and calendar inputs reject coercions and impossible dates
  checkError(()=>execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-02-30',reason:'错误日期'}}),400,'INVALID_PARAMS');
  assert.equal(fs.readFileSync(f.file,'utf8'),before);
 }));
+
+test('teacher command response never contains wallet breakdown or debt warnings',()=>run(f=>{
+ const result=execute(f,'attendance.submit',sheet(),'u_tch2').result;
+ assert.equal(result.attendees[0].deducted_detail_json,undefined);
+ assert.equal(result.insufficient_balance_notices,undefined);
+}));
+
+test('rollback cannot resurrect hours after package refund',()=>run(f=>{
+ const deduction=execute(f,'hours.deduct',{student_id:'stu_1',course_id:'crs_1',hours_needed:2,context_desc:'课堂补记',event_id:'refund-rollback-01'}).result;
+ execute(f,'approval.propose',{type:'refund',data:{package_id:'pkg_1',handling_fee:0,refund_method:'微信转账',refund_reason:'申请退费'}},'u_adm1');
+ const a=f.db.getTable(f.db.TABLES.APPROVAL_REQUESTS).find(a=>a.request_type==='refund'&&a.proposer_id==='u_adm1');
+ execute(f,'approval.approve',{approval_id:a.id});
+ const before=fs.readFileSync(f.file,'utf8');
+ assert.throws(()=>execute(f,'hours.rollback',{deduction_id:deduction.deduction_id,reason:'迟到的撤销请求'}));
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').paid_hours_left,0);
+}));
+
+test('paid-off debt cannot be silently consumed again by an old debit rollback',()=>run(f=>{
+ const deduction=execute(f,'hours.deduct',{student_id:'stu_1',course_id:'crs_1',hours_needed:42,context_desc:'课堂补记',event_id:'debt-paid-01'}).result;
+ execute(f,'package.purchase',purchase());
+ const before=fs.readFileSync(f.file,'utf8');
+ assert.throws(()=>execute(f,'hours.rollback',{deduction_id:deduction.deduction_id,reason:'迟到的撤销'}),/欠费已经冲抵/);
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
+
+test('teacher replay redacts financial fields from pre-fix persisted receipts too',()=>run(f=>{
+ const p={...f.envelope(),command:'attendance.submit',params:sheet()};
+ f.commands.execute(f.req('u_tch2'),p);
+ const raw=JSON.parse(fs.readFileSync(f.file));
+ raw.__server_write_state.receipts[0].response.result.insufficient_balance_notices=[{message:'sensitive balance'}];
+ raw.__server_write_state.receipts[0].response.result.attendees[0].deducted_detail_json='sensitive';
+ fs.writeFileSync(f.file,JSON.stringify(raw));f.reload();
+ const result=f.commands.execute(f.req('u_tch2'),p);
+ assert.equal(result.replayed,true);assert.equal(result.result.insufficient_balance_notices,undefined);
+ assert.equal(result.result.attendees[0].deducted_detail_json,undefined);
+}));
+
+test('missing original package aborts rollback without marking its debit undone',()=>run(f=>{
+ const d=execute(f,'hours.deduct',{student_id:'stu_1',course_id:'crs_1',hours_needed:2,context_desc:'课堂补记',event_id:'missing-package-01'}).result;
+ f.db.remove(f.db.TABLES.COURSE_PACKAGES,'pkg_1');
+ const before=fs.readFileSync(f.file,'utf8');
+ assert.throws(()=>execute(f,'hours.rollback',{deduction_id:d.deduction_id,reason:'迟到撤销'}),/不存在/);
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+ assert.equal(f.db.getById('business_write_events',d.deduction_id).rolled_back,false);
+}));
