@@ -518,8 +518,11 @@ test('salary settlement locks once and refuses reused fees without changing the 
 }));
 
 test('salary settling stale draft with already-settled fee refuses atomically',()=>run(f=>{
-  const fee=f.db.getTable(f.db.TABLES.TEACHER_LESSON_FEES).find(x=>x.teacher_id==='u_tch2');
-  assert.ok(fee,'test requires seeded fee');
+  const fee=f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-stale-draft-test',teacher_id:'u_tch2',lesson_date:'2026-03-10',
+    calculated_teacher_fee:160,fee_type:'regular',is_substitute:false,
+    effective_headcount:2,is_revoked:false,settlement_status:'pending'
+  });
   const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
   f.db.update(f.db.TABLES.TEACHER_LESSON_FEES,fee.id,{settlement_status:'settled'});
   const target=f.db.getById(f.db.TABLES.SALARY_SETTLEMENTS,draft.settlement_id);
