@@ -290,6 +290,50 @@ module.exports = ({ fail }) => {
             reject('调账记录状态已变化，不得重复结清',409,'SALARY_DETAIL_CONFLICT');
           }
         }
+        // Reject stale drafts when attendance or an adjustment changed after
+        // creation. Otherwise a settled salary may silently omit newly earned fees.
+        const feeIds=settlement.lesson_fee_ids || [];
+        const adjustmentIds=settlement.adjustment_ids || [];
+        const allCurrentFees=db.getTable(T.TEACHER_LESSON_FEES).filter(fee =>
+          fee.teacher_id === settlement.teacher_id &&
+          !fee.is_revoked && !fee.is_cancelled &&
+          fee.settlement_status !== 'settled' &&
+          fee.lesson_date >= settlement.start_date &&
+          fee.lesson_date <= settlement.end_date);
+        const allCurrentAdjustments=db.getTable(T.SALARY_ADJUSTMENTS).filter(adj =>
+          adj.teacher_id === settlement.teacher_id &&
+          adj.status === 'approved_pending_settlement');
+        const sameIds=(ids,rows)=>Array.isArray(ids) &&
+          ids.length === new Set(ids).size && ids.length === rows.length &&
+          rows.every(row=>ids.includes(row.id));
+        if (!sameIds(feeIds,allCurrentFees) ||
+            !sameIds(adjustmentIds,allCurrentAdjustments)) {
+          reject('草稿生成后课酬或调账发生变化，请先复核',409,'SALARY_DRAFT_STALE');
+        }
+        const snapshot=settlement.details_snapshot_json;
+        if (!snapshot || !Array.isArray(snapshot.lesson_fees) ||
+            !Array.isArray(snapshot.adjustments) ||
+            !sameIds(feeIds,snapshot.lesson_fees) ||
+            !sameIds(adjustmentIds,snapshot.adjustments)) {
+          reject('工资单缺少可信原始明细，请复核',409,'SALARY_DRAFT_STALE');
+        }
+        for (const fee of allCurrentFees) {
+          const original=snapshot.lesson_fees.find(x=>x.id===fee.id);
+          if (!original || Number(original.calculated_teacher_fee||0) !==
+            Number(fee.calculated_teacher_fee||0) ||
+            Number(original.rate_used||0) !== Number(fee.rate_used||0) ||
+            Number(original.effective_headcount||0) !== Number(fee.effective_headcount||0) ||
+            Boolean(original.is_substitute) !== Boolean(fee.is_substitute) ||
+            original.fee_type !== fee.fee_type) {
+            reject('工资单原始课酬数据已变化，请重新复核',409,'SALARY_DRAFT_STALE');
+          }
+        }
+        for (const adj of allCurrentAdjustments) {
+          const original=snapshot.adjustments.find(x=>x.id===adj.id);
+          if (!original || Number(original.signed_amount||0) !== Number(adj.signed_amount||0)) {
+            reject('工资调账金额已变化，请重新复核',409,'SALARY_DRAFT_STALE');
+          }
+        }
         const result=salary.settleTeacherSalary(p.settlement_id,operator);
         return {settlement_id:result.id,status:result.status,settled_at:result.settled_at,
           total_salary:result.total_salary};
