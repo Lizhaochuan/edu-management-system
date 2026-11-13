@@ -137,8 +137,9 @@
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
   margin-bottom: 18rpx;
   padding: 0 4rpx;
 }
@@ -166,6 +167,8 @@
   border-radius: 20rpx;
   margin: 0;
   line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── 1. 四期卡片 ── */
@@ -183,6 +186,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .term-tag {
@@ -303,6 +308,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .snapshot-protect-tip {
@@ -418,6 +425,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 
 .tier-rule-tip {

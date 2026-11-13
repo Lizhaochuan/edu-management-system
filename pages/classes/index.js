@@ -3,6 +3,7 @@ const classService = require('../../services/classService')
 const db = require('../../services/db')
 
 Page({
+  noOp() {},
   data: {
     currentUser: null,
     isAdmin: false,

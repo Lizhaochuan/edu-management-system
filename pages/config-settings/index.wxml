@@ -259,14 +259,16 @@
             </view>
 
             <view class="teacher-actions">
+              <block wx:if="{{item.isCustom}}">
               <button 
-                wx:if="{{item.isCustom &amp;&amp; item.teacherCategory !== 'partner_teacher'}}" 
+                wx:if="{{item.teacherCategory !== 'partner_teacher'}}" 
                 class="btn-reset-tier" 
                 bindtap="onResetTeacherTier" 
                 data-id="{{item.id}}"
               >
                 申请恢复跟档
               </button>
+              </block>
               <button
                 wx:if="{{item.teacherCategory !== 'partner_teacher'}}"
                 class="btn-action-sm"
@@ -288,7 +290,7 @@
 
   <!-- ── 弹窗 1：四期到期日修改 ── -->
   <view wx:if="{{showTermModal}}" class="modal-mask" bindtap="onCloseTermModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">调整【{{editingTerm.name}}】到期日</text>
         <text class="modal-close" bindtap="onCloseTermModal">✕</text>
@@ -325,7 +327,7 @@
 
   <!-- ── 弹窗 2：课程班型新建 / 修改 ── -->
   <view wx:if="{{showCourseModal}}" class="modal-mask" bindtap="onCloseCourseModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">{{isEditCourse ? '调整班型与课程单价' : '新建课程与班型'}}</text>
         <text class="modal-close" bindtap="onCloseCourseModal">✕</text>
@@ -408,7 +410,7 @@
 
   <!-- ── 弹窗 3：教师薪资档位新建 / 修改（强校验拦截人数改大阶梯填价） ── -->
   <view wx:if="{{showTierModal}}" class="modal-mask" bindtap="onCloseTierModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">{{isEditTier ? '调整教师薪资档位' : '新建教师薪资档位'}}</text>
         <text class="modal-close" bindtap="onCloseTierModal">✕</text>
@@ -464,7 +466,7 @@
 
   <!-- ── 弹窗 4：特聘教师独立改数 ── -->
   <view wx:if="{{showTeacherCustomModal}}" class="modal-mask" bindtap="onCloseTeacherCustomModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">设置【{{editingTeacher.name}}】特聘独立课酬</text>
         <text class="modal-close" bindtap="onCloseTeacherCustomModal">✕</text>
@@ -511,7 +513,7 @@
   </view>
   <!-- 合伙人老师独立八档课时费申请 -->
   <view wx:if="{{showPartnerModal}}" class="modal-mask" bindtap="onClosePartnerModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">合伙人老师 · 1～8人每课时金额</text>
         <text class="modal-close" bindtap="onClosePartnerModal">✕</text>

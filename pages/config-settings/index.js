@@ -5,6 +5,8 @@ const db = require('../../services/db')
 const { normalizeManualRates } = require('../../services/salaryRateConfig')
 
 Page({
+  // Consume modal taps without invoking a missing "true" event handler.
+  noOp() {},
   data: {
     currentUser: null,
     hasPermission: false, // 仅 admin 与 super_admin 为 true

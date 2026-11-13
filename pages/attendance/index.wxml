@@ -445,7 +445,7 @@
 
   <!-- ── 弹窗 1：漏签补签申请 Modal ── -->
   <view wx:if="{{showMakeupSignModal}}" class="modal-mask" bindtap="onCloseMakeupSignModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">📝 申请下课漏签补签 (超管审批流)</text>
         <text class="modal-close" bindtap="onCloseMakeupSignModal">✕</text>
@@ -477,7 +477,7 @@
 
   <!-- ── 弹窗 2：Phase 3-A 管理员取消单节排课 Modal (二选一模式) ── -->
   <view wx:if="{{showCancelLessonModal}}" class="modal-mask" bindtap="onCloseCancelLessonModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">❌ 管理员取消课程 (最高权限)</text>
         <text class="modal-close" bindtap="onCloseCancelLessonModal">✕</text>
@@ -538,7 +538,7 @@
 
   <!-- ── 弹窗 3：Phase 3-B 管理员指派代课 Modal ── -->
   <view wx:if="{{showSubstituteModal}}" class="modal-mask" bindtap="onCloseSubstituteModal">
-    <view class="modal-box" catchtap="true">
+    <view class="modal-box" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">🔄 指派代课老师</text>
         <text class="modal-close" bindtap="onCloseSubstituteModal">✕</text>
@@ -585,7 +585,7 @@
 
   <!-- ── 弹窗 4：Phase 3-B 代课客诉登记与处理 Modal ── -->
   <view wx:if="{{showComplaintModal}}" class="modal-mask" bindtap="onCloseComplaintModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">⚠️ 代课客诉登记与个案处理</text>
         <text class="modal-close" bindtap="onCloseComplaintModal">✕</text>
@@ -685,7 +685,7 @@
 
   <!-- ── 弹窗 5：Phase 3-C 缺勤补课预约 Modal ── -->
   <view wx:if="{{showMakeupModal}}" class="modal-mask" bindtap="onCloseMakeupModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">📅 学员【{{makeupForm.student_name}}】缺勤补课预约</text>
         <text class="modal-close" bindtap="onCloseMakeupModal">✕</text>
@@ -826,7 +826,7 @@
 
   <!-- ── 弹窗 6：Phase 3-C 管理员跨师补课安排 Modal ── -->
   <view wx:if="{{showAdminAssignModal}}" class="modal-mask" bindtap="onCloseAdminAssignModal">
-    <view class="modal-box modal-lg" catchtap="true">
+    <view class="modal-box modal-lg" catchtap="noOp">
       <view class="modal-header">
         <text class="modal-title">🛠️ 安排跨师补课 —— 学员【{{adminAssignForm.student_name}}】</text>
         <text class="modal-close" bindtap="onCloseAdminAssignModal">✕</text>

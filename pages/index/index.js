@@ -195,7 +195,7 @@ Page({
   refreshCurrentView() {
     const app = getApp()
     const user = app && app.globalData && app.globalData.currentUser
-    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+    if (!user || !['admin', 'super_admin', 'teacher'].includes(user.role)) {
       wx.reLaunch({ url: '/pages/login/index' })
       return
     }

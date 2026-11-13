@@ -94,12 +94,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
   padding: 0 4rpx;
 }
 
 .section-left {
   display: flex;
   align-items: baseline;
+  flex-shrink: 0;
 }
 
 .section-title {
@@ -166,6 +169,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
   margin-bottom: 16rpx;
 }
 
@@ -173,6 +178,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8rpx;
 }
 
 .class-name {
@@ -375,12 +381,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
   padding-top: 16rpx;
   border-top: 1rpx solid #f1f5f9;
 }
 
 .btn-group-left, .btn-group-right {
   display: flex;
+  flex-wrap: wrap;
   gap: 10rpx;
 }
 

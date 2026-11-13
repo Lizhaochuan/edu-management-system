@@ -928,15 +928,14 @@ const server = http.createServer(async (req, res) => {
 
   // 检查文件是否存在
   fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      // SPA Fallback: 回退到 index.html
-      filePath = path.join(WEB_ADMIN_DIR, 'index.html');
-    }
+    // SPA fallback must not reassign the canonical, immutable request path.
+    const responseFile = err || !stats.isFile()
+      ? path.join(WEB_ADMIN_DIR, 'index.html') : filePath;
 
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(responseFile).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    fs.readFile(filePath, (readErr, content) => {
+    fs.readFile(responseFile, (readErr, content) => {
       if (readErr) {
         res.writeHead(500);
         res.end('Error loading ' + filePath);

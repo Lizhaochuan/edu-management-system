@@ -161,6 +161,7 @@
 
 .filter-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
 }
 
@@ -252,6 +253,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
   margin-bottom: 12rpx;
 }
 
@@ -352,6 +355,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
   padding-top: 14rpx;
   border-top: 1rpx dashed #e2e8f0;
 }
@@ -359,6 +364,7 @@
 .total-wrap {
   display: flex;
   align-items: baseline;
+  flex-shrink: 0;
 }
 
 .total-label {
@@ -375,6 +381,7 @@
 
 .btn-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
 }
 
@@ -497,6 +504,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
   margin: 0 24rpx 16rpx 24rpx;
 }
 
@@ -516,12 +525,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
   margin-bottom: 10rpx;
 }
 
 .fee-title-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10rpx;
 }
 
@@ -573,6 +585,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
   font-size: 20rpx;
   color: #94a3b8;
   padding-top: 10rpx;
