@@ -101,10 +101,10 @@ const ToolboxComponent = {
         <!-- 调试输出控制台面板 -->
         <div v-if="resultOutput" style="margin-top: 24px;">
           <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #1e293b; display: flex; justify-content: space-between; align-items: center;">
-            <span>🖥️ 沙盒指令执行结果返回：</span>
+            <span>🖥️ 操作结果：</span>
             <button class="btn btn-sm" @click="resultOutput = null">清空输出</button>
           </div>
-          <pre class="diff-code" style="background:#1e1e1e; color:#4ade80; padding:16px; border-radius:6px; max-height: 350px;">{{ resultOutput }}</pre>
+          <p style="background:#f0f7ff; color:#234765; padding:16px; border-radius:6px; line-height:1.6;">{{ resultOutput }}</p>
         </div>
       </div>
     </div>
@@ -123,10 +123,10 @@ const ToolboxComponent = {
       this.resultOutput = '执行中...';
       try {
         const res = await window.api.runDebugAction(actionName);
-        this.resultOutput = JSON.stringify(res, null, 2);
+        this.resultOutput = res && typeof res.message==='string' && res.message.length<=300 ? res.message : '操作已完成，请返回相关业务页面检查结果。';
         alert(res.message || '执行成功！');
       } catch (err) {
-        this.resultOutput = `[执行报错] ${err.message}`;
+        this.resultOutput = '操作失败，请检查权限、业务状态或网络连接。';
         alert(`执行失败: ${err.message}`);
       } finally {
         this.loadingAction = null;
