@@ -111,7 +111,7 @@ test('makeup-attendance approvals explain each student and attendance without te
     students:[{id:'stu1',name:'小林'},{id:'stu2',name:'小赵'}],
     schedules:[{id:'schedule_1',lesson_date:'2026-03-12',lesson_index:6}]
   });
-  assert.ok(result.rows.some(x=>x.label==='涉及课次' &&
+  assert.ok(result.rows.some(x=>x.label==='申请补签的课次' &&
     x.afterText==='2026-03-12 的课程（第6次课）'));
   assert.ok(result.rows.some(x=>x.label==='补签学员：小林' && x.afterText==='出勤（迟到）'));
   assert.ok(result.rows.some(x=>x.label==='补签学员：小赵' && x.afterText==='缺勤'));
