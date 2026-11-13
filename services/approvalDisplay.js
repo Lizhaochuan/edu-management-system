@@ -6,10 +6,12 @@ const FIELDS = {
   name:['名称','text'],
   course_name:['课程名称','text'],
   class_type_name:['班型名称','text'],
-  term_type:['学期类型','text'],
+  term_type:['学期类型','term_type'],
   fixed_expire_date:['学期到期日','date'],
   expire_date:['课时包到期日','date'],
+  start_date:['开始日期','date'],
   teacher_category:['教师类别','category'],
+  is_custom_rate:['使用独立课酬标准','custom_rate'],
   teacher_tier_id:['适用教师薪酬档位','tier'],
   teacher_id:['教师','teacher'],
   student_id:['学员','student'],
@@ -27,15 +29,39 @@ const FIELDS = {
   gift_hours_left:['剩余赠送课时','hours'],
   freeze_days:['冻结天数','days'],
   total_frozen_days:['累计冻结天数','days'],
+  total_frozen_days_after:['累计冻结天数','days'],
+  paid_hours_after:['调整后剩余付费课时','hours'],
+  gift_hours_after:['调整后剩余赠送课时','hours'],
+  total_hours_delta:['本次调整课时总数','hours'],
+  gross_refund:['预计应退金额','yuan'],
+  net_refund:['预计实际退款','yuan'],
+  gift_hours_forfeited:['退款后作废赠送课时','hours'],
+  unit_price_snapshot:['课时原单价','yuan'],
+  refund_amount:['预计退款金额','yuan'],
+  top_up_amount:['需要补交金额','yuan'],
+  signed_amount:['工资调账金额','yuan'],
   handling_fee:['退费手续费','yuan'],
   amount:['金额','yuan'],
   total_amount:['金额合计','yuan'],
   hours_to_transfer:['转出课时','hours'],
+  transferred_total_hours:['转出课时总数','hours'],
+  transferred_paid_hours:['转出付费课时','hours'],
+  transferred_gift_hours:['转出赠送课时','hours'],
+  remaining_paid_hours:['转出后剩余付费课时','hours'],
+  remaining_gift_hours:['转出后剩余赠送课时','hours'],
+  transfer_type:['申请转移方式','transfer_type'],
+  remainder_option:['剩余课时处理方式','remainder'],
+  source_student_name:['原学员','text'],
+  target_student_name:['转入学员','text'],
+  source_course_name:['原课程','text'],
+  target_course_name:['转入课程','text'],
   target_student_id:['转入学员','student'],
   target_course_id:['转入课程','course'],
   target_class_id:['转入班级','class'],
   refund_method:['退费方式','text'],
+  refund_reason:['退费理由','text'],
   direction:['调整方向','direction'],
+  course_name_snapshot:['课程名称','text'],
   reason:['调整原因','text'],
   role:['账号角色','role'],
   status:['状态','status'],
@@ -47,7 +73,10 @@ const MAPPED = {
   role:{super_admin:'超级管理员',admin:'教务管理员',teacher:'教师',parent:'家长'},
   status:{active:'启用',inactive:'停用',disabled:'停用',pending:'待处理',approved:'已通过',
     rejected:'已驳回',settled:'已结算',draft:'待核对草稿'},
-  direction:{add:'增加',deduct:'扣减',reissue:'补发',clawback:'扣回'},
+  direction:{add:'增加',deduct:'扣减',increase:'增加课时',decrease:'扣减课时',reissue:'补发',clawback:'扣回'},
+  custom_rate:{true:'使用单独课酬',false:'跟随统一薪酬档位'},
+  transfer_type:{transfer_student:'转给另一位学员',transfer_course:'转到另一门课程',transfer_class:'转到另一班级'},
+  remainder:{refund:'退款处理',keep:'保留剩余课时',forfeit:'剩余课时作废'}, 
   account:{'进入公账':'对公账户','进入个人账户':'个人账户'},
   term_type:{spring:'春季',summer:'暑假',autumn:'秋季',winter:'寒假'}
 };
@@ -121,6 +150,14 @@ function formatApprovalChange(item, lookup={}) {
   };
   const before=oldData.value||{};
   const after=newData.value||{};
+  const metadata=new Set(['id','package_id','proposer_id','proposer_name',
+    'student_name','snapshot_balance_at_propose','summary_desc','transfer_type_name',
+    'created_at','updated_at','adjustment_no','related_schedule_id',
+    'related_settlement_id','is_personal_account','source_student_id','source_course_id',
+    'source_expire_date','source_unit_price','source_package_id','course_id',
+    'paid_hours_total','gift_hours_total','paid_hours_used','gift_hours_used',
+    'total_hours_used','expire_date','total_hours_left','snapshot_balance',
+    'requested_days','reason']);
   const add=(label,from,to,kind,knownBefore)=>{
     if (knownBefore && compareValues(from,to)) return;
     rows.push({
@@ -131,6 +168,14 @@ function formatApprovalChange(item, lookup={}) {
     });
   };
   for (const key of Object.keys(after)) {
+    if (metadata.has(key)) continue;
+    if (key === 'custom_tier_rates_json' && after[key] === null) {
+      rows.push({label:'教师个人课酬设置',
+        beforeText:before[key] ? '原为独立课酬标准' : '原未单独设置',
+        afterText:'恢复按照统一教师档位计算',
+        changed:true});
+      continue;
+    }
     if (RATE_KEYS.includes(key)) {
       const newRates=renderRates(after[key]);
       const oldRates=renderRates(before[key]) || {};
@@ -147,6 +192,18 @@ function formatApprovalChange(item, lookup={}) {
     if (!field) { unknown.push(key); continue; }
     const [label,kind]=field;
     // A change request can contain only a patch. Missing keys are not "deleted".
+    if (key==='total_frozen_days_after' && own(before,'total_frozen_days')) {
+      add(label,before.total_frozen_days,after[key],kind,true);
+      continue;
+    }
+    if (key==='paid_hours_after' && own(before,'paid_hours_left')) {
+      add('剩余付费课时',before.paid_hours_left,after[key],kind,true);
+      continue;
+    }
+    if (key==='gift_hours_after' && own(before,'gift_hours_left')) {
+      add('剩余赠送课时',before.gift_hours_left,after[key],kind,true);
+      continue;
+    }
     if (kind==='yuan') {
       const known=own(before,key);
       if (known && compareValues(before[key],after[key])) continue;
