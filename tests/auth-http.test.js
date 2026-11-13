@@ -380,3 +380,21 @@ test('committed command notifies Web once; Web cookie and native Bearer read the
  } finally {request.destroy();if(stream)stream.destroy();}
 });
 
+
+test('legacy opt-in cannot mutate user records, including super-admin deletion', async () => {
+  const oldPort = port;
+  const testPort = await reservePort();
+  const legacy = spawn(process.execPath, ['server.js'], {cwd:root, env:{...process.env,PORT:String(testPort),HOST:'127.0.0.1',AUTH_CREDENTIALS_FILE:process.env.AUTH_CREDENTIALS_FILE,ALLOW_LEGACY_MUTATION_SYNC:'1'},stdio:'ignore'});
+  port=testPort;
+  try {
+    let login;
+    for (let n=0;n<40;n++) { try { login=await signIn('u_sa1'); break; } catch (_e) { await new Promise(r=>setTimeout(r,50)); } }
+    assert.equal(login.status,200);
+    const headers={Cookie:cookie(login)};
+    for (const payload of [
+      {action:'REMOVE',table:'users',id:'u_sa2'},
+      {action:'UPDATE',table:'users',id:'u_sa2',patch:{role:'admin'}},
+      {action:'INSERT',table:'users',record:{id:'forged',role:'super_admin',status:'active'}}
+    ]) assert.equal((await call('/api/db/mutate','POST',payload,headers)).status,403);
+  } finally { port=oldPort; legacy.kill(); }
+});
