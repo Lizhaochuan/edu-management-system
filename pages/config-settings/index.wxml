@@ -29,7 +29,7 @@
         <text class="banner-title">系统参数审批铁律</text>
       </view>
       <view class="banner-desc">
-        管理员在此提交的参数变更均需超级管理员审批才生效；旧班旧课快照不变，新班用新标准。
+        唯一超管操作可直接生效；多位超管时由另一位超管审批。旧班旧课快照不变。
       </view>
     </view>
 
@@ -315,7 +315,7 @@
           />
         </view>
         <view class="audit-tip">
-          ⚖️ 该修改将生成审批单，经超级管理员在审批中心批准后生效。
+          ⚖️ 唯一超管可直接生效；其他情况提交审批。
         </view>
       </view>
       <view class="modal-footer">
