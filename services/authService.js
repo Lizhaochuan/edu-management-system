@@ -149,6 +149,8 @@ function authorize(pathname, method, role, req) {
     // Teacher and parent scopes must be implemented explicitly, never inherit admin access.
     return false;
   }
+  if (pathname === '/api/commands/version') return method === 'GET';
+  if (pathname === '/api/commands/execute') return method === 'POST';
   if (pathname === '/api/events') return true;
   if (pathname === '/api/db/all') return true; // Admin export is redacted by server.js.
   if (pathname === '/api/logs' ||
@@ -184,3 +186,4 @@ module.exports = {
   login, logout, authenticate, authorize, saveCredential, publicUser,
   sessionCookie, clearCookie, CREDENTIAL_FILE
 };
+

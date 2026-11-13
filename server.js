@@ -7,6 +7,7 @@ const url = require('url');
 
 const db = require('./services/db');
 const authService = require('./services/authService');
+const businessCommands = require('./services/businessCommandService');
 const packageAccountService = require('./services/packageAccountService');
 const attendanceService = require('./services/attendanceService');
 const salaryEngineService = require('./services/salaryEngineService');
@@ -60,10 +61,16 @@ const MIME_TYPES = {
 };
 
 /** 解析请求 JSON Body */
-function parseJsonBody(req) {
+function parseJsonBody(req, strict = false) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let bytes = 0;
     req.on('data', chunk => {
+      bytes += chunk.length;
+      if (strict && bytes > 16 * 1024) {
+        reject(new businessCommands.CommandError(413, 'BODY_TOO_LARGE', '请求体超过16KiB'));
+        return;
+      }
       body += chunk;
       if (body.length > 5 * 1024 * 1024) {
         reject(new Error('Body too large'));
@@ -77,7 +84,8 @@ function parseJsonBody(req) {
       try {
         resolve(JSON.parse(body));
       } catch (err) {
-        resolve({});
+        if (strict) reject(new businessCommands.CommandError(400, 'INVALID_JSON', 'JSON格式无效'));
+        else resolve({});
       }
     });
     req.on('error', reject);
@@ -104,14 +112,8 @@ function getOperatorFromReq(req) {
 
 // Database-only rollback helper for synchronous JSON-backed business handlers.
 // This cannot undo external notifications and is not a replacement for SQL transactions.
-function withJsonDbRollback(handler) {
-  const snapshot = JSON.parse(JSON.stringify(db.dumpAll()));
-  try {
-    return handler();
-  } catch (error) {
-    db.replaceAll(snapshot);
-    throw error;
-  }
+function withJsonDbRollback(handler, operator) {
+  return db.transaction(handler, operator);
 }
 
 // 创建 HTTP 服务
@@ -216,6 +218,21 @@ const server = http.createServer(async (req, res) => {
       req.auth = identity;
       if (!authService.authorize(pathname, req.method, identity.user.role, req)) {
         return sendJson(res, 403, { code: 403, message: '当前账号无权访问此接口' });
+      }
+
+      if (pathname === '/api/commands/version' && req.method === 'GET') {
+        return sendJson(res, 200, { code: 0, data: { version: db.getWriteState().version } });
+      }
+      if (pathname === '/api/commands/execute' && req.method === 'POST') {
+        const envelope = await parseJsonBody(req, true);
+        try {
+          const result = businessCommands.execute(req, envelope);
+          return sendJson(res, 200, { code: 0, data: result });
+        } catch (error) {
+          if (error instanceof businessCommands.CommandError) throw error;
+          console.error('[commands] transaction failed:', error);
+          return sendJson(res, 500, { code: 'COMMAND_FAILED', message: '写入失败，请使用原幂等键重试' });
+        }
       }
 
       // Authenticated snapshot for the native mini-program.
@@ -686,7 +703,7 @@ const server = http.createServer(async (req, res) => {
             status: 'approved', approver_id: operator.id,
             approver_name: operator.name, approved_time: now
           }, `[Web端审批通过] ${operator.name} 批准单据 #${approvalItem.id}`);
-          });
+          }, operator);
         } catch (bizErr) {
           return sendJson(res, 400, { code: 1, message: bizErr.message || '业务执行拦截' });
         }
@@ -729,7 +746,7 @@ const server = http.createServer(async (req, res) => {
             status: 'rejected', approver_id: operator.id, approver_name: operator.name,
             approved_time: now, reject_reason: reason
           }, `[Web端审批驳回] ${operator.name} 驳回单据 #${approvalItem.id}，理由：${reason}`);
-          });
+          }, operator);
         } catch (bizErr) {
           return sendJson(res, 400, { code:1, message: bizErr.message || '审批驳回执行失败' });
         }
@@ -1029,6 +1046,9 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(res, 404, { code: 404, message: 'API Route Not Found' });
     } catch (apiErr) {
+      if (apiErr instanceof businessCommands.CommandError) {
+        return sendJson(res, apiErr.status, { code: apiErr.code, message: apiErr.message });
+      }
       console.error('[server] API Error:', apiErr);
       return sendJson(res, 500, { code: 500, message: apiErr.message || 'Server Internal Error' });
     }
@@ -1099,3 +1119,4 @@ if (!IS_LOOPBACK_HOST && process.env.ALLOW_INSECURE_NETWORK !== '1') {
 }
 
 module.exports = server;
+
