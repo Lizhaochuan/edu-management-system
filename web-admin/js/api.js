@@ -279,8 +279,12 @@ const api = {
   connectSSE(onMessage, onStatusChange) {
     let eventSource = null;
     let isConnected = false;
+    let closed = false;
+    let retryTimer = null;
+    const reconnect = () => { if (!closed) retryTimer = setTimeout(connect,3000); };
 
     function connect() {
+      if (closed) return;
       try {
         if (onStatusChange) onStatusChange('connecting');
         eventSource = new EventSource(`${API_BASE}/api/events`);
@@ -297,6 +301,9 @@ const api = {
           } catch (err) {}
         };
 
+        eventSource.addEventListener('version', e => {
+          try { const payload=JSON.parse(e.data); if(onMessage) onMessage('version',payload.data); } catch(_e) {}
+        });
         eventSource.addEventListener('mutation', (e) => {
           try {
             const data = JSON.parse(e.data);
@@ -309,11 +316,11 @@ const api = {
           if (onStatusChange) onStatusChange('disconnected');
           eventSource.close();
           // 3秒后自动重连
-          setTimeout(connect, 3000);
+          reconnect();
         };
       } catch (e) {
         if (onStatusChange) onStatusChange('error');
-        setTimeout(connect, 3000);
+        reconnect();
       }
     }
 
@@ -321,6 +328,7 @@ const api = {
 
     return {
       close() {
+        closed=true; clearTimeout(retryTimer);
         if (eventSource) eventSource.close();
       }
     };

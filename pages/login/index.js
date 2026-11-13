@@ -1,3 +1,4 @@
+const commands = require('../../services/commandClient')
 const db = require('../../services/db')
 
 Page({
@@ -18,9 +19,9 @@ Page({
       success: res => {
         const user = res.data && res.data.data && res.data.data.user
         if (res.statusCode === 200 && user &&
-            ['admin','super_admin'].includes(user.role)) {
+            ['admin','super_admin','teacher'].includes(user.role)) {
           getApp().globalData.currentUser = user
-          db.syncFromServer()
+          commands.refresh().catch(() => {})
           wx.reLaunch({ url: '/pages/index/index' })
         } else {
           wx.removeStorageSync('auth_token')
@@ -51,14 +52,14 @@ Page({
           this.setData({ errorMessage: (res.data && res.data.message) || '登录失败' })
           return
         }
-        if (!['admin','super_admin'].includes(data.user.role)) {
-          this.setData({ errorMessage: '教师和家长端尚未完成后端隔离，请使用管理人员账号' })
+        if (!['admin','super_admin','teacher'].includes(data.user.role)) {
+          this.setData({ errorMessage: '家长端尚未开放，请使用已授权的教务或教师账号' })
           return
         }
         wx.setStorageSync('auth_token', data.token)
         getApp().globalData.currentUser = data.user
         this.setData({ password: '' })
-        db.syncFromServer()
+        commands.refresh().catch(() => {})
         wx.reLaunch({ url: '/pages/index/index' })
       },
       fail: () => this.setData({ errorMessage: '无法连接后端。请检查开发服务器地址与网络配置。' }),
@@ -66,3 +67,4 @@ Page({
     })
   }
 })
+

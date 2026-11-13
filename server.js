@@ -30,7 +30,8 @@ function broadcast(event, data) {
   });
   sseClients.forEach((client) => {
     try {
-      if (!authService.authenticate(client.req)) {
+      const identity = authService.authenticate(client.req);
+      if (!identity || !authService.authorize('/api/events','GET',identity.user.role,client.req)) {
         client.res.end();
         sseClients.delete(client);
         return;
@@ -165,6 +166,14 @@ const server = http.createServer(async (req, res) => {
 
     const client = { req, res };
     sseClients.add(client);
+    res.write(`event: version\ndata: ${JSON.stringify({data:{version:db.getWriteState().version}})}\n\n`);
+    const heartbeat = setInterval(() => {
+      const current = authService.authenticate(req);
+      if (!current || !authService.authorize('/api/events','GET',current.user.role,req)) { res.end(); return; }
+      res.write(': heartbeat\n\n');
+    },15000);
+    heartbeat.unref();
+    res.on('close',()=>{ clearInterval(heartbeat); sseClients.delete(client); });
     req.on('close', () => sseClients.delete(client));
     return;
   }
@@ -249,6 +258,7 @@ const server = http.createServer(async (req, res) => {
         const envelope = await parseJsonBody(req, true);
         try {
           const result = businessCommands.execute(req, envelope);
+          if (!result.replayed) broadcast('version', { version: result.version });
           return sendJson(res, 200, { code: 0, data: result });
         } catch (error) {
           if (error instanceof businessCommands.CommandError) throw error;
