@@ -313,7 +313,7 @@ Page({
       this.loadUsers()
 
       wx.showModal({
-        title: '赋权成功！',
+        title: outcome.status === 'pending' ? '已提交审批' : '身份调整成功',
         content: outcome.status === 'pending' ? '已提交合伙人审批，另一位超管同意后生效。' : `已成功调整【${editingUser.name}】的身份。`,
         showCancel: false,
         confirmText: '好的'
