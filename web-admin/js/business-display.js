@@ -251,9 +251,12 @@ function readableDeduction(schedule){
       type:a.is_trial?'试听学员':'正式或补课学员'});
   }
   return {rows,note:entries.length>150?'仅展示前 150 位学员，请进一步核对完整记录。':
-    rows.length===0?'这节课没有可以确认的已扣除课时明细。':
+    rows.length===0?(schedule.deducted_detail_json?'该课次存在扣课记录，但无法可靠按学员整理；请授权人员核对业务记录。':'该课次没有可确认的扣除课时。'):
     '以上是按学员整理的实际扣课时数。历史细分明细请从相应业务记录核对。'};
 }
-const BusinessDisplay={auditChange,readablePaymentStatus,readableScheduleStatus,readableDeduction};
+function readableMutation(table,action) {
+  return (TABLE_NAMES[table]||'业务记录')+'已'+(ACTIONS[action]||'更新')+'，可刷新查看最新变化。';
+}
+const BusinessDisplay={auditChange,readablePaymentStatus,readableScheduleStatus,readableDeduction,readableMutation};
 if(typeof window!=='undefined')window.BusinessDisplay=BusinessDisplay;
 if(typeof module!=='undefined'&&module.exports)module.exports=BusinessDisplay;
