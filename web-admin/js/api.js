@@ -236,6 +236,10 @@ const api = {
   // ─────────────────────────────────────────
   // Phase 6-B：财务、三转退费与薪资结算 API
   // ─────────────────────────────────────────
+  async getPaymentReconciliations() { return this.request('/api/payments/reconciliation'); },
+  async submitPaymentReceipt(payload) { return this.executeCommand('payment.submit',payload); },
+  async confirmPaymentReceipt(payload) { return this.executeCommand('payment.confirm',payload); },
+  async rejectPaymentReceipt(payload) { return this.executeCommand('payment.reject',payload); },
   async purchasePackage(payload) { return this.executeCommand('package.purchase',payload); },
 
   async freezePackage(payload) { return this.executeCommand('approval.propose',{type:'freeze',data:payload}); },
