@@ -723,6 +723,21 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 428, { code: 'COMMAND_REQUIRED', message: '请使用带版本号和幂等键的业务命令接口' });
       }
 
+      // Legacy finance/salary writes bypass the authenticated command envelope,
+      // business version check, idempotency receipt and single transaction commit.
+      // Fail closed until their complete replacement commands and clients exist.
+      // The corresponding read-only report and preview APIs remain available.
+      if (req.method === 'POST' && [
+        '/api/finance/rollover',
+        '/api/salary/settle',
+        '/api/salary/generate-settlement'
+      ].includes(pathname)) {
+        return sendJson(res, 428, {
+          code: 'COMMAND_REQUIRED',
+          message: '旧财务写入接口已停用；请等待受控命令接口及客户端迁移'
+        });
+      }
+
       // ─────────────────────────────────────────
       // 3.11 Phase 6-B：教务与排课管理大屏 API
       // ─────────────────────────────────────────
