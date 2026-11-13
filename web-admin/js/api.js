@@ -83,7 +83,7 @@ const api = {
         this._commandContext = null;
         return {code:0,data:res.data.result};
       } catch (error) {
-        if ([400,401,403,404,409,413,428].includes(error.status)) { sessionStorage.removeItem(storageKey); this._commandContext=null; }
+        if ([400,404,409,413,428].includes(error.status)) { sessionStorage.removeItem(storageKey); this._commandContext=null; }
         throw error;
       }
     })().finally(() => { this._runningCommands.delete(signature); this._activeCommand=null; });
