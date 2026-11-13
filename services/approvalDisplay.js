@@ -45,6 +45,14 @@ const FIELDS = {
   gift_hours_forfeited:['退款后作废赠送课时','hours'],
   unit_price_snapshot:['课时原单价','yuan'],
   refund_amount:['预计退款金额','yuan'],
+  target_unit_price:['目标课程单价','yuan'],
+  target_paid_hours:['转入付费课时','hours'],
+  target_gift_hours:['转入赠送课时','hours'],
+  target_total_hours:['转入课时合计','hours'],
+  target_lessons:['可转入课程次数','lessons'],
+  transferred_paid_value:['转出付费课时折算金额','yuan'],
+  raw_target_paid_hours:['按原金额折算的付费课时','hours'],
+  target_hours_per_lesson:['目标课程每次课时数','hours'],
   top_up_amount:['需要补交金额','yuan'],
   signed_amount:['工资调账金额','yuan'],
   handling_fee:['退费手续费','yuan'],
@@ -86,7 +94,8 @@ const MAPPED = {
   direction:{add:'增加',deduct:'扣减',increase:'增加课时',decrease:'扣减课时',reissue:'补发',clawback:'扣回'},
   custom_rate:{true:'使用单独课酬',false:'跟随统一薪酬档位'},
   transfer_type:{transfer_student:'转给另一位学员',transfer_course:'转到另一门课程',transfer_class:'转到另一班级'},
-  remainder:{refund:'退款处理',keep:'保留剩余课时',forfeit:'剩余课时作废'}, 
+  remainder:{refund:'退款处理',keep:'保留剩余课时',forfeit:'剩余课时作废',
+    top_up:'按新课程课时标准补差价',refund_change:'余额按规定找零退款'}, 
   account:{'进入公账':'对公账户','进入个人账户':'个人账户'},
   term_type:{spring:'春季',summer:'暑假',autumn:'秋季',winter:'寒假'}
 };
@@ -119,6 +128,7 @@ function renderValue(value,type,lookup) {
   if (type==='person') return numberText(value)+' 人';
   if (type==='hours') return numberText(value)+' 课时';
   if (type==='days') return numberText(value)+' 天';
+  if (type==='lessons') return numberText(value)+' 次课';
   if (type==='date') return String(value).slice(0,10);
   if (MAPPED[type]) {
     const translated=MAPPED[type][String(value)];
