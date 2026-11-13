@@ -125,3 +125,16 @@ test('readable display modules are presentation only and never write the financi
     assert.doesNotMatch(code,/run\('payment\.confirm'|run\('package\.purchase'/);
   }
 });
+
+
+test('all protected mini-program screens describe user roles in Chinese, not raw codes',()=>{
+  for(const page of ['user-management','config-settings','audit-logs']){
+    const markup=read('pages/'+page+'/index.wxml');
+    const source=read('pages/'+page+'/index.js');
+    assert.doesNotMatch(markup,/\{\{currentUser\.role\}\}/);
+    assert.match(markup,/\{\{currentRoleText\}\}/);
+    assert.match(source,/ROLE_NAMES\[user\.role\]/);
+    assert.match(source,/currentRoleText:/);
+  }
+  assert.doesNotMatch(read('pages/config-settings/index.wxml'),/\(admin\)|\(super_admin\)/);
+});
