@@ -1,5 +1,6 @@
 // pages/user-management/index.js
 const db = require('../../services/db')
+const commands = require('../../services/commandClient')
 
 const ROLE_OPTIONS = [
   { value: 'guest',       label: '未分配身份 / 游客', badgeClass: 'role-guest', desc: '无任何教务财务权限，仅能等待超管分配' },
@@ -193,7 +194,7 @@ Page({
     this.setData({ 'addForm.teacher_tier_id': e.currentTarget.dataset.tier })
   },
 
-  onSubmitAdd() {
+  async onSubmitAdd() {
     const { name, phone, role, teacher_tier_id } = this.data.addForm
     if (!name) {
       wx.showToast({ title: '请输入姓名', icon: 'none' })
@@ -227,12 +228,7 @@ Page({
         status: 'active'
       }
 
-      // 底层 insert 会自动写不可篡改 audit_logs
-      db.insert(
-        db.TABLES.USERS,
-        newRecord,
-        `超管[${user.name}]预录入手机号[${phone}]新成员[${name}]，指定身份为[${role}]`
-      )
+      await commands.run('user.create', {name, phone, role, ...(role === 'teacher' ? {teacher_tier_id} : {})})
 
       this.setData({ showAddModal: false })
       this.loadUsers()
@@ -285,7 +281,7 @@ Page({
     this.setData({ 'editForm.teacher_tier_id': tier })
   },
 
-  onSubmitEdit() {
+  async onSubmitEdit() {
     const { editingUser, editForm, currentUser } = this.data
     if (!editingUser) return
 
@@ -307,13 +303,7 @@ Page({
         status: 'active'
       }
 
-      // 底层 update 会自动写不可篡改 audit_logs
-      db.update(
-        db.TABLES.USERS,
-        editingUser.id,
-        patch,
-        `超管[${currentUser.name}]将用户[${editingUser.name}(${editingUser.phone})]的身份由[${editingUser.role}]重新赋权为[${editForm.role}]`
-      )
+      const outcome = await commands.run('user.changeRole', {user_id: editingUser.id, role:editForm.role, ...(editForm.role === 'teacher' ? {teacher_tier_id:editForm.teacher_tier_id} : {})})
 
       this.setData({
         showEditModal: false,
@@ -323,8 +313,8 @@ Page({
       this.loadUsers()
 
       wx.showModal({
-        title: '赋权成功！',
-        content: `已成功将【${editingUser.name}】的身份调整为【${editForm.role}】。\n该操作已自动写入底层不可篡改操作日志！`,
+        title: outcome.status === 'pending' ? '已提交审批' : '身份调整成功',
+        content: outcome.status === 'pending' ? '已提交合伙人审批，另一位超管同意后生效。' : `已成功调整【${editingUser.name}】的身份。`,
         showCancel: false,
         confirmText: '好的'
       })
@@ -340,37 +330,8 @@ Page({
   // ─────────────────────────────────────────
   // 功能 3：删除账号（测试/离职）
   // ─────────────────────────────────────────
-  onDeleteUser(e) {
-    const id = e.currentTarget.dataset.id
-    const target = this.data.allUsers.find(u => u.id === id)
-    if (!target) return
-
-    if (target.id === this.data.currentUser.id) {
-      wx.showToast({ title: '不能删除自己', icon: 'none' })
-      return
-    }
-
-    wx.showModal({
-      title: '确认删除此账号？',
-      content: `是否确认删除成员【${target.name} (${target.phone})】？删除记录同样会被不可篡改日志全量存证。`,
-      confirmColor: '#dc2626',
-      confirmText: '确认删除',
-      success: (res) => {
-        if (res.confirm) {
-          try {
-            db.remove(
-              db.TABLES.USERS,
-              target.id,
-              `超管[${this.data.currentUser.name}]删除了用户[${target.name}(${target.phone})]`
-            )
-            this.loadUsers()
-            wx.showToast({ title: '已删除账号', icon: 'none' })
-          } catch (err) {
-            wx.showModal({ title: '删除失败', content: err.message, showCancel: false })
-          }
-        }
-      }
-    })
+  onDeleteUser() {
+    wx.showModal({title: '暂不支持删除账号', content: '账号删除功能尚未接入服务端。请通过身份调整管理权限；超管身份变更需要遵循审批规则。', showCancel: false})
   },
 
   onBackHome() {

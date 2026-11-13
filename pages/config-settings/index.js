@@ -177,10 +177,11 @@ Page({
       })
 
       this.setData({ showTermModal: false, editingTerm: null })
+      this.loadAllData()
 
       wx.showModal({
-        title: '申请已提交！',
-        content: `已生成审批单 #${created.id}。\n需超级管理员在【通用审批中心】通过后正式生效！`,
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
+        content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已生成审批单 #${created.id}。\n需另一位超管审批后生效。`}`,
         showCancel: false,
         confirmText: '好的'
       })
@@ -263,8 +264,8 @@ Page({
       this.setData({ showCourseModal: false, editingCourse: null })
 
       wx.showModal({
-        title: '申请已提交！',
-        content: `已生成审批单 #${created.id}。\n重要规则：审批生效后，已有的历史旧班级保留原定额与单价快照不变，新建班级将采用新标准！`,
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
+        content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已生成审批单 #${created.id}。`}\n重要规则：已有历史旧班级保留原定额与单价快照，新建班级采用新标准！`,
         showCancel: false,
         confirmText: '我知道了'
       })
@@ -365,8 +366,8 @@ Page({
       this.setData({ showTierModal: false, editingTier: null })
 
       wx.showModal({
-        title: '申请已提交！',
-        content: `已生成审批单 #${created.id}。\n核心保障：改名改价不影响历史排课签到快照，审批通过后对后续排课生效！`,
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
+        content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已生成审批单 #${created.id}，待另一位超管审批。`}\n改名改价不影响历史排课签到快照。`,
         showCancel: false,
         confirmText: '好的'
       })
@@ -442,7 +443,7 @@ Page({
 
       wx.showModal({
         title: '特聘改数申请已提交！',
-        content: `已成功发起教师【${editingTeacher.name}】特聘独立课酬审批单 #${created.id}。\n通过后将脱离默认档位独立计费！`,
+        content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已发起教师【${editingTeacher.name}】课酬审批单 #${created.id}。`}\n生效后将脱离默认档位独立计费。`,
         showCancel: false,
         confirmText: '好的'
       })
@@ -468,7 +469,7 @@ Page({
             })
             wx.showModal({
               title: '恢复申请已提交',
-              content: `已生成审批单 #${created.id}，等待超管审批生效。`,
+              content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已生成审批单 #${created.id}，等待另一位超管审批。`}`,
               showCancel: false
             })
           } catch (err) {
@@ -505,7 +506,7 @@ Page({
         reason: this.data.partnerForm.reason
       })
       this.setData({ showPartnerModal: false })
-      wx.showModal({ title: '已提交审批', content: `合伙人老师档位设置申请 #${created.id}，等待超管审批。`, showCancel: false })
+      wx.showModal({ title: '已提交审批', content: `${created.direct_approved?.length ? '合伙人老师档位已生效。' : `设置申请 #${created.id}，等待另一位超管审批。`}`, showCancel: false })
     } catch (err) {
       wx.showModal({ title: '金额校验失败', content: err.message, showCancel: false })
     }
@@ -525,7 +526,7 @@ Page({
             teacher_tier_id: teacher.teacher_tier_id,
             reason: '管理员申请调整教师薪酬类别'
           })
-          wx.showModal({ title: '已提交审批', content: `审批单 #${created.id}`, showCancel: false })
+          wx.showModal({ title: '已提交审批', content: created.direct_approved?.length ? '已直接生效并记录操作。' : `审批单 #${created.id}`, showCancel: false })
         } catch (err) { wx.showModal({ title: '申请失败', content: err.message, showCancel: false }) }
       }
     })

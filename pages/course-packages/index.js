@@ -677,8 +677,8 @@ Page({
       this.loadPackages()
 
       wx.showModal({
-        title: '冻结申请已提交',
-        content: `已成功为学员【${freezeTarget.student_name_snapshot}】提交课时冻结申请！\n• 申请冻结: ${res.effective_freeze_days} 天\n• 待管理员在【审批中心】审核，审批通过后到期日将自动顺延。`,
+        title: res.direct_approved?.length ? '冻结已生效' : '冻结申请已提交',
+        content: `已成功为学员【${freezeTarget.student_name_snapshot}】提交课时冻结申请！\n• 申请冻结: ${res.effective_freeze_days} 天\n${res.direct_approved?.length ? '• 已直接生效并记录操作。' : '• 待管理员在【审批中心】审核，审批通过后到期日将自动顺延。'}`,
         showCancel: false,
         confirmText: '确定'
       })
@@ -911,8 +911,8 @@ Page({
       const refundTip = transferPreview.refund_amount > 0 ? `\n• 需退还零头: -¥${transferPreview.refund_amount}` : ''
 
       wx.showModal({
-        title: '三转申请已提交超管审批',
-        content: `【${transferPreview.transfer_type_name}】申请已成功提交！\n• 转出课时: ${transferPreview.transferred_total_hours} 课时 (先扣付费:${transferPreview.transferred_paid_hours}, 后扣赠送:${transferPreview.transferred_gift_hours})\n• 目标所得: ${transferPreview.target_total_hours} 课时${topUpTip}${refundTip}\n• 【审批并发锁已生效】该课时包已被锁定，待超级管理员在【审批中心】审核批准后正式生效。`,
+        title: res.direct_approved?.length ? '三转已生效' : '三转申请已提交超管审批',
+        content: `【${transferPreview.transfer_type_name}】申请已成功提交！\n• 转出课时: ${transferPreview.transferred_total_hours} 课时 (先扣付费:${transferPreview.transferred_paid_hours}, 后扣赠送:${transferPreview.transferred_gift_hours})\n• 目标所得: ${transferPreview.target_total_hours} 课时${topUpTip}${refundTip}\n${res.direct_approved?.length ? '• 已直接生效并记录操作。' : '• 课时包已锁定，待另一位超管审批后生效。'}`,
         showCancel: false,
         confirmText: '确定'
       })
@@ -1067,8 +1067,8 @@ Page({
 
       const tipLocked = res.is_locked ? '\n• 【审批并发锁已生效】扣减期间该课时包已被锁定，禁止重复提交！' : ''
       wx.showModal({
-        title: '调账申请已提交超管审批',
-        content: `已成功为学员【${adjustTarget.student_name_snapshot}】提交手工调课时申请！\n• 事项: ${adjustForm.direction === 'increase' ? '增加(+)' : '扣减(-)'}${paidDelta + giftDelta}课时${tipLocked}\n• 待超级管理员在【审批中心】审核批准后正式生效。`,
+        title: res.direct_approved?.length ? '调账已生效' : '调账申请已提交超管审批',
+        content: `已成功为学员【${adjustTarget.student_name_snapshot}】提交手工调课时申请！\n• 事项: ${adjustForm.direction === 'increase' ? '增加(+)' : '扣减(-)'}${paidDelta + giftDelta}课时${tipLocked}\n${res.direct_approved?.length ? '• 已直接生效并记录操作。' : '• 待另一位超管审批后生效。'}`,
         showCancel: false,
         confirmText: '确定'
       })
@@ -1301,8 +1301,8 @@ Page({
       const refundTip = transferPreview.refund_amount > 0 ? `\n• 需退还零头: -¥${transferPreview.refund_amount}` : ''
 
       wx.showModal({
-        title: '三转申请已提交超管审批',
-        content: `【${transferPreview.transfer_type_name}】申请已成功提交！\n• 转出课时: ${transferPreview.transferred_total_hours} 课时 (先扣付费:${transferPreview.transferred_paid_hours}, 后扣赠送:${transferPreview.transferred_gift_hours})\n• 目标所得: ${transferPreview.target_total_hours} 课时${topUpTip}${refundTip}\n• 【审批并发锁已生效】该课时包已被锁定，待超级管理员在【审批中心】审核批准后正式生效。`,
+        title: res.direct_approved?.length ? '三转已生效' : '三转申请已提交超管审批',
+        content: `【${transferPreview.transfer_type_name}】申请已成功提交！\n• 转出课时: ${transferPreview.transferred_total_hours} 课时 (先扣付费:${transferPreview.transferred_paid_hours}, 后扣赠送:${transferPreview.transferred_gift_hours})\n• 目标所得: ${transferPreview.target_total_hours} 课时${topUpTip}${refundTip}\n${res.direct_approved?.length ? '• 已直接生效并记录操作。' : '• 课时包已锁定，待另一位超管审批后生效。'}`,
         showCancel: false,
         confirmText: '确定'
       })
@@ -1443,8 +1443,8 @@ Page({
       this.loadPackages()
 
       wx.showModal({
-        title: '退费清算已提交超管审批',
-        content: `【退费清算申请】已成功提交！\n• 应退学费: ¥${refundPreview.gross_refund} (退还付费课时 ${refundPreview.paid_hours_left} 课时)\n• 作废赠送: ${refundPreview.gift_hours_forfeited} 课时 (一分钱不退)\n• 扣除手续费: ¥${refundPreview.handling_fee}\n• 实际退款: ¥${refundPreview.net_refund} (${refundForm.refund_method})\n• 【审批并发锁已生效】该课时包已被锁定，待超级管理员在【审批中心】审核批准后清零核销！`,
+        title: res.direct_approved?.length ? '退费已生效' : '退费清算已提交超管审批',
+        content: `【退费清算申请】已成功提交！\n• 应退学费: ¥${refundPreview.gross_refund} (退还付费课时 ${refundPreview.paid_hours_left} 课时)\n• 作废赠送: ${refundPreview.gift_hours_forfeited} 课时 (一分钱不退)\n• 扣除手续费: ¥${refundPreview.handling_fee}\n• 实际退款: ¥${refundPreview.net_refund} (${refundForm.refund_method})\n${res.direct_approved?.length ? '• 已直接生效并记录操作。' : '• 课时包已锁定，待另一位超管审批后清零核销。'}`,
         showCancel: false,
         confirmText: '确定'
       })

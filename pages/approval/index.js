@@ -3,6 +3,7 @@ const commands = require('../../services/commandClient')
 const db = require('../../services/db')
 
 const TYPE_CONFIG = {
+  super_admin_role_change: {label:'超管身份变更',badgeClass:'type-config',requireRoleText:'需另一位超级管理员审批'},
   config_change: {
     label: '底座配置变更',
     badgeClass: 'type-config',
@@ -146,7 +147,8 @@ Page({
       }
 
       // 判断是否自审 (发起人等于当前登录人)
-      const isSelf = user.id && user.id === item.proposer_id
+      const activeSupers = (db.getTable(db.TABLES.USERS) || []).filter(u => u.role === 'super_admin' && u.status === 'active')
+      const isSelf = user.id && user.id === item.proposer_id && activeSupers.length !== 1
 
       const enrichedItem = Object.assign({}, item, {
         typeLabel: typeConf.label,
@@ -190,7 +192,7 @@ Page({
     const user = this.data.currentUser
 
     // ── 【铁律1：自审拦截】 ──
-    if (user.id === item.proposer_id) {
+    if (user.id === item.proposer_id && (db.getTable(db.TABLES.USERS) || []).filter(u => u.role === 'super_admin' && u.status === 'active').length !== 1) {
       wx.showModal({
         title: '内控安全拦截',
         content: '违反内控铁律：不能审批自己发起的申请！请切换其他管理员/超管账号审批。',
@@ -248,7 +250,7 @@ Page({
     const user = this.data.currentUser
 
     // ── 【铁律1：自审拦截】 ──
-    if (user.id === item.proposer_id) {
+    if (user.id === item.proposer_id && (db.getTable(db.TABLES.USERS) || []).filter(u => u.role === 'super_admin' && u.status === 'active').length !== 1) {
       wx.showModal({
         title: '内控安全拦截',
         content: '违反内控铁律：不能审批自己发起的申请！请切换其他管理员/超管账号审批。',

@@ -888,9 +888,9 @@
         <view class="rule-hint-box" style="background:#fef2f2; border-color:#fecaca;">
           <view class="rh-title" style="color:#b91c1c;">⚡ 财务内控与退费清算铁律：</view>
           <view class="rh-desc" style="color:#991b1b;">
-            ① 赠送课时绝不退费，只退剩余付费课时；超管批准后赠送课时清零作废！<br/>
-            ② 个人账户退费强制 0 手续费；公账退费扣减管理员手动填写的手续费！<br/>
-            ③ 发起即上审批并发锁；超管批准后自动核销清零并联动退班！
+            <view>① 赠送课时绝不退费，只退剩余付费课时；超管批准后赠送课时清零作废！</view>
+            <view>② 个人账户退费强制 0 手续费；公账退费扣减管理员手动填写的手续费！</view>
+            <view>③ 发起即上审批并发锁；超管批准后自动核销清零并联动退班！</view>
           </view>
         </view>
 
