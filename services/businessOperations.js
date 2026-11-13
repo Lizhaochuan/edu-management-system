@@ -76,7 +76,14 @@ module.exports = ({ fail }) => {
       const payload = JSON.parse(a.after_data_json);
       const target = get(T.USERS, a.target_record_id);
       if (target.role !== 'super_admin' || target.status !== 'active') reject('超管身份已变化，请重新申请', 409, 'ROLE_CHANGED');
-      if (approved) db.update(T.USERS, target.id, {role:payload.role,status:payload.status}, '合伙人审批减少超管');
+      if (approved) {
+        // A request may become unsafe while pending if another super admin is demoted.
+        // Recheck in the same command transaction immediately before applying the change.
+        if (superAdminPolicy.activeSuperAdmins(db.getTable(T.USERS)).length <= 1) {
+          reject('不能降级最后一位超管', 409, 'LAST_SUPER_ADMIN');
+        }
+        db.update(T.USERS, target.id, {role:payload.role,status:payload.status}, '合伙人审批减少超管');
+      }
       db.update(T.APPROVAL_REQUESTS, a.id, {status: approved ? 'approved':'rejected', approver_id:operator.id, approver_name:operator.name, approved_time:new Date().toISOString(), reject_reason:approved ? null:reason}, '服务端合伙人审批');
       return {approval_id:a.id,status:approved ? 'approved':'rejected'};
     }

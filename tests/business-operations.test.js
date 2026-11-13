@@ -310,3 +310,32 @@ test('role changes reject forged identity and require fresh approval state',()=>
  assert.equal(f.auth.login('u_sa2','Command-Test-Password-2026!','test').status,401);
  assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,pending.approval_id).status,'pending');
 }));
+
+test('opposing pending demotions cannot remove the last active super admin',()=>run(f=>{
+ const removeB=execute(f,'user.changeRole',{user_id:'u_sa2',role:'admin'},'u_sa1').result;
+ const removeA=execute(f,'user.changeRole',{user_id:'u_sa1',role:'admin'},'u_sa2').result;
+ assert.equal(removeB.status,'pending');
+ assert.equal(removeA.status,'pending');
+
+ // Each initial request was legal with two super admins; the first approval changes that.
+ execute(f,'approval.approve',{approval_id:removeA.approval_id},'u_sa1');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa1').role,'admin');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa2').role,'super_admin');
+
+ const before=fs.readFileSync(f.file,'utf8');
+ const memory=JSON.stringify(f.db.dumpAll());
+ const version=f.db.getWriteState().version;
+ checkError(()=>execute(f,'approval.approve',{approval_id:removeB.approval_id},'u_sa2'),409,'LAST_SUPER_ADMIN');
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+ assert.equal(JSON.stringify(f.db.dumpAll()),memory);
+ assert.equal(f.db.getWriteState().version,version);
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,removeB.approval_id).status,'pending');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa2').role,'super_admin');
+
+ // A later promotion can make the pending approval safe again.
+ execute(f,'user.changeRole',{user_id:'u_adm1',role:'super_admin'},'u_sa2');
+ execute(f,'approval.approve',{approval_id:removeB.approval_id},'u_adm1');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa2').role,'admin');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_adm1').role,'super_admin');
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,removeB.approval_id).status,'approved');
+}));
