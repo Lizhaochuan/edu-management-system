@@ -293,6 +293,9 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/api/db/mutate' && req.method === 'POST') {
         const payload = await parseJsonBody(req);
         const { action, table, id, record, patch, description, operator, audit_log } = payload;
+        if (table === db.TABLES.USERS) {
+          return sendJson(res, 403, { code: 'FORBIDDEN', message: '人员账号仅允许使用服务端业务命令管理' });
+        }
 
         if (!table) {
           return sendJson(res, 400, { code: 1, message: '必须指定操作目标表 table' });
