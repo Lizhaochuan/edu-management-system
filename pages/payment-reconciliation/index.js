@@ -51,7 +51,9 @@ Page({
     const result = await listPayments()
     // A new login must not reuse a response from an old session.
     if (!wx.getStorageSync('auth_token')) return
-    this.setData({receipts:result.items,strictMode:result.strict_mode})
+    const previous = this.data.selectedReceipt
+    this.setData({receipts:result.items,strictMode:result.strict_mode,
+      selectedReceipt:previous ? (result.items.find(r=>r.receipt_id===previous.receipt_id)||null) : null})
   },
   onPickStudent(event) { this.setData({studentIndex:Number(event.detail.value)}) },
   onPickCourse(event) { this.setData({courseIndex:Number(event.detail.value)}) },
