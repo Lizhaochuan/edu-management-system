@@ -249,7 +249,9 @@ const server = http.createServer(async (req, res) => {
           const courseIds=new Set(classes.map(c=>c.course_id));
           snapshot.courses_and_class_types=db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES).filter(c=>courseIds.has(c.id)).map(c=>pick(c,['id','course_name','class_type_name','hours_per_lesson','max_capacity']));
         } else if (identity.user.role === 'admin') {
-          snapshot = { ...snapshot, audit_logs:[], teacher_lesson_fees:[],salary_settlements:[],salary_adjustments:[] };
+          snapshot = { ...snapshot, audit_logs:[], teacher_lesson_fees:[],salary_settlements:[],salary_adjustments:[],
+            // Internal event ledger includes other operators' bank statement IDs.
+            business_write_events:[] };
           snapshot.approval_requests = snapshot.approval_requests.filter(a => a.request_type === 'freeze_hours' || a.proposer_id === identity.user.id);
         }
         return sendJson(res, 200, {code:0,data:{user_id:identity.user.id,version:db.getWriteState().version,snapshot}});
@@ -311,7 +313,8 @@ const server = http.createServer(async (req, res) => {
         if (identity.user.role === 'admin') {
           const protectedTables = new Set([
             db.TABLES.AUDIT_LOGS, db.TABLES.SALARY_SETTLEMENTS,
-            db.TABLES.SALARY_ADJUSTMENTS, db.TABLES.TEACHER_LESSON_FEES
+            db.TABLES.SALARY_ADJUSTMENTS, db.TABLES.TEACHER_LESSON_FEES,
+            'business_write_events'
           ]);
           const filtered = {};
           for (const [table, rows] of Object.entries(allDb)) {

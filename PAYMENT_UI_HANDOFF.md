@@ -42,3 +42,12 @@ GET /api/payments/reconciliation 只接受已登录 admin/super_admin：
 ## 上线阻断项
 
 仍没有对接真实支付渠道官方 API，人工声明未经过机器认证。真实财务对账需明确人、账、账户、金额和手续费规则，旧 unverified_legacy 记录单独审核。GUI 和真机未验收，不能宣称完整上线；正式备份演练、HTTPS、剩余旧财务接口和幂等回执容量仍须跟进。
+
+
+## 任务 13-6：验收前权限边界补充
+
+静态复核发现仅对 /api/payments/reconciliation 做角色筛选还不足够：旧的 /api/commands/context 和 /api/db/all 曾向普通管理员导出整张 business_write_events，其中包括**其他管理员登记的付款、超管人工填写的外部账单参考号**。
+
+任务 13-6 在上述两个旧只读接口中对 admin 隐藏整张内部 business_write_events（置空数组），super_admin 仍可访问完整内部业务账本；专用 /api/payments/reconciliation 继续提供“本人登记的付款、剔除对账流水号”的最小必要列表。测试要求同时覆盖三条读路径及教师拒绝访问。这个修复不改变资金计算、付款记录原始持久化和已有业务命令，也不代表已实现真实支付渠道核验。
+
+GUI 验收时还需要核实：以两个不同的 admin 账号直接请求这三个接口，不得拿到另一人的付款记录或对账流水号；Web/小程序显示自己的待核对记录仍应正常，super_admin 仍应正常查看与审批。

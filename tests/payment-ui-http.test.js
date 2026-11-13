@@ -129,3 +129,37 @@ test('payment list is authenticated, role-scoped and does not leak raw reconcili
     assert.equal(superConfirmed.data.data.items[0].statement_reference,'bank-statement-ui-001');
   });
 });
+
+
+test('general admin snapshots never bypass receipt redaction through context or full DB export',async()=>{
+  await withServer(async({tokens,call,request:read})=>{
+    const base={student_id:'stu_1',course_id:'crs_1',amount:1800,account_destination:'进入公账'};
+    assert.equal((await call('u_adm2','payment.submit',{...base,payment_reference:'private-admin-two'})).status,200);
+    assert.equal((await call('u_sa1','payment.confirm',{
+      payment_reference:'private-admin-two',statement_reference:'private-bank-line-2026'
+    })).status,200);
+
+    for(const endpoint of ['/api/commands/context','/api/db/all']) {
+      const admin=await read(endpoint,'u_adm1');
+      assert.equal(admin.status,200,endpoint);
+      const data=endpoint==='/api/commands/context'?admin.data.data.snapshot:admin.data.data;
+      assert.deepEqual(data.business_write_events,[],endpoint+' leaks internal receipts');
+      assert.equal(JSON.stringify(data).includes('private-bank-line-2026'),false);
+      assert.equal(JSON.stringify(data).includes('private-admin-two'),false);
+
+      const superAdmin=await read(endpoint,'u_sa1');
+      assert.equal(superAdmin.status,200,endpoint);
+      const full=endpoint==='/api/commands/context'?superAdmin.data.data.snapshot:superAdmin.data.data;
+      assert.equal(full.business_write_events.some(row=>
+        row.kind==='payment_receipt' && row.statement_reference==='private-bank-line-2026'),true,
+        'Authorized super admin must still have access to detailed ledger');
+    }
+
+    const ownList=await read('/api/payments/reconciliation','u_adm2');
+    assert.equal(ownList.status,200);
+    assert.equal(ownList.data.data.items.length,1);
+    assert.equal(ownList.data.data.items[0].payment_reference,'private-admin-two');
+    assert.equal(Object.hasOwn(ownList.data.data.items[0],'statement_reference'),false);
+    assert.equal((await read('/api/db/all','u_tch1')).status,403);
+  });
+});
