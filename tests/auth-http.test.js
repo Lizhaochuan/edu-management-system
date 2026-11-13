@@ -398,3 +398,39 @@ test('legacy opt-in cannot mutate user records, including super-admin deletion',
     ]) assert.equal((await call('/api/db/mutate','POST',payload,headers)).status,403);
   } finally { port=oldPort; legacy.kill(); }
 });
+
+
+test('unsafe legacy rollover and salary write routes fail closed without database or version changes', async () => {
+  const superAdmin = await commandSession('u_sa1');
+  const administrator = await commandSession('u_adm1');
+  const teacher = await commandSession('u_tch2');
+  const beforeVersion = await call('/api/commands/version','GET',undefined,superAdmin);
+  const beforeDatabase = await call('/api/db/all','GET',undefined,superAdmin);
+  assert.equal(beforeVersion.status,200);
+  assert.equal(beforeDatabase.status,200);
+
+  const legacy = [
+    {route:'/api/finance/rollover',payload:{term_id:'term_1',new_expire_date:'2027-04-01'}},
+    {route:'/api/salary/settle',payload:{settlement_id:'salary_test'}},
+    {route:'/api/salary/generate-settlement',payload:{teacher_id:'u_tch2',period:'2026-03'}}
+  ];
+  for (const item of legacy) {
+    const response=await call(item.route,'POST',item.payload,superAdmin);
+    assert.equal(response.status,428,item.route);
+    assert.equal(response.data.code,'COMMAND_REQUIRED');
+    assert.match(response.data.message,/旧财务写入接口已停用/);
+    assert.equal((await call(item.route,'POST',item.payload,teacher)).status,403);
+    assert.equal((await call(item.route,'POST',item.payload)).status,401);
+  }
+  assert.equal((await call('/api/finance/rollover','POST',legacy[0].payload,administrator)).status,428);
+  assert.equal((await call('/api/salary/settle','POST',legacy[1].payload,administrator)).status,403);
+  assert.equal((await call('/api/salary/generate-settlement','POST',legacy[2].payload,administrator)).status,403);
+
+  const afterVersion=await call('/api/commands/version','GET',undefined,superAdmin);
+  const afterDatabase=await call('/api/db/all','GET',undefined,superAdmin);
+  assert.equal(afterVersion.status,200);
+  assert.equal(afterVersion.data.data.version,beforeVersion.data.data.version);
+  assert.deepEqual(afterDatabase.data.data,beforeDatabase.data.data);
+  // Non-mutating salary reporting remains accessible to the authorized role.
+  assert.equal((await call('/api/salary/report','GET',undefined,superAdmin)).status,200);
+});
