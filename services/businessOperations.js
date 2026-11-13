@@ -35,6 +35,29 @@ module.exports = ({ fail }) => {
   function unique(kind, ref) {
     if (db.getTable(LEDGER).some(x => x.kind === kind && x.reference === ref)) reject('同一业务凭据已执行', 409, 'BUSINESS_DUPLICATE');
   }
+  // Payment records are operator attestations, not bank-provider verification.
+  // Only the receipt-confirmed and exact-match path can be used in strict mode.
+  function paymentRecord(reference) {
+    return db.getTable(LEDGER).find(row =>
+      row.kind === 'payment_receipt' && row.reference === reference);
+  }
+  function checkedPaymentForPurchase(params) {
+    const receipt = paymentRecord(params.payment_reference);
+    if (!receipt) {
+      if (process.env.REQUIRE_RECONCILED_PAYMENTS === '1') {
+        reject('未找到已人工核对的收款记录', 409, 'PAYMENT_UNVERIFIED');
+      }
+      return null; // Legacy mode is explicitly unverified.
+    }
+    if (receipt.status !== 'confirmed') reject('收款未核对或已入账', 409, 'PAYMENT_UNVERIFIED');
+    if (receipt.student_id !== params.student_id ||
+        receipt.course_id !== params.course_id ||
+        receipt.amount_cents !== Math.round(params.total_amount * 100) ||
+        receipt.account_destination !== params.account_destination) {
+      reject('收款记录与购课金额、学员、课程或收款账户不一致', 409, 'PAYMENT_MISMATCH');
+    }
+    return receipt;
+  }
   function configGuard(a) {
     const allowed = {
       [T.TERMS]: ['fixed_expire_date'],
@@ -122,6 +145,58 @@ module.exports = ({ fail }) => {
       db.update(T.USERS,target.id,{role:p.role,status:'active',teacher_tier_id:p.role==='teacher' ? p.teacher_tier_id || null : null},'服务端调整成员身份');
       return {user_id:target.id,status:'updated'};
     } },
+    'payment.submit': {
+      authorize: admin,
+      validate: p => object(p, ['payment_reference','student_id','course_id','amount','account_destination']) &&
+        id(p.payment_reference) && id(p.student_id) && id(p.course_id) &&
+        number(p.amount, 0.01) && ['进入公账','进入个人账户'].includes(p.account_destination),
+      handle: ({params:p,operator}) => {
+        get(T.STUDENTS,p.student_id);
+        get(T.COURSES_AND_CLASS_TYPES,p.course_id);
+        if (db.getTable(LEDGER).some(row =>
+          (row.kind === 'payment_receipt' || row.kind === 'purchase') &&
+          row.reference === p.payment_reference)) reject('收款凭据已登记或入账',409,'PAYMENT_DUPLICATE');
+        const record = db.insert(LEDGER, {
+          kind:'payment_receipt',reference:p.payment_reference,
+          student_id:p.student_id,course_id:p.course_id,
+          amount_cents:Math.round(p.amount*100),account_destination:p.account_destination,
+          status:'pending',submitted_by:operator.id
+        }, '提交收款核对记录（尚未证明到账）');
+        return {receipt_id:record.id,status:'pending'};
+      }
+    },
+    'payment.confirm': {
+      authorize: u => u.role === 'super_admin',
+      validate: p => object(p,['payment_reference','statement_reference']) &&
+        id(p.payment_reference) && id(p.statement_reference),
+      handle: ({params:p,operator}) => {
+        const row = paymentRecord(p.payment_reference);
+        if (!row) reject('收款记录不存在',404,'NOT_FOUND');
+        if (row.status !== 'pending') reject('收款记录已经处理',409,'PAYMENT_STATE_CONFLICT');
+        if (row.submitted_by === operator.id) reject('不能核对本人提交的收款',403,'SELF_VERIFICATION');
+        if (db.getTable(LEDGER).some(other =>
+          other.kind === 'payment_receipt' && other.statement_reference === p.statement_reference &&
+          other.id !== row.id)) reject('该银行或支付对账流水已用于另一笔记录',409,'STATEMENT_DUPLICATE');
+        db.update(LEDGER,row.id,{status:'confirmed',confirmed_by:operator.id,
+          confirmed_at:new Date().toISOString(),statement_reference:p.statement_reference},
+        '人工核对银行/支付渠道账单；不代表接口自动验证');
+        return {receipt_id:row.id,status:'confirmed'};
+      }
+    },
+    'payment.reject': {
+      authorize: u => u.role === 'super_admin',
+      validate: p => object(p,['payment_reference','reason']) &&
+        id(p.payment_reference) && text(p.reason,300),
+      handle: ({params:p,operator}) => {
+        const row = paymentRecord(p.payment_reference);
+        if (!row) reject('收款记录不存在',404,'NOT_FOUND');
+        if (row.status !== 'pending') reject('收款记录已经处理',409,'PAYMENT_STATE_CONFLICT');
+        if (row.submitted_by === operator.id) reject('不能处理本人提交的收款',403,'SELF_VERIFICATION');
+        db.update(LEDGER,row.id,{status:'rejected',rejected_by:operator.id,
+          rejected_at:new Date().toISOString(),reject_reason:p.reason},'人工拒绝未核对收款');
+        return {receipt_id:row.id,status:'rejected'};
+      }
+    },
     'approval.propose': { authorize: admin, validate: require('./approvalProposals').validate, handle: args => {
       const before = new Set(db.getTable(T.APPROVAL_REQUESTS).map(a => a.id));
       const result = require('./approvalProposals').handle(args);
@@ -136,7 +211,18 @@ module.exports = ({ fail }) => {
     'attendance.update': { authorize: teaching, validate: p => attendanceParams(p) && !Object.hasOwn(p, 'reason'), handle: ({ params:p, operator }) => { sheet(p, operator, 'completed'); return attendance.updateAttendanceWithin24Hours(p.schedule_id, p.attendance_inputs, operator); } },
     'attendance.requestMakeup': { authorize: teaching, validate: p => attendanceParams(p) && text(p.reason), handle: ({ params:p, operator }) => { sheet(p, operator, 'scheduled'); return attendance.requestMakeupAttendance(p.schedule_id, p.attendance_inputs, p.reason, operator); } },
     'package.purchase': { authorize: admin, validate: p => object(p, ['student_id','course_id','paid_hours_total','gift_hours_total','total_amount','account_destination','term_id','payment_reference'], ['remark']) && ['student_id','course_id','term_id','payment_reference'].every(k => id(p[k])) && number(p.paid_hours_total, 0.01) && number(p.gift_hours_total) && number(p.total_amount) && ['进入公账','进入个人账户'].includes(p.account_destination) && (p.remark === undefined || text(p.remark)),
-      handle: ({ params:p, operator }) => { unique('purchase', p.payment_reference); const { student_id, payment_reference, ...data } = p; const result = packages.purchasePackage(student_id, data, operator); db.insert(LEDGER, { kind:'purchase',reference:payment_reference, package_id:result.package.id }, '购课凭据唯一性记录'); return result; } },
+      handle: ({ params:p, operator }) => {
+        unique('purchase', p.payment_reference);
+        const receipt = checkedPaymentForPurchase(p);
+        const { student_id, payment_reference, ...data } = p;
+        const result = packages.purchasePackage(student_id, data, operator);
+        if (receipt) db.update(LEDGER,receipt.id,{status:'consumed',package_id:result.package.id},
+          '已确认收款与购课匹配并绑定，不可重复入账');
+        db.insert(LEDGER, { kind:'purchase',reference:payment_reference,
+          package_id:result.package.id, verification_status:receipt ? 'manually_reconciled' : 'unverified_legacy',
+          receipt_id:receipt ? receipt.id : null }, '购课凭据唯一性记录');
+        return result;
+      } },
     'hours.deduct': { authorize: admin, validate: p => object(p, ['student_id','course_id','hours_needed','context_desc','event_id']) && id(p.student_id) && id(p.course_id) && id(p.event_id) && number(p.hours_needed,0.01) && text(p.context_desc),
       handle: ({ params:p }) => { unique('deduct',p.event_id); get(T.STUDENTS,p.student_id); get(T.COURSES_AND_CLASS_TYPES,p.course_id); const result = packages.deductHours(p); const row = db.insert(LEDGER,{kind:'deduct',reference:p.event_id,detail:result.deducted_detail_obj,rolled_back:false},'服务端扣课流水'); return {...result,deduction_id:row.id}; } },
     'hours.rollback': { authorize: u => u.role === 'super_admin', validate: p => object(p,['deduction_id','reason']) && id(p.deduction_id) && text(p.reason), handle: ({params:p}) => { const row=get(LEDGER,p.deduction_id); if(row.kind !== 'deduct' || row.rolled_back) reject('扣课流水已撤销或不可撤销',409,'DEDUCTION_STATE_CONFLICT'); const result=packages.rollbackHours(row.detail,p.reason); db.update(LEDGER,row.id,{rolled_back:true},'撤销服务端扣课流水'); return result; } },
