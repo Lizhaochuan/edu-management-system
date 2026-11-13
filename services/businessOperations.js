@@ -121,7 +121,7 @@ module.exports = ({ fail }) => {
       if (superAdminPolicy.mayApproveOwnRequest(db.getTable(T.USERS), args.operator)) {
         const added = db.getTable(T.APPROVAL_REQUESTS).filter(a => !before.has(a.id) && a.status === 'pending' && a.proposer_id === args.operator.id);
         for (const item of added) decision({ approval_id: item.id }, args.operator, true);
-        return { ...result, direct_approved: added.map(a => a.id) };
+        return { ...result, status: added.length ? 'approved' : result.status, direct_approved: added.map(a => a.id) };
       }
       return result;
     } },
