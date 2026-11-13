@@ -272,3 +272,41 @@ test('missing original package aborts rollback without marking its debit undone'
  assert.equal(fs.readFileSync(f.file,'utf8'),before);
  assert.equal(f.db.getById('business_write_events',d.deduction_id).rolled_back,false);
 }));
+
+test('sole super admin applies a config proposal immediately and leaves an approved audit record',()=>run(f=>{
+ f.db.update(f.db.TABLES.USERS,'u_sa2',{status:'disabled'});
+ const result=execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-06-30',reason:'独立经营调整'}}).result;
+ assert.equal(f.db.getById(f.db.TABLES.TERMS,'term_spring_2026').fixed_expire_date,'2027-06-30');
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,result.id).status,'approved');
+ assert.deepEqual(result.direct_approved,[result.id]);
+}));
+
+test('two super admins require a second approver and protect demotion',()=>run(f=>{
+ const request=execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-06-30',reason:'合伙人调整'}}).result;
+ checkError(()=>execute(f,'approval.approve',{approval_id:request.id}),403,'SELF_APPROVAL');
+ execute(f,'approval.approve',{approval_id:request.id},'u_sa2');
+ const change=execute(f,'user.changeRole',{user_id:'u_sa2',role:'admin'}).result;
+ assert.equal(change.status,'pending');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa2').role,'super_admin');
+ checkError(()=>execute(f,'approval.approve',{approval_id:change.approval_id}),403,'SELF_APPROVAL');
+ execute(f,'approval.approve',{approval_id:change.approval_id},'u_sa2');
+ assert.equal(f.db.getById(f.db.TABLES.USERS,'u_sa2').role,'admin');
+ checkError(()=>execute(f,'user.changeRole',{user_id:'u_sa1',role:'admin'}),403,'LAST_SUPER_ADMIN');
+}));
+
+test('direct approval failure rolls back proposal, audit, version and business changes',()=>run(f=>{
+ f.db.update(f.db.TABLES.USERS,'u_sa2',{status:'disabled'});
+ const before=fs.readFileSync(f.file,'utf8');
+ const old=f.db.update;
+ f.db.update=(table,id,patch,...rest)=>{if(table===f.db.TABLES.TERMS)throw new Error('INJECTED approval failure');return old(table,id,patch,...rest)};
+ try {assert.throws(()=>execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-06-30',reason:'测试回滚'}}),/INJECTED/);} finally {f.db.update=old}
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
+
+test('role changes reject forged identity and require fresh approval state',()=>run(f=>{
+ checkError(()=>execute(f,'user.changeRole',{user_id:'u_sa2',role:'admin'},'u_adm1'),403,'FORBIDDEN');
+ const pending=execute(f,'user.changeRole',{user_id:'u_sa2',role:'admin'}).result;
+ f.db.update(f.db.TABLES.USERS,'u_sa2',{status:'disabled'});
+ assert.equal(f.auth.login('u_sa2','Command-Test-Password-2026!','test').status,401);
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,pending.approval_id).status,'pending');
+}));
