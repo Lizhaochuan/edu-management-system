@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>培训机构教务与财务管理系统 · 监控与调试控制台</title>
+  <title>培训机构教务与财务管理系统</title>
   <link rel="stylesheet" href="/css/style.css">
   <!-- 优先加载 Vue 3 CDN，无网络自动平滑回退至本地 vendor 垫片 -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
@@ -19,8 +19,8 @@
     <header class="top-navbar">
       <div class="brand-section">
         <span class="brand-icon">🏫</span>
-        <span class="brand-title">教务与财务管理系统 · PC Web 监控与调试控制台</span>
-        <span class="brand-tag">Phase 6-A 同库实时架构</span>
+        <span class="brand-title">教务与财务管理系统</span>
+        <span class="brand-tag">教务与财务业务工作台</span>
       </div>
 
       <div class="nav-right-section">
@@ -59,7 +59,7 @@
         @click="onTabChange('inspector')"
       >
         <span>🔍</span>
-        <span>2. 全量数据与快照透视镜</span>
+        <span>2. 排课与课时记录</span>
       </button>
 
       <button 
@@ -86,7 +86,7 @@
         @click="onTabChange('toolbox')"
       >
         <span>🛠️</span>
-        <span>4. 开发调试沙盒工具</span>
+        <span>4. 测试与维护工具</span>
       </button>
     </nav>
 
@@ -117,6 +117,7 @@
 
   <!-- 引入业务脚本 -->
   <script src="/js/api.js"></script>
+  <script src="/js/business-display.js"></script>
   <script src="/js/components/audit-logs.js"></script>
   <script src="/js/components/inspector.js"></script>
   <script src="/js/components/monitor.js"></script>
