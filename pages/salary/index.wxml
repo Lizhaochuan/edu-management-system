@@ -64,7 +64,7 @@
   <!-- ───────────────────────────────────────── -->
   <view class="tab-content" wx:if="{{currentTab === 'settlement'}}">
     <!-- 管理员操作工具条 -->
-    <view class="action-bar" wx:if="{{!isTeacher}}">
+    <view class="action-bar" wx:if="{{canManageSalary}}">
       <view class="filter-row">
         <picker mode="date" fields="month" value="{{selectedMonth}}" bindchange="onMonthChange">
           <view class="picker-pill">
@@ -81,7 +81,7 @@
         </picker>
       </view>
 
-      <button class="btn-primary" bindtap="onGenerateSettlement">
+      <button class="btn-primary" disabled="{{salaryActionBusy}}" bindtap="onGenerateSettlement">
         ⚡ 生成{{selectedMonth}}结算单
       </button>
     </view>
@@ -149,7 +149,7 @@
               查看明细
             </button>
             <button 
-              wx:if="{{!isTeacher && item.status !== 'settled'}}" 
+              wx:if="{{canManageSalary && !salaryActionBusy && item.status === 'draft'}}" 
               class="btn-settle" 
               bindtap="onSettleConfirm" 
               data-id="{{item.id}}"
