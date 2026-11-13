@@ -553,3 +553,46 @@ test('salary creation and rollover honor exact idempotency envelope replay',()=>
   assert.equal(two.result.rollover_id,one.result.rollover_id);
   assert.equal(fs.readFileSync(f.file,'utf8'),save2);
 }));
+
+
+test('salary locking rejects new fee added after draft and preserves draft data',()=>run(f=>{
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-arrived-after-draft',teacher_id:'u_tch2',
+    lesson_date:'2026-03-18',calculated_teacher_fee:180,
+    fee_type:'regular',is_substitute:false,settlement_status:'pending'
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  assert.equal(f.db.getById(f.db.TABLES.SALARY_SETTLEMENTS,draft.settlement_id).status,'draft');
+}));
+
+test('salary locking rejects changes to fee amount after creating draft',()=>run(f=>{
+  f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-changed-after-draft',teacher_id:'u_tch2',
+    lesson_date:'2026-03-18',calculated_teacher_fee:180,
+    fee_type:'regular',is_substitute:false,settlement_status:'pending'
+  });
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.update(f.db.TABLES.TEACHER_LESSON_FEES,'fee-changed-after-draft',{
+    calculated_teacher_fee:200
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
+
+test('salary locking rejects approved adjustment created after a draft',()=>run(f=>{
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.insert(f.db.TABLES.SALARY_ADJUSTMENTS,{
+    id:'adj-after-draft',teacher_id:'u_tch2',
+    signed_amount:50,status:'approved_pending_settlement'
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
