@@ -110,12 +110,6 @@ function getOperatorFromReq(req) {
   return req.auth.user;
 }
 
-// Database-only rollback helper for synchronous JSON-backed business handlers.
-// This cannot undo external notifications and is not a replacement for SQL transactions.
-function withJsonDbRollback(handler, operator) {
-  return db.transaction(handler, operator);
-}
-
 // 创建 HTTP 服务
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -222,6 +216,34 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === '/api/commands/version' && req.method === 'GET') {
         return sendJson(res, 200, { code: 0, data: { version: db.getWriteState().version } });
+      }
+      if (pathname === '/api/commands/context' && req.method === 'GET') {
+        let snapshot = db.dumpAll();
+        if (identity.user.role === 'teacher') {
+          const schedules = db.getTable(db.TABLES.SCHEDULES_AND_ATTENDANCE).filter(s =>
+            (s.substitute_teacher_id || s.teacher_id || (db.getById(db.TABLES.CLASSES,s.class_id) || {}).teacher_id) === identity.user.id);
+          const classIds = new Set(schedules.map(s => s.class_id));
+          const classes = db.getTable(db.TABLES.CLASSES).filter(c => classIds.has(c.id));
+          const studentIds = new Set(classes.flatMap(c => [...(c.enrolled_student_ids || []),...(c.trial_student_ids || [])]));
+          schedules.forEach(s => (s.makeup_students || []).forEach(m => studentIds.add(m.student_id)));
+          snapshot = Object.fromEntries(Object.values(db.TABLES).map(t => [t, []]));
+          const pick = (value,keys) => Object.fromEntries(keys.filter(k => value[k] !== undefined).map(k=>[k,value[k]]));
+          snapshot.schedules_and_attendance = schedules.map(s => ({
+            ...pick(s,['id','class_id','course_id','teacher_id','substitute_teacher_id','lesson_date','lesson_index','start_time','end_time','status','snapshot_hours_per_lesson','snapshot_max_capacity','initial_present_headcount','is_settled','attendance_submitted_at','attendance_submitted_by','is_solo_makeup']),
+            attendees_json:(s.attendees_json || []).map(a=>pick(a,['student_id','status','is_late','is_early_leave','deducted_hours'])),
+            makeup_students:(s.makeup_students || []).map(m=>pick(m,['student_id','student_name','status','is_late','is_early_leave','original_teacher_id','original_absent_schedule_id','original_course_id','original_hours_per_lesson','makeup_request_id']))
+          }));
+          snapshot.classes = classes.map(c => ({ id:c.id,name:c.name,course_id:c.course_id,teacher_id:c.teacher_id,
+            enrolled_student_ids:c.enrolled_student_ids,trial_student_ids:c.trial_student_ids,hours_per_lesson_snapshot:c.hours_per_lesson_snapshot,max_capacity_snapshot:c.max_capacity_snapshot }));
+          snapshot.students = db.getTable(db.TABLES.STUDENTS).filter(s => studentIds.has(s.id)).map(s => ({id:s.id,name:s.name}));
+          snapshot.users = [{...authService.publicUser(identity.user),status:'active'}];
+          const courseIds=new Set(classes.map(c=>c.course_id));
+          snapshot.courses_and_class_types=db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES).filter(c=>courseIds.has(c.id)).map(c=>pick(c,['id','course_name','class_type_name','hours_per_lesson','max_capacity']));
+        } else if (identity.user.role === 'admin') {
+          snapshot = { ...snapshot, audit_logs:[], teacher_lesson_fees:[],salary_settlements:[],salary_adjustments:[] };
+          snapshot.approval_requests = snapshot.approval_requests.filter(a => a.request_type === 'freeze_hours' || a.proposer_id === identity.user.id);
+        }
+        return sendJson(res, 200, {code:0,data:{user_id:identity.user.id,version:db.getWriteState().version,snapshot}});
       }
       if (pathname === '/api/commands/execute' && req.method === 'POST') {
         const envelope = await parseJsonBody(req, true);
@@ -598,23 +620,7 @@ const server = http.createServer(async (req, res) => {
           return sendJson(res, 200, { code: 0, message: '数据库已成功恢复初始种子数据！' });
         }
 
-        if (action === 'mock_attendance_deduct') {
-          // 模拟课堂消课扣费测试
-          const pkgs = db.getTable(db.TABLES.COURSE_PACKAGES) || [];
-          const validPkg = pkgs.find(p => Number(p.paid_hours_left || 0) > 0) || pkgs[0];
-          if (!validPkg) {
-            return sendJson(res, 400, { code: 1, message: '无可用课时包进行模拟消课' });
-          }
-          const deductRes = packageAccountService.deductHours({
-            student_id: validPkg.student_id,
-            course_id: validPkg.course_id,
-            hours_needed: 1.0,
-            context_desc: 'PC Web 调试沙盒一键模拟消课'
-          });
-          broadcast('mutation', { action: 'MOCK_DEDUCT', student_id: validPkg.student_id });
-          return sendJson(res, 200, { code: 0, message: '模拟消课扣费执行成功！', data: deductRes });
-        }
-
+        if (action === 'mock_attendance_deduct') return sendJson(res,428,{code:'COMMAND_REQUIRED',message:'请使用服务端扣课业务命令'});
         if (action === 'trigger_broadcast') {
           broadcast('mutation', { action: 'MANUAL_PING' });
           return sendJson(res, 200, { code: 0, message: '已向所有客户端广播同步信号' });
@@ -660,99 +666,8 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { code: 0, data: enriched });
       }
 
-      if (pathname === '/api/approvals/approve' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const { approval_id } = payload;
-        const operator = getOperatorFromReq(req);
-        const approvalItem = db.getById(db.TABLES.APPROVAL_REQUESTS, approval_id);
-        if (!approvalItem) return sendJson(res, 404, { code: 1, message: '未找到审批单' });
-        if (approvalItem.status !== 'pending') return sendJson(res, 409, { code: 409, message: '审批单已处理，禁止重复审批或重复撤销' });
-
-        // 自审拦截
-        if (operator.id === approvalItem.proposer_id) {
-          return sendJson(res, 403, { code: 1, message: '违反内控铁律：不能审批自己发起的申请！请切换其他超管账号' });
-        }
-
-        // 权限校验
-        if (approvalItem.request_type !== 'freeze_hours' && operator.role !== 'super_admin') {
-          return sendJson(res, 403, { code: 1, message: '权限不足：仅超级管理员一人有权审批此项申请' });
-        }
-
-        const now = new Date().toISOString();
-        try {
-          withJsonDbRollback(() => {
-          if (approvalItem.request_type === 'config_change') {
-            systemConfigService.applyConfigApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'freeze_hours') {
-            transferRefundService.applyFreezeApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'manual_hour_adjust' || approvalItem.request_type === 'balance_adjustment') {
-            transferRefundService.applyManualHourAdjustApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'transfer') {
-            transferRefundService.applyTransferApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'refund') {
-            transferRefundService.applyRefundApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'makeup_attendance') {
-            attendanceService.applyMakeupSignApproval(approvalItem, operator);
-          } else if (approvalItem.request_type === 'salary_adjustment') {
-            salaryEngineService.applySalaryAdjustmentApproval(approvalItem, operator);
-          } else {
-            throw new Error('不支持的审批类型，禁止直接标记为已批准');
-          }
-          // Mark approved only after successful business application.
-          db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
-            status: 'approved', approver_id: operator.id,
-            approver_name: operator.name, approved_time: now
-          }, `[Web端审批通过] ${operator.name} 批准单据 #${approvalItem.id}`);
-          }, operator);
-        } catch (bizErr) {
-          return sendJson(res, 400, { code: 1, message: bizErr.message || '业务执行拦截' });
-        }
-
-        broadcast('mutation', { action: 'APPROVAL_APPROVED', approval_id: approvalItem.id, table: 'approval_requests' });
-        return sendJson(res, 200, { code: 0, message: '审批已批准通过并正式生效！' });
-      }
-
-      if (pathname === '/api/approvals/reject' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const { approval_id, reject_reason } = payload;
-        const operator = getOperatorFromReq(req);
-        const approvalItem = db.getById(db.TABLES.APPROVAL_REQUESTS, approval_id);
-        if (!approvalItem) return sendJson(res, 404, { code: 1, message: '未找到审批单' });
-        if (approvalItem.status !== 'pending') return sendJson(res, 409, { code: 409, message: '审批单已处理，禁止重复审批或重复撤销' });
-
-        if (operator.id === approvalItem.proposer_id) {
-          return sendJson(res, 403, { code: 1, message: '违反内控铁律：不能审批自己发起的申请！请切换其他账号' });
-        }
-
-        const reason = (reject_reason || '经审批人综合评估未予通过').trim();
-        const now = new Date().toISOString();
-
-        try {
-          withJsonDbRollback(() => {
-            if (approvalItem.request_type === 'freeze_hours') {
-          transferRefundService.rejectFreezeApproval(approvalItem, reason, operator);
-        } else if (approvalItem.request_type === 'manual_hour_adjust' || approvalItem.request_type === 'balance_adjustment') {
-          transferRefundService.rejectManualHourAdjustApproval(approvalItem, reason, operator);
-        } else if (approvalItem.request_type === 'transfer') {
-          transferRefundService.rejectTransferApproval(approvalItem, reason, operator);
-        } else if (approvalItem.request_type === 'refund') {
-          transferRefundService.rejectRefundApproval(approvalItem, reason, operator);
-        } else if (approvalItem.request_type === 'makeup_attendance') {
-          attendanceService.rejectMakeupSignApproval(approvalItem, reason, operator);
-        } else if (approvalItem.request_type === 'salary_adjustment') {
-          salaryEngineService.rejectSalaryAdjustmentApproval(approvalItem, reason, operator);
-        }
-          db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
-            status: 'rejected', approver_id: operator.id, approver_name: operator.name,
-            approved_time: now, reject_reason: reason
-          }, `[Web端审批驳回] ${operator.name} 驳回单据 #${approvalItem.id}，理由：${reason}`);
-          }, operator);
-        } catch (bizErr) {
-          return sendJson(res, 400, { code:1, message: bizErr.message || '审批驳回执行失败' });
-        }
-
-        broadcast('mutation', { action: 'APPROVAL_REJECTED', approval_id: approvalItem.id, table: 'approval_requests' });
-        return sendJson(res, 200, { code: 0, message: '审批单已驳回并释放并发锁！' });
+      if (['/api/approvals/approve', '/api/approvals/reject', '/api/finance/purchase','/api/finance/freeze','/api/finance/adjust-hours','/api/finance/transfer/submit','/api/finance/refund/submit','/api/salary/adjustment'].includes(pathname) && req.method === 'POST') {
+        return sendJson(res, 428, { code: 'COMMAND_REQUIRED', message: '请使用带版本号和幂等键的业务命令接口' });
       }
 
       // ─────────────────────────────────────────
@@ -903,42 +818,6 @@ const server = http.createServer(async (req, res) => {
       // ─────────────────────────────────────────
       // 3.12 Phase 6-B：财务、三转退费与薪资结算中心 API
       // ─────────────────────────────────────────
-      if (pathname === '/api/finance/purchase' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const { student_id, ...purchaseData } = payload;
-        try {
-          const resPkg = packageAccountService.purchasePackage(student_id, purchaseData);
-          broadcast('mutation', { action: 'PURCHASE_PACKAGE', table: 'course_packages' });
-          return sendJson(res, 200, { code: 0, message: '新购课时包登记成功！欠费优先自动冲抵。', data: resPkg });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
-      if (pathname === '/api/finance/freeze' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const operator = getOperatorFromReq(req);
-        try {
-          const resFrz = transferRefundService.submitFreezeRequest(payload, operator);
-          broadcast('mutation', { action: 'SUBMIT_FREEZE', table: 'approval_requests' });
-          return sendJson(res, 200, { code: 0, message: '课时冻结申请已提交超管审批！', data: resFrz });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
-      if (pathname === '/api/finance/adjust-hours' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const operator = getOperatorFromReq(req);
-        try {
-          const resAdj = transferRefundService.submitManualHourAdjust(payload, operator);
-          broadcast('mutation', { action: 'SUBMIT_ADJUST', table: 'approval_requests' });
-          return sendJson(res, 200, { code: 0, message: '手工调课时申请已提交超管审批（并发锁已施加）！', data: resAdj });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
       if (pathname === '/api/finance/transfer/preview' && req.method === 'POST') {
         const payload = await parseJsonBody(req);
         try {
@@ -949,35 +828,11 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      if (pathname === '/api/finance/transfer/submit' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const operator = getOperatorFromReq(req);
-        try {
-          const resTrf = transferRefundService.submitTransferRequest(payload, operator);
-          broadcast('mutation', { action: 'SUBMIT_TRANSFER', table: 'approval_requests' });
-          return sendJson(res, 200, { code: 0, message: '教务三转申请已提交超管审批（并发锁已生效）！', data: resTrf });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
       if (pathname === '/api/finance/refund/preview' && req.method === 'POST') {
         const payload = await parseJsonBody(req);
         try {
           const preview = transferRefundService.previewRefund(payload.package_id, payload);
           return sendJson(res, 200, { code: 0, data: preview });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
-      if (pathname === '/api/finance/refund/submit' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const operator = getOperatorFromReq(req);
-        try {
-          const resRef = transferRefundService.submitRefundRequest(payload, operator);
-          broadcast('mutation', { action: 'SUBMIT_REFUND', table: 'approval_requests' });
-          return sendJson(res, 200, { code: 0, message: '退费清算申请已提交超管审批（并发锁已生效）！', data: resRef });
         } catch (err) {
           return sendJson(res, 400, { code: 1, message: err.message });
         }
@@ -1020,18 +875,6 @@ const server = http.createServer(async (req, res) => {
           const resGen = salaryEngineService.generateTeacherSalarySettlement(payload.teacher_id, payload.period || '2026-03', payload.options || payload, operator);
           broadcast('mutation', { action: 'GENERATE_SETTLEMENT', table: 'salary_settlements' });
           return sendJson(res, 200, { code: 0, message: '薪资结算单生成成功！', data: resGen });
-        } catch (err) {
-          return sendJson(res, 400, { code: 1, message: err.message });
-        }
-      }
-
-      if (pathname === '/api/salary/adjustment' && req.method === 'POST') {
-        const payload = await parseJsonBody(req);
-        const operator = getOperatorFromReq(req);
-        try {
-          const resAdj = salaryEngineService.createSalaryAdjustment(payload, operator);
-          broadcast('mutation', { action: 'CREATE_SALARY_ADJUSTMENT', table: 'approval_requests' });
-          return sendJson(res, 200, { code: 0, message: '薪资算错调账申请（补发/扣回）已提交超管审批！', data: resAdj });
         } catch (err) {
           return sendJson(res, 400, { code: 1, message: err.message });
         }

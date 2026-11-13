@@ -1064,6 +1064,7 @@ const salaryEngineService = {
    * @returns {Object} { adjustment, approval_request }
    */
   createSalaryAdjustment(params = {}, operatorUser = null) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'salaryAdjustment',data:params})
     const { teacher_id, direction, amount, reason, related_schedule_id, related_settlement_id } = params
 
     if (!teacher_id) throw new Error('必须指定调账教师ID')
@@ -1387,3 +1388,4 @@ const salaryEngineService = {
 }
 
 module.exports = salaryEngineService
+

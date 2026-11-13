@@ -1,0 +1,228 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+function fixture() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'edu-command-'));
+  fs.cpSync(path.resolve(__dirname, '../services'), path.join(root, 'services'), { recursive: true });
+  const file = path.join(root, 'data/db.json');
+  process.env.AUTH_CREDENTIALS_FILE = path.join(root, 'credentials.json');
+  let db, auth, commands;
+  function reload() {
+    for (const name of ['db', 'authService', 'businessCommandService']) {
+      delete require.cache[require.resolve(path.join(root, 'services', name + '.js'))];
+    }
+    db = require(path.join(root, 'services/db'));
+    auth = require(path.join(root, 'services/authService'));
+    commands = require(path.join(root, 'services/businessCommandService'));
+  }
+  reload();
+  db.initDatabase(true);
+  for (const id of ['u_sa1', 'u_sa2', 'u_adm1', 'u_par1', 'u_tch1', 'u_tch2']) auth.saveCredential(id, 'Command-Test-Password-2026!');
+  return {
+    get db() { return db; }, get auth() { return auth; }, get commands() { return commands; },
+    root, file, reload,
+    req(id = 'u_sa1') {
+      const session = auth.login(id, 'Command-Test-Password-2026!', id);
+      assert.equal(session.status, 200);
+      return { headers: { authorization: 'Bearer ' + session.token } };
+    },
+    envelope(key = 'test-key-00000001') {
+      return { command: 'system.writeProbe', params: { label: 'probe' },
+        idempotencyKey: key, expectedVersion: db.getWriteState().version };
+    },
+    close() { delete process.env.AUTH_CREDENTIALS_FILE; fs.rmSync(root, { recursive: true, force: true }); }
+  };
+}
+function checkError(fn, status, code) {
+  assert.throws(fn, e => e.status === status && e.code === code);
+}
+function run(fn) { const f = fixture(); try { fn(f); } finally { f.close(); } }
+
+
+function execute(f, command, params, user = 'u_sa1', key) {
+  return f.commands.execute(f.req(user),{...f.envelope(key || 'operation_'+require('node:crypto').randomUUID()),command,params});
+}
+function purchase(overrides = {}) { return {student_id:'stu_1',course_id:'crs_1',term_id:'term_spring_2026',paid_hours_total:10,gift_hours_total:2,total_amount:1800,account_destination:'进入公账',payment_reference:'payment-001',...overrides}; }
+function sheet(overrides = {}) { return {schedule_id:'sch_2',attendance_inputs:[{student_id:'stu_3',is_present:true},{student_id:'stu_4',is_present:false}],...overrides}; }
+
+test('purchase clears historical debt first, preserves snapshots and rejects duplicate payment across new keys', () => run(f => {
+  f.db.update(f.db.TABLES.COURSE_PACKAGES,'pkg_1',{debt_hours:3});
+  const settled=JSON.stringify(f.db.getById(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_1'));
+  const result=execute(f,'package.purchase',purchase(),'u_adm1').result;
+  assert.equal(result.package.paid_hours_left,7);
+  assert.equal(result.package.gift_hours_left,2);
+  assert.equal(result.package.unit_price_snapshot,180);
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').debt_hours,0);
+  checkError(()=>execute(f,'package.purchase',purchase()),409,'BUSINESS_DUPLICATE');
+  assert.equal(JSON.stringify(f.db.getById(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_1')),settled);
+  checkError(()=>execute(f,'package.purchase',purchase({operator:{role:'super_admin'}})),400,'INVALID_PARAMS');
+  checkError(()=>execute(f,'package.purchase',purchase(),'u_par1'),403,'FORBIDDEN');
+  checkError(()=>execute(f,'package.purchase',purchase({paid_hours_total:Infinity})),400,'INVALID_PARAMS');
+}));
+
+test('purchase failure after debt offset restores old balance, audit, version and receipts', () => run(f => {
+  f.db.update(f.db.TABLES.COURSE_PACKAGES,'pkg_1',{debt_hours:3});
+  const before=fs.readFileSync(f.file,'utf8');
+  const memory=JSON.stringify(f.db.dumpAll());
+  const insert=f.db.insert;
+  f.db.insert=(table,...args)=>{if(table===f.db.TABLES.COURSE_PACKAGES)throw new Error('INJECTED package failure');return insert(table,...args)};
+  try { assert.throws(()=>execute(f,'package.purchase',purchase()),/INJECTED/); } finally {f.db.insert=insert;}
+  assert.equal(JSON.stringify(f.db.dumpAll()),memory);
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  assert.equal(execute(f,'package.purchase',purchase()).result.package.paid_hours_left,7);
+}));
+
+test('only assigned teacher can sign; lesson-derived hours and fee are applied once despite new keys', () => run(f => {
+  checkError(()=>execute(f,'attendance.submit',sheet(),'u_tch1'),403,'FORBIDDEN');
+  const p={...f.envelope(),command:'attendance.submit',params:sheet()};
+  const req=f.req('u_tch2');
+  const result=f.commands.execute(req,p);
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,19);
+  assert.equal(f.db.getById(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_2').calculated_teacher_fee,150);
+  assert.equal(result.result.fee_result,undefined);
+  assert.equal(result.result.teacher_tier_snapshot,undefined);
+  assert.equal(f.commands.execute(req,p).replayed,true);
+  checkError(()=>execute(f,'attendance.submit',sheet(),'u_tch2'),409,'LESSON_STATE_CONFLICT');
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,19);
+}));
+
+test('attendance rejects forged debit amounts, duplicate or foreign students and missing roster entries', () => run(f => {
+  checkError(()=>execute(f,'attendance.submit',sheet({hours_needed:100})),400,'INVALID_PARAMS');
+  for(const inputs of [[{student_id:'stu_1',is_present:true}],[],[{student_id:'stu_3',is_present:true},{student_id:'stu_3',is_present:true}]]) {
+    checkError(()=>execute(f,'attendance.submit',sheet({attendance_inputs:inputs})),400,'BUSINESS_REJECTED');
+  }
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,20);
+}));
+
+test('salary calculation failure after deduction rolls back entire sign-in and can retry safely', () => run(f => {
+  const salary=require(path.join(f.root,'services/salaryEngineService'));
+  const calc=salary.calculateLessonFee;
+  const before=fs.readFileSync(f.file,'utf8');
+  salary.calculateLessonFee=()=>{throw new Error('INJECTED salary')};
+  try {assert.throws(()=>execute(f,'attendance.submit',sheet()),/INJECTED salary/);}finally{salary.calculateLessonFee=calc;}
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,20);
+  execute(f,'attendance.submit',sheet());
+}));
+
+test('24-hour amendment precisely refunds hours; salary failure during amendment is no longer swallowed', () => run(f => {
+  execute(f,'attendance.submit',sheet());
+  const salary=require(path.join(f.root,'services/salaryEngineService'));
+  const calc=salary.calculateLessonFee;
+  const before=fs.readFileSync(f.file,'utf8');
+  const absent=sheet({attendance_inputs:[{student_id:'stu_3',is_present:false},{student_id:'stu_4',is_present:false}]});
+  salary.calculateLessonFee=()=>{throw new Error('INJECTED amendment salary')};
+  try {assert.throws(()=>execute(f,'attendance.update',absent),/INJECTED/);}finally{salary.calculateLessonFee=calc;}
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  execute(f,'attendance.update',absent);
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,20);
+  f.db.update(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_2',{attendance_submitted_at:'2020-01-01T00:00:00.000Z'});
+  assert.throws(()=>execute(f,'attendance.update',sheet()),/24小时/);
+}));
+
+test('manual debit uses durable business event, rollback only consumes stored detail once', () => run(f => {
+  const params={student_id:'stu_1',course_id:'crs_1',hours_needed:2,context_desc:'补记课堂消课',event_id:'lesson-event-001'};
+  const result=execute(f,'hours.deduct',params,'u_adm1').result;
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').paid_hours_left,33.5);
+  checkError(()=>execute(f,'hours.deduct',params),409,'BUSINESS_DUPLICATE');
+  checkError(()=>execute(f,'hours.rollback',{deduction_id:result.deduction_id,reason:'撤销'},'u_adm1'),403,'FORBIDDEN');
+  execute(f,'hours.rollback',{deduction_id:result.deduction_id,reason:'撤销'});
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').paid_hours_left,35.5);
+  checkError(()=>execute(f,'hours.rollback',{deduction_id:result.deduction_id,reason:'再次撤销'}),409,'DEDUCTION_STATE_CONFLICT');
+}));
+
+test('makeup approval signs and deducts once; cannot self-approve, approve twice or reject after approval', () => run(f => {
+  const request=execute(f,'attendance.requestMakeup',{...sheet(),reason:'漏签'},'u_tch2').result;
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,20);
+  execute(f,'approval.approve',{approval_id:request.approval_id});
+  assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,19);
+  checkError(()=>execute(f,'approval.reject',{approval_id:request.approval_id,reject_reason:'晚到请求'}),409,'APPROVAL_STATE_CONFLICT');
+  const self=f.db.insert(f.db.TABLES.APPROVAL_REQUESTS,{request_type:'config_change',proposer_id:'u_sa1',status:'pending',target_table:'teacher_tiers',target_record_id:'tier_junior',after_data_json:{name:'new'}});
+  checkError(()=>execute(f,'approval.approve',{approval_id:self.id}),403,'SELF_APPROVAL');
+}));
+
+test('approval rejects arbitrary user role changes, finalized lessons and rolls back partial business application', () => run(f => {
+  const a=f.db.insert(f.db.TABLES.APPROVAL_REQUESTS,{request_type:'config_change',proposer_id:'u_adm1',status:'pending',target_table:'users',target_record_id:'u_adm1',after_data_json:{role:'super_admin'}});
+  checkError(()=>execute(f,'approval.approve',{approval_id:a.id}),400,'BUSINESS_REJECTED');
+  assert.equal(f.db.getById(f.db.TABLES.USERS,'u_adm1').role,'admin');
+  const config=require(path.join(f.root,'services/systemConfigService'));
+  const apply=config.applyConfigApproval;
+  const b=f.db.insert(f.db.TABLES.APPROVAL_REQUESTS,{request_type:'config_change',proposer_id:'u_adm1',status:'pending',target_table:'teacher_tiers',target_record_id:'tier_junior',after_data_json:{name:'new'}});
+  const before=fs.readFileSync(f.file,'utf8');
+  config.applyConfigApproval=()=>{f.db.update(f.db.TABLES.TEACHER_TIERS,'tier_junior',{name:'partial'});throw new Error('INJECTED approval failure')};
+  try {assert.throws(()=>execute(f,'approval.approve',{approval_id:b.id}),/INJECTED/);}finally{config.applyConfigApproval=apply;}
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,b.id).status,'pending');
+  checkError(()=>execute(f,'attendance.submit',sheet({schedule_id:'sch_1'})),409,'LESSON_LOCKED');
+}));
+
+test('large debit preserves FIFO paid/gift/debt rules and invalidates pending approval before it can execute',()=>run(f=>{
+ const a=f.db.insert(f.db.TABLES.APPROVAL_REQUESTS,{request_type:'refund',status:'pending',proposer_id:'u_adm1'});
+ f.db.update(f.db.TABLES.COURSE_PACKAGES,'pkg_1',{lock_status:'pending_approval_locked',locked_by_approval_id:a.id});
+ const result=execute(f,'hours.deduct',{student_id:'stu_1',course_id:'crs_1',hours_needed:42,context_desc:'补记实际课堂',event_id:'event-debt-01'}).result;
+ assert.equal(result.paid_deducted,35.5);
+ assert.equal(result.gift_deducted,4);
+ assert.equal(result.debt_added,2.5);
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,a.id).status,'invalidated_by_attendance');
+ checkError(()=>execute(f,'approval.approve',{approval_id:a.id}),409,'APPROVAL_STATE_CONFLICT');
+ execute(f,'hours.rollback',{deduction_id:result.deduction_id,reason:'重复课堂登记纠正'});
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').paid_hours_left,35.5);
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').gift_hours_left,4);
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').debt_hours,0);
+}));
+
+test('rejecting makeup request restores scheduled state without charging hours',()=>run(f=>{
+ const request=execute(f,'attendance.requestMakeup',{...sheet(),reason:'漏签'},'u_tch2').result;
+ execute(f,'approval.reject',{approval_id:request.approval_id,reject_reason:'资料不全'});
+ assert.equal(f.db.getById(f.db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_2').status,'scheduled');
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_3').paid_hours_left,20);
+}));
+
+test('approval proposals use authenticated proposer and fixed schema; configuration applies only after approval',()=>run(f=>{
+ const params={type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-06-30',reason:'新学期调整'}};
+ const request=execute(f,'approval.propose',params,'u_adm1').result;
+ assert.equal(request.proposer_id,'u_adm1');
+ assert.equal(f.db.getById(f.db.TABLES.TERMS,'term_spring_2026').fixed_expire_date,'2026-06-30');
+ execute(f,'approval.approve',{approval_id:request.id});
+ assert.equal(f.db.getById(f.db.TABLES.TERMS,'term_spring_2026').fixed_expire_date,'2027-06-30');
+ checkError(()=>execute(f,'approval.propose',{...params,data:{...params.data,proposer_id:'u_sa1'}}),400,'INVALID_PARAMS');
+ checkError(()=>execute(f,'approval.propose',params,'u_tch2'),403,'FORBIDDEN');
+ checkError(()=>execute(f,'approval.propose',{type:'db.update',data:{}}),400,'INVALID_PARAMS');
+}));
+
+test('partner rate approval preserves eight independent brackets and cannot change roles',()=>run(f=>{
+ const rates={1:111,2:199,3:251,4:315,5:355,6:399,7:420,8:450};
+ const a=execute(f,'approval.propose',{type:'config.partnerRates',data:{headcount_rates_json:rates,reason:'独立课酬'}},'u_adm1').result;
+ execute(f,'approval.approve',{approval_id:a.id});
+ assert.deepEqual(f.db.getById(f.db.TABLES.PARTNER_TEACHER_RATE_CONFIG,'partner_teacher').headcount_rates_json,rates);
+ checkError(()=>execute(f,'approval.propose',{type:'config.teacherCategory',target_id:'u_tch2',data:{role:'super_admin',reason:'伪造'}}),400,'INVALID_PARAMS');
+}));
+
+test('refund proposal and lock commit together; rejection unlocks without altering balances',()=>run(f=>{
+ execute(f,'approval.propose',{type:'refund',data:{package_id:'pkg_1',handling_fee:0,refund_method:'微信转账',refund_reason:'申请退费'}},'u_adm1');
+ const a=f.db.getTable(f.db.TABLES.APPROVAL_REQUESTS).find(a=>a.request_type==='refund'&&a.proposer_id==='u_adm1');
+ assert.ok(a);
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').lock_status,'pending_approval_locked');
+ execute(f,'approval.reject',{approval_id:a.id,reject_reason:'资料待补齐'});
+ assert.notEqual(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').lock_status,'pending_approval_locked');
+ assert.equal(f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1').paid_hours_left,35.5);
+}));
+
+test('approval refuses configuration changed since proposal rather than overwriting newer settings',()=>run(f=>{
+ const request=execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-06-30',reason:'调整学期'}},'u_adm1').result;
+ f.db.update(f.db.TABLES.TERMS,'term_spring_2026',{fixed_expire_date:'2027-01-01'});
+ checkError(()=>execute(f,'approval.approve',{approval_id:request.id}),409,'APPROVAL_SNAPSHOT_CONFLICT');
+ assert.equal(f.db.getById(f.db.TABLES.TERMS,'term_spring_2026').fixed_expire_date,'2027-01-01');
+ assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,request.id).status,'pending');
+}));
+
+test('proposal numeric and calendar inputs reject coercions and impossible dates before any writes',()=>run(f=>{
+ const before=fs.readFileSync(f.file,'utf8');
+ for(const freeze_days of [true,{},1.5,Infinity,'1e2']) checkError(()=>execute(f,'approval.propose',{type:'freeze',data:{package_id:'pkg_1',freeze_days,reason:'病假冻结'}}),400,'INVALID_PARAMS');
+ checkError(()=>execute(f,'approval.propose',{type:'config.term',data:{termId:'term_spring_2026',newExpireDate:'2027-02-30',reason:'错误日期'}}),400,'INVALID_PARAMS');
+ assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));

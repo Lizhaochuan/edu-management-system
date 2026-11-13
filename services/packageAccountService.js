@@ -3,6 +3,16 @@
 const db = require('./db')
 const notificationService = require('./notificationService')
 
+// Historical approval snapshots can be JSON strings or objects. Match complete
+// IDs, so pkg_1 never invalidates an unrelated request referring to pkg_10.
+function referencesPackage(snapshot, packageId) {
+  if (typeof snapshot === 'string') {
+    try { return referencesPackage(JSON.parse(snapshot), packageId) } catch (_e) { return snapshot === packageId }
+  }
+  return !!snapshot && typeof snapshot === 'object' && Object.values(snapshot).some(value =>
+    value === packageId || (value && typeof value === 'object' && referencesPackage(value, packageId)))
+}
+
 /**
  * 校验当前登录人是否为管理员或超级管理员
  */
@@ -33,8 +43,9 @@ const packageAccountService = {
    *   - term_id: 所属期数ID ('term_spring_2026' 等)
    *   - remark: 选填备注
    */
-  purchasePackage(studentId, purchaseData) {
-    const operator = checkAdminPermission()
+  purchasePackage(studentId, purchaseData, operatorUser) {
+    const operator = operatorUser || checkAdminPermission()
+    if (!['admin', 'super_admin'].includes(operator.role)) throw new Error('无权登记购课')
 
     if (!studentId) throw new Error('必须指定购课学员')
     const student = db.getById(db.TABLES.STUDENTS, studentId)
@@ -311,7 +322,7 @@ const packageAccountService = {
           const approvalId = pkg.locked_by_approval_id
           const allApprovals = db.getTable(db.TABLES.APPROVAL_REQUESTS) || []
           const relatedApprovals = allApprovals.filter(app =>
-            (app.id === approvalId || (app.before_data_json && app.before_data_json.includes(pkg.id))) &&
+            (app.id === approvalId || app.target_record_id === pkg.id || referencesPackage(app.before_data_json, pkg.id)) &&
             app.status === 'pending'
           )
 
@@ -430,6 +441,7 @@ const packageAccountService = {
           currentBalance.total_available_hours
         )
       } catch (e) {
+        if (db.inServerTransaction()) throw e
         console.warn('[deductHours] sendLowBalanceWarning failed:', e)
       }
     }
@@ -651,3 +663,4 @@ const packageAccountService = {
 }
 
 module.exports = packageAccountService
+

@@ -64,6 +64,9 @@ function getWriteState() {
   return _clone(_writeState())
 }
 
+function inServerTransaction() { return !isMiniProgram && !!_transaction }
+function getTransactionOperator() { return !isMiniProgram && _transaction ? _transaction.operator : null }
+
 function saveCommandReceipt(receipt) {
   if (!_transaction) throw new Error('Command receipts require a transaction')
   const state = getWriteState()
@@ -1054,6 +1057,8 @@ module.exports = {
   dumpAll,
   replaceAll,
   transaction,
+  inServerTransaction,
+  getTransactionOperator,
   getWriteState,
   saveCommandReceipt,
   SERVER_API_BASE,

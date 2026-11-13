@@ -2,7 +2,7 @@ name: Node regression tests
 
 on:
   pull_request:
-    branches: [work, main, 'chatgpt/integration-05']
+    branches: [work, main, 'chatgpt/integration-05', 'chatgpt/backend-write-06']
   push:
     branches: ['chatgpt/**']
 

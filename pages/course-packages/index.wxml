@@ -382,6 +382,7 @@
           </view>
         </view>
 
+        <view class="form-group"><text class="form-label">付款凭据号（必填，同一付款只登记一次）</text><input class="form-input" value="{{purchaseForm.payment_reference}}" data-field="payment_reference" bindinput="onPurchaseInput" placeholder="收据号：字母、数字、下划线或短横线" /></view>
         <!-- 7. 备注 -->
         <view class="form-group">
           <text class="form-label">购课备注说明</text>
@@ -1153,3 +1154,4 @@
     </view>
   </view>
 </view>
+

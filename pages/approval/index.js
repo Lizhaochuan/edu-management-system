@@ -1,9 +1,6 @@
+const commands = require('../../services/commandClient')
 // pages/approval/index.js
 const db = require('../../services/db')
-const systemConfigService = require('../../services/systemConfigService')
-const attendanceService = require('../../services/attendanceService')
-const salaryEngineService = require('../../services/salaryEngineService')
-const transferRefundService = require('../../services/transferRefundService')
 
 const TYPE_CONFIG = {
   config_change: {
@@ -64,7 +61,8 @@ Page({
     this.initCurrentUser()
   },
 
-  onShow() {
+  async onShow() {
+    try { await commands.refresh(); await commands.recoverPending() } catch (err) { wx.showModal({title:"读取服务端失败",content:err.message,showCancel:false}); return }
     this.initCurrentUser()
   },
 
@@ -217,56 +215,10 @@ Page({
       content: `单号 #${item.id}\n事项：${item.typeLabel}\n理由：${item.reason}`,
       confirmColor: '#16a34a',
       confirmText: '确认通过',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
           try {
-            const now = new Date().toISOString()
-            db.update(
-              db.TABLES.APPROVAL_REQUESTS,
-              item.id,
-              {
-                status: 'approved',
-                approver_id: user.id,
-                approver_name: user.name,
-                approved_time: now
-              },
-              `审批通过：[${user.name}] 批准了申请单 #${item.id} (${item.typeLabel} - ${item.reason})`
-            )
-
-            // 核心铁律联动1：如果是系统参数配置变更，审批通过时正式覆盖更新写入业务目标表
-            if (item.request_type === 'config_change') {
-              systemConfigService.applyConfigApproval(item, user)
-            }
-
-            // 核心铁律联动2：如果是漏签补签申请，超管审批通过时正式扣课时、锁死快照并核算课酬
-            if (item.request_type === 'makeup_attendance') {
-              attendanceService.applyMakeupSignApproval(item, user)
-            }
-
-            // 核心铁律联动3：如果是薪资算错调账申请，超管审批通过后变更为 approved_pending_settlement，在下期发薪日自动挂入结算
-            if (item.request_type === 'salary_adjustment') {
-              salaryEngineService.applySalaryAdjustmentApproval(item, user)
-            }
-
-            // 核心铁律联动4：如果是课时冻结申请，管理员/超管审批通过后自动顺延到期日并累加冻结天数（90天双封顶）
-            if (item.request_type === 'freeze_hours') {
-              transferRefundService.applyFreezeApproval(item, user)
-            }
-
-            // 核心铁律联动5：如果是管理员手工调课时申请，超管审批通过后校验二次余额、增减课时并释放并发锁
-            if (item.request_type === 'manual_hour_adjust' || item.request_type === 'balance_adjustment') {
-              transferRefundService.applyManualHourAdjustApproval(item, user)
-            }
-
-            // 核心铁律联动6：如果是三转申请（转人/转课/转班），超管审批通过后校验二次余额、执行转移并释放并发锁
-            if (item.request_type === 'transfer') {
-              transferRefundService.applyTransferApproval(item, user)
-            }
-
-            // 核心铁律联动7：如果是退费清算申请，超管审批通过后核销课时包、联动退班、释放并发锁并归档退费档案
-            if (item.request_type === 'refund') {
-              transferRefundService.applyRefundApproval(item, user)
-            }
+            await commands.run('approval.approve', {approval_id:item.id})
 
             wx.showToast({
               title: '审批通过成功',
@@ -324,53 +276,11 @@ Page({
       placeholderText: '请详细说明驳回原因（如：资料不全、数额有误）',
       confirmColor: '#dc2626',
       confirmText: '确认驳回',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
           const reason = (res.content && res.content.trim()) || '经审批人综合评估未予通过'
           try {
-            const now = new Date().toISOString()
-            db.update(
-              db.TABLES.APPROVAL_REQUESTS,
-              item.id,
-              {
-                status: 'rejected',
-                approver_id: user.id,
-                approver_name: user.name,
-                approved_time: now,
-                reject_reason: reason
-              },
-              `审批驳回：[${user.name}] 驳回了申请单 #${item.id}，理由：${reason}`
-            )
-
-            // 核心铁律联动：如果是漏签补签申请被驳回，恢复排课为 scheduled 未签状态，绝不扣课时
-            if (item.request_type === 'makeup_attendance') {
-              attendanceService.rejectMakeupSignApproval(item, reason, user)
-            }
-
-            // 核心铁律联动：如果是薪资算错调账申请被驳回，更新调账记录为 rejected 并记录驳回原因
-            if (item.request_type === 'salary_adjustment') {
-              salaryEngineService.rejectSalaryAdjustmentApproval(item, reason, user)
-            }
-
-            // 核心铁律联动4：如果是课时冻结申请被驳回
-            if (item.request_type === 'freeze_hours') {
-              transferRefundService.rejectFreezeApproval(item, reason, user)
-            }
-
-            // 核心铁律联动5：如果是手工调课时申请被驳回，释放并发锁
-            if (item.request_type === 'manual_hour_adjust' || item.request_type === 'balance_adjustment') {
-              transferRefundService.rejectManualHourAdjustApproval(item, reason, user)
-            }
-
-            // 核心铁律联动6：如果是三转申请被驳回，释放并发锁
-            if (item.request_type === 'transfer') {
-              transferRefundService.rejectTransferApproval(item, reason, user)
-            }
-
-            // 核心铁律联动7：如果是退费申请被驳回，释放并发锁
-            if (item.request_type === 'refund') {
-              transferRefundService.rejectRefundApproval(item, reason, user)
-            }
+            await commands.run('approval.reject', {approval_id:item.id,reject_reason:reason})
 
             wx.showToast({
               title: '已驳回申请',
@@ -391,3 +301,4 @@ Page({
     })
   }
 })
+

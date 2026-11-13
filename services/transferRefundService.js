@@ -128,6 +128,7 @@ const transferRefundService = {
    * @param {Object} operatorUser - 提单人（家长提出，老师/管理员代提）
    */
   submitFreezeRequest(params = {}, operatorUser = null) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'freeze',data:params})
     const { package_id, freeze_days, start_date, reason } = params
 
     if (!package_id) throw new Error('必须指定需要冻结的课时包ID')
@@ -322,6 +323,7 @@ const transferRefundService = {
    * @param {Object} operatorUser - 发起人
    */
   submitManualHourAdjust(params = {}, operatorUser = null) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'adjustHours',data:params})
     const { package_id, direction, paid_hours_delta, gift_hours_delta, reason } = params
 
     // 铁律 1：必填理由
@@ -889,6 +891,7 @@ const transferRefundService = {
    * 立即施加并发锁，提交至 approval_requests 由超级管理员审批
    */
   submitTransferRequest(params = {}, operatorUser = null) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'transfer',data:params})
     // 1. 试算并严格校验所有业务规则
     const preview = this.previewTransfer(params)
 
@@ -1387,6 +1390,7 @@ const transferRefundService = {
    * 立即施加并发锁，提交至 approval_requests 由超级管理员独批
    */
   submitRefundRequest(params = {}, operatorUser = null) {
+    if (typeof wx !== 'undefined' && typeof wx.request === 'function' && !db.inServerTransaction()) return require('./commandClient').run('approval.propose',{type:'refund',data:params})
     const packageId = params.package_id || params.packageId
     if (!packageId) throw new Error('必须指定退费课时包ID')
 
@@ -1856,3 +1860,4 @@ const transferRefundService = {
 }
 
 module.exports = transferRefundService
+

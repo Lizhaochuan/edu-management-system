@@ -1,3 +1,4 @@
+const commands = require('../../services/commandClient')
 // pages/config-settings/index.js
 const systemConfigService = require('../../services/systemConfigService')
 const db = require('../../services/db')
@@ -63,7 +64,8 @@ Page({
     this.checkPermissionAndLoad()
   },
 
-  onShow() {
+  async onShow() {
+    try { await commands.refresh(); await commands.recoverPending() } catch (err) { wx.showModal({title:"读取失败",content:err.message,showCancel:false}); return }
     this.checkPermissionAndLoad()
   },
 
@@ -153,7 +155,7 @@ Page({
     this.setData({ 'termForm.reason': e.detail.value })
   },
 
-  onSubmitTermChange() {
+  async onSubmitTermChange() {
     const { editingTerm, termForm } = this.data
     if (!editingTerm) return
     if (!termForm.expire_date) {
@@ -166,7 +168,7 @@ Page({
     }
 
     try {
-      const created = systemConfigService.submitTermExpireDateRequest({
+      const created = await systemConfigService.submitTermExpireDateRequest({
         termId: editingTerm.id,
         newExpireDate: termForm.expire_date,
         reason: termForm.reason
@@ -233,20 +235,20 @@ Page({
     this.setData({ [`courseForm.${field}`]: e.detail.value })
   },
 
-  onSubmitCourse() {
+  async onSubmitCourse() {
     const { isEditCourse, editingCourse, courseForm } = this.data
 
     try {
       let created = null
       if (isEditCourse) {
-        created = systemConfigService.submitUpdateCourseClassTypeRequest(editingCourse.id, {
+        created = await systemConfigService.submitUpdateCourseClassTypeRequest(editingCourse.id, {
           max_capacity: courseForm.max_capacity,
           unit_price: courseForm.unit_price,
           hours_per_lesson: courseForm.hours_per_lesson,
           reason: courseForm.reason
         })
       } else {
-        created = systemConfigService.submitCreateCourseClassTypeRequest({
+        created = await systemConfigService.submitCreateCourseClassTypeRequest({
           course_name: courseForm.course_name,
           class_type_name: courseForm.class_type_name,
           max_capacity: courseForm.max_capacity,
@@ -330,7 +332,7 @@ Page({
     })
   },
 
-  onSubmitTier() {
+  async onSubmitTier() {
     const { isEditTier, editingTier, tierForm } = this.data
 
     // 组装 headcount_rates_json
@@ -343,14 +345,14 @@ Page({
       const validatedRates = normalizeManualRates(headcountRates)
       let created = null
       if (isEditTier) {
-        created = systemConfigService.submitUpdateTeacherTierRequest(editingTier.id, {
+        created = await systemConfigService.submitUpdateTeacherTierRequest(editingTier.id, {
           name: tierForm.name,
           headcount_rates_json: validatedRates,
           maxCapacity: tierForm.max_capacity,
           reason: tierForm.reason
         })
       } else {
-        created = systemConfigService.submitCreateTeacherTierRequest({
+        created = await systemConfigService.submitCreateTeacherTierRequest({
           name: tierForm.name,
           headcount_rates_json: validatedRates,
           maxCapacity: tierForm.max_capacity,
@@ -417,7 +419,7 @@ Page({
     this.setData({ 'teacherCustomForm.reason': e.detail.value })
   },
 
-  onSubmitTeacherCustom() {
+  async onSubmitTeacherCustom() {
     const { editingTeacher, teacherCustomForm } = this.data
     if (!editingTeacher) return
 
@@ -428,7 +430,7 @@ Page({
 
     try {
       const validatedRates = normalizeManualRates(headcountRates)
-      const created = systemConfigService.submitTeacherCustomRateRequest(editingTeacher.id, {
+      const created = await systemConfigService.submitTeacherCustomRateRequest(editingTeacher.id, {
         custom_tier_rates_json: validatedRates,
         maxCapacity: teacherCustomForm.max_capacity,
         reason: teacherCustomForm.reason
@@ -447,7 +449,7 @@ Page({
     }
   },
 
-  onResetTeacherTier(e) {
+  async onResetTeacherTier(e) {
     const id = e.currentTarget.dataset.id
     const teacher = this.data.teachers.find(t => t.id === id)
     if (!teacher) return
@@ -456,10 +458,10 @@ Page({
       title: '确认恢复跟档？',
       content: `是否申请将教师【${teacher.name}】恢复为默认档位【${teacher.tierName}】自动跟档结算？`,
       confirmText: '申请恢复',
-      success: (res) => {
+      success: async (res) => {
         if (res.confirm) {
           try {
-            const created = systemConfigService.submitTeacherResetTierRequest(teacher.id, {
+            const created = await systemConfigService.submitTeacherResetTierRequest(teacher.id, {
               reason: `管理员申请将${teacher.name}特聘独立改数清除，恢复默认档位跟档`
             })
             wx.showModal({
@@ -492,11 +494,11 @@ Page({
     this.setData({ [`partnerForm.ratesList[${e.currentTarget.dataset.index}].rate`]: e.detail.value })
   },
   onPartnerReasonInput(e) { this.setData({ 'partnerForm.reason': e.detail.value }) },
-  onSubmitPartnerRates() {
+  async onSubmitPartnerRates() {
     try {
       const rates = {}
       this.data.partnerForm.ratesList.forEach(row => { rates[row.headcount] = row.rate })
-      const created = systemConfigService.submitPartnerTeacherRatesRequest({
+      const created = await systemConfigService.submitPartnerTeacherRatesRequest({
         headcount_rates_json: normalizeManualRates(rates),
         reason: this.data.partnerForm.reason
       })
@@ -506,17 +508,17 @@ Page({
       wx.showModal({ title: '金额校验失败', content: err.message, showCancel: false })
     }
   },
-  onSubmitTeacherCategory(e) {
+  async onSubmitTeacherCategory(e) {
     const teacher = this.data.teachers.find(t => t.id === e.currentTarget.dataset.id)
     if (!teacher) return
     const category = teacher.teacherCategory === 'partner_teacher' ? 'ordinary' : 'partner_teacher'
     wx.showModal({
       title: '确认申请调整教师类别',
       content: `将【${teacher.name}】调整为${category === 'partner_teacher' ? '合伙人老师' : '普通教师'}？仍然需要超级管理员审批。`,
-      success: (res) => {
+      success: async (res) => {
         if (!res.confirm) return
         try {
-          const created = systemConfigService.submitTeacherCategoryRequest(teacher.id, {
+          const created = await systemConfigService.submitTeacherCategoryRequest(teacher.id, {
             teacher_category: category,
             teacher_tier_id: teacher.teacher_tier_id,
             reason: '管理员申请调整教师薪酬类别'
@@ -535,3 +537,4 @@ Page({
     })
   }
 })
+

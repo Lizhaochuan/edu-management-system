@@ -145,6 +145,10 @@ function clearCookie(secure = false) {
 }
 
 function authorize(pathname, method, role, req) {
+  if (['admin','super_admin','teacher'].includes(role)) {
+    if (pathname === '/api/commands/context' || pathname === '/api/commands/version') return method === 'GET';
+    if (pathname === '/api/commands/execute') return method === 'POST';
+  }
   if (role !== 'super_admin' && role !== 'admin') {
     // Teacher and parent scopes must be implemented explicitly, never inherit admin access.
     return false;

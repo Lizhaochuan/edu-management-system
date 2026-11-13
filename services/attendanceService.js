@@ -503,6 +503,7 @@ const attendanceService = {
               `[补课消课完成] 学员【${mk.student_name}】在排课 #${schedule.id} 完成补课出勤消课`
             )
           } catch (e) {
+            if (db.inServerTransaction()) throw e
             console.warn('[submitAttendance] update makeup_request failed:', e)
           }
         }
@@ -775,7 +776,9 @@ const attendanceService = {
               { status: 'completed', completed_at: new Date().toISOString(), completed_schedule_id: schedule.id },
               `[补课改签完成] 学员【${mk.student_name}】在排课 #${schedule.id} 改签出勤`
             )
-          } catch (e) {}
+          } catch (e) {
+            if (db.inServerTransaction()) throw e
+          }
         }
 
         // ── Phase 4-B：改签为出勤，若为原师补课，计算累进补差 ──
@@ -789,6 +792,7 @@ const attendanceService = {
               operatorUser: operator
             })
           } catch (e) {
+            if (db.inServerTransaction()) throw e
             console.warn('[modifyAttendanceWithin24Hours] applyMakeupProgressiveDifferential failed:', e)
           }
         }
@@ -813,7 +817,9 @@ const attendanceService = {
               { status: 'scheduled', completed_at: null, completed_schedule_id: null },
               `[补课改签回滚] 学员【${mk.student_name}】由出勤改回未出勤，恢复为排定状态`
             )
-          } catch (e) {}
+          } catch (e) {
+            if (db.inServerTransaction()) throw e
+          }
         }
 
         // ── Phase 4-B：改签改回未出勤，若为原师补课，撤销累进补差并重新对齐 ──
@@ -826,6 +832,7 @@ const attendanceService = {
               operatorUser: operator
             })
           } catch (e) {
+            if (db.inServerTransaction()) throw e
             console.warn('[modifyAttendanceWithin24Hours] revokeMakeupProgressiveDifferential failed:', e)
           }
         }
@@ -870,6 +877,7 @@ const attendanceService = {
     try {
       feeResult = salaryEngineService.calculateLessonFee(schedule.id)
     } catch (e) {
+            if (db.inServerTransaction()) throw e
       console.warn('[updateAttendanceWithin24Hours] calculateLessonFee hook failed:', e)
     }
 
@@ -2311,3 +2319,4 @@ const attendanceService = {
 }
 
 module.exports = attendanceService
+

@@ -66,6 +66,7 @@ before(async () => {
   auth.saveCredential('u_sa1',PASSWORD);
   auth.saveCredential('u_adm1',PASSWORD);
   auth.saveCredential('u_par1',PASSWORD);
+  auth.saveCredential('u_tch2',PASSWORD);
   assert.equal(fs.statSync(process.env.AUTH_CREDENTIALS_FILE).mode & 0o777, 0o600);
   db.insert(db.TABLES.APPROVAL_REQUESTS, {
     id:'atomic_bad_approval', request_type:'config_change',
@@ -172,24 +173,24 @@ test('foreign origin rejected before authentication', async () => {
 test('failed approval business logic keeps pending status and can be retried safely', async () => {
   const login = await signIn('u_sa1');
   const headers = { Cookie:cookie(login) };
-  const first = await call('/api/approvals/approve','POST',{approval_id:'atomic_bad_approval'},headers);
+  const first = await callApproval('approval.approve',{approval_id:'atomic_bad_approval'},headers);
   assert.equal(first.status,400,JSON.stringify(first.data));
   const result = await call('/api/approvals','GET',undefined,headers);
   const item = result.data.data.find(a => a.id === 'atomic_bad_approval');
   assert.equal(item.status,'pending');
-  const second = await call('/api/approvals/approve','POST',{approval_id:'atomic_bad_approval'},headers);
+  const second = await callApproval('approval.approve',{approval_id:'atomic_bad_approval'},headers);
   assert.equal(second.status,400);
 });
 test('successful approval is applied once; duplicate approve/reject are rejected', async () => {
   const login = await signIn('u_sa1');
   const headers = { Cookie:cookie(login) };
-  const first = await call('/api/approvals/approve','POST',{approval_id:'atomic_good_approval'},headers);
+  const first = await callApproval('approval.approve',{approval_id:'atomic_good_approval'},headers);
   assert.equal(first.status,200,JSON.stringify(first.data));
   const items = await call('/api/db/teacher_tiers','GET',undefined,headers);
   assert.equal(items.data.data.find(t => t.id === 'tier_junior').name,'审批修改后的名称');
-  const repeated = await call('/api/approvals/approve','POST',{approval_id:'atomic_good_approval'},headers);
+  const repeated = await callApproval('approval.approve',{approval_id:'atomic_good_approval'},headers);
   assert.equal(repeated.status,409);
-  const reverse = await call('/api/approvals/reject','POST',{approval_id:'atomic_good_approval'},headers);
+  const reverse = await callApproval('approval.reject',{approval_id:'atomic_good_approval'},headers);
   assert.equal(reverse.status,409);
 });
 
@@ -200,6 +201,12 @@ test('static web file server refuses encoded traversal into prefix-matching sibl
   assert.equal(outside.status,403);
   assert.doesNotMatch(JSON.stringify(outside.data),/DO_NOT_EXPOSE/);
 });
+
+async function callApproval(command, params, headers) {
+  if (command === 'approval.reject' && !params.reject_reason) params={...params,reject_reason:'test rejection'};
+  const version=await call('/api/commands/version','GET',undefined,headers);
+  return call('/api/commands/execute','POST',{command,params,idempotencyKey:'approval_test_'+require('node:crypto').randomUUID(),expectedVersion:version.data.data.version},headers);
+}
 
 async function commandSession(userId = 'u_sa1') {
   const login = await signIn(userId);
@@ -308,5 +315,26 @@ test('logout while command body is in flight prevents execution after earlier ro
     req.flushHeaders();
   });
   assert.equal(await response, 401);
+});
+
+test('teacher context is scoped and a concurrent real sign-in only deducts once', async () => {
+  const headers = await commandSession('u_tch2');
+  const context = await call('/api/commands/context','GET',undefined,headers);
+  assert.equal(context.status,200);
+  assert.deepEqual(context.data.data.snapshot.schedules_and_attendance.map(s=>s.id),['sch_2']);
+  assert.deepEqual(context.data.data.snapshot.course_packages,[]);
+  assert.deepEqual(context.data.data.snapshot.audit_logs,[]);
+  assert.equal(context.data.data.snapshot.schedules_and_attendance[0].snapshot_teacher_rates_json,undefined);
+  const params={schedule_id:'sch_2',attendance_inputs:[{student_id:'stu_3',is_present:true},{student_id:'stu_4',is_present:false}]};
+  const p={command:'attendance.submit',params,idempotencyKey:'http-real-attendance-01',expectedVersion:context.data.data.version};
+  const results=await Promise.all([call('/api/commands/execute','POST',p,headers),call('/api/commands/execute','POST',{...p,idempotencyKey:'http-real-attendance-02'},headers)]);
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+  const response=results.find(r=>r.status===200);
+  assert.equal(response.data.data.result.calculated_teacher_fee,undefined);
+  const admin=await commandSession();
+  const snapshot=await call('/api/db/all','GET',undefined,admin);
+  assert.equal(snapshot.data.data.course_packages.find(p=>p.id==='pkg_3').paid_hours_left,19);
+  assert.equal((await call('/api/finance/purchase','POST',{},admin)).status,428);
+  assert.equal((await call('/api/approvals/approve','POST',{},admin)).status,428);
 });
 
