@@ -8,7 +8,7 @@
     <view class="rule-icon">⚖️</view>
     <view class="rule-text">
       <text class="rule-highlight">内控安全铁律：</text>
-      严禁自审自批！课时冻结可由主管审批，调账/退费/配置变更强制要求超管审批。
+      多位超管时不能审批本人申请；唯一超管可直接处理。课时冻结可由主管审批。
     </view>
   </view>
 
