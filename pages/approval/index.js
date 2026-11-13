@@ -1,6 +1,7 @@
 const commands = require('../../services/commandClient')
 // pages/approval/index.js
 const db = require('../../services/db')
+const approvalDisplay = require('../../services/approvalDisplay')
 
 const TYPE_CONFIG = {
   super_admin_role_change: {label:'超管身份变更',badgeClass:'type-config',requireRoleText:'需另一位超级管理员审批'},
@@ -107,20 +108,6 @@ Page({
     }
   },
 
-  /** 格式化 JSON 数据展示 */
-  formatJson(data) {
-    if (!data) return '无快照数据'
-    if (typeof data === 'string') {
-      try {
-        const obj = JSON.parse(data)
-        return JSON.stringify(obj, null, 2)
-      } catch (e) {
-        return data
-      }
-    }
-    return JSON.stringify(data, null, 2)
-  },
-
   /** 加载并解析审批列表 */
   loadApprovalList() {
     const rawList = db.getTable(db.TABLES.APPROVAL_REQUESTS) || []
@@ -128,6 +115,14 @@ Page({
 
     const pendingList = []
     const processedList = []
+    const lookup = {
+      tiers: db.getTable(db.TABLES.TEACHER_TIERS) || [],
+      users: db.getTable(db.TABLES.USERS) || [],
+      students: db.getTable(db.TABLES.STUDENTS) || [],
+      courses: db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES) || [],
+      terms: db.getTable(db.TABLES.TERMS) || [],
+      classes: db.getTable(db.TABLES.CLASSES) || []
+    }
 
     rawList.forEach(item => {
       const typeConf = TYPE_CONFIG[item.request_type] || {
@@ -158,8 +153,7 @@ Page({
         isSelf,
         createdTimeText: this.formatDate(item.created_at || item.action_time),
         approvedTimeText: this.formatDate(item.approved_time),
-        beforeJsonText: this.formatJson(item.before_data_json),
-        afterJsonText: this.formatJson(item.after_data_json)
+        ...approvalDisplay.formatApprovalChange(item, lookup)
       })
 
       if (item.status === 'pending') {
