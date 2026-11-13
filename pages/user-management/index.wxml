@@ -266,7 +266,7 @@
       </view>
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="onCloseEditModal">取消</button>
-        <button class="btn-submit" bindtap="onSubmitEdit">保存并立即生效</button>
+        <button class="btn-submit" bindtap="onSubmitEdit">确认提交</button>
       </view>
     </view>
   </view>
