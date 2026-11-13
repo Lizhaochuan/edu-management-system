@@ -61,6 +61,17 @@ const ALL_CARDS = [
     isReady: true,
   },
   {
+    id: 'payment_reconciliation',
+    name: '人工收款核对',
+    icon: '💳',
+    desc: '登记收款、超管核对官方账单及关联购课',
+    tag: '人工核对',
+    tagType: 'success',
+    path: '/pages/payment-reconciliation/index',
+    roles: ['super_admin', 'admin'],
+    isReady: true,
+  },
+  {
     id: 'course_packages',
     name: '买课登记与课时账本',
     icon: '💰',
