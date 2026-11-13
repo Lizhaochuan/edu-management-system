@@ -1,3 +1,4 @@
+const superAdminPolicy = require('./superAdminPolicy');
 // services/transferRefundService.js
 // 核心教务变更与资金结算服务（Phase 5-A 审批并发锁、课时冻结与手工调课时）
 const db = require('./db')
@@ -233,7 +234,7 @@ const transferRefundService = {
     }
 
     // 自审拦截
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能审批自己发起的课时冻结申请！请切换其他管理账号')
     }
 
@@ -467,7 +468,7 @@ const transferRefundService = {
     }
 
     // 自审拦截
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能审批自己发起的手工调课时申请！请切换其他超管账号')
     }
 
@@ -990,7 +991,7 @@ const transferRefundService = {
     }
 
     // 自审拦截
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能审批自己发起的转移申请！请切换其他超管账号')
     }
 
@@ -1498,7 +1499,7 @@ const transferRefundService = {
     }
 
     // 自审拦截
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能审批自己发起的退费申请！请切换其他超管账号')
     }
 
