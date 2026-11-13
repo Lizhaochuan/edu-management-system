@@ -116,8 +116,9 @@ function backup(opts) {
         stage = 'verify';
         const version = runCrypto(['verify-encrypted', '--file', pending, '--key-file', key]);
         stage = 'publish';
-        if (fs.existsSync(completed)) fail('Completed backup name already exists');
-        fs.renameSync(pending, completed);
+        // linkSync fails if the final name already exists, preventing overwrite races.
+        fs.linkSync(pending, completed);
+        fs.unlinkSync(pending);
         pending = null;
         stage = 'status';
         writeStatus(statusDir, 'last-backup.json', {
