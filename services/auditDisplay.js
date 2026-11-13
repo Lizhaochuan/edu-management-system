@@ -34,7 +34,7 @@ const FIELDS = {
   calculated_teacher_fee:['本次教师课酬','yuan'],
   total_salary:['本期应发工资','yuan'],base_salary:['基础课酬','yuan'],
   adjustment_amount:['调账金额','yuan'],signed_amount:['调账金额','yuan'],
-  amount:['金额','yuan'],gross_refund:['应退学费','yuan'],
+  amount:['金额','yuan'],amount_cents:['到账金额','cents'],gross_refund:['应退学费','yuan'],
   net_refund:['实际退费','yuan'],net_refund_amount:['实际退费','yuan'],
   handling_fee:['手续费','yuan'],gross_refund_amount:['应退金额','yuan'],
   refund_amount:['退费金额','yuan'],top_up_fee:['补费金额','yuan'],
@@ -74,6 +74,16 @@ const FIELDS = {
   is_cancelled:['是否取消','boolean'],
   total_available_hours:['可用课时合计','hours'],
   attendance_status:['考勤状态','status'],
+  is_present:['是否出勤','boolean'],is_late:['是否迟到','boolean'],
+  is_early_leave:['是否早退','boolean'],
+  lesson_index:['第几次课','ordinal'],
+  total_frozen_days_after:['累计冻结天数','days'],
+  target_unit_price:['转入课程单价','yuan'],
+  target_paid_hours:['转入付费课时','hours'],
+  target_gift_hours:['转入赠送课时','hours'],
+  transferred_paid_value:['转出课时折算金额','yuan'],
+  target_hours_per_lesson:['转入课程每次课时数','hours'],
+  total_frozen_days:['累计冻结天数','days'],
   headcount_rates_json:['按出勤人数计算的教师课酬','rates'],
   custom_tier_rates_json:['教师个人课酬标准','rates'],
   paid_hours_after:['调整后剩余付费课时','hours'],
@@ -85,7 +95,10 @@ const EN = {
   status:{active:'启用',inactive:'停用',disabled:'停用',pending:'待处理',
     approved:'已通过',rejected:'已驳回',draft:'待核对草稿',
     settled:'已结算',confirmed:'已核对',consumed:'已用于购课',
-    refunded:'已退款',cancelled:'已取消',pending_approval_locked:'等待审批'},
+    refunded:'已退款',cancelled:'已取消',pending_approval_locked:'等待审批',
+    pending_super_admin_approval:'待超管批准',approved_pending_settlement:'已批准待结算',
+    scheduled:'待上课',completed:'课程已完成',pending_makeup_sign_approval:'待补签审批',
+    pending_settlement:'待结算',unverified_legacy:'尚未核对付款'},
   lock:{normal:'正常',frozen:'已冻结',refunded:'已退费',
     pending_approval_locked:'等待审批锁定',unlocked:'正常'},
   account:{'进入公账':'对公账户','进入个人账户':'个人账户'},
@@ -125,10 +138,14 @@ function safeNumber(value) {
 function friendly(value,type,lookups) {
   if(value===null||value===undefined||value==='')return '未设置';
   if(type==='boolean')return value===true?'是':value===false?'否':'需核对';
-  const units={yuan:' 元',yuanPerHour:' 元/课时',hours:' 课时',days:' 天',persons:' 人'};
+  const units={yuan:' 元',yuanPerHour:' 元/课时',hours:' 课时',days:' 天',persons:' 人',ordinal:' 次课'};
   if(owns(units,type)){
     const n=safeNumber(value);
     return n===null?'金额或数量待核对':(type.startsWith('yuan')?'¥':'')+n+units[type];
+  }
+  if(type==='cents'){
+    const n=Number(value);
+    return Number.isInteger(n)&&n>=0?'¥'+(n/100).toFixed(2)+' 元':'金额待核对';
   }
   if(type==='date')return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}/.test(value)?
     value.slice(0,10):'日期待核对';
