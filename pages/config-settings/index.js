@@ -179,8 +179,8 @@ Page({
       this.setData({ showTermModal: false, editingTerm: null })
 
       wx.showModal({
-        title: '申请已提交！',
-        content: `已生成审批单 #${created.id}。\n需超级管理员在【通用审批中心】通过后正式生效！`,
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
+        content: `${created.direct_approved?.length ? '已直接生效并记录操作。' : `已生成审批单 #${created.id}。\n需另一位超管审批后生效。`}`,
         showCancel: false,
         confirmText: '好的'
       })
@@ -263,7 +263,7 @@ Page({
       this.setData({ showCourseModal: false, editingCourse: null })
 
       wx.showModal({
-        title: '申请已提交！',
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
         content: `已生成审批单 #${created.id}。\n重要规则：审批生效后，已有的历史旧班级保留原定额与单价快照不变，新建班级将采用新标准！`,
         showCancel: false,
         confirmText: '我知道了'
@@ -365,7 +365,7 @@ Page({
       this.setData({ showTierModal: false, editingTier: null })
 
       wx.showModal({
-        title: '申请已提交！',
+        title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
         content: `已生成审批单 #${created.id}。\n核心保障：改名改价不影响历史排课签到快照，审批通过后对后续排课生效！`,
         showCancel: false,
         confirmText: '好的'
