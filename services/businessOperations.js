@@ -6,6 +6,7 @@ const configs = require('./systemConfigService');
 const transfers = require('./transferRefundService');
 const salary = require('./salaryEngineService');
 const T = db.TABLES;
+const superAdminPolicy = require('./superAdminPolicy');
 const LEDGER = 'business_write_events';
 const id = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(x);
 const text = (x, max = 500) => typeof x === 'string' && x.trim().length > 0 && x.length <= max;
@@ -59,7 +60,7 @@ module.exports = ({ fail }) => {
   function decision(p, operator, approved) {
     const a = get(T.APPROVAL_REQUESTS, p.approval_id);
     if (a.status !== 'pending') reject('审批单已处理或已被出勤扣费废止', 409, 'APPROVAL_STATE_CONFLICT');
-    if (a.proposer_id === operator.id) reject('不能审批本人申请', 403, 'SELF_APPROVAL');
+    if (a.proposer_id === operator.id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(T.USERS), operator)) reject('不能审批本人申请', 403, 'SELF_APPROVAL');
     const reason = p.reject_reason || '经审批人综合评估未予通过';
     const handlers = {
       config_change: [configs, 'applyConfigApproval', null],
@@ -71,6 +72,14 @@ module.exports = ({ fail }) => {
       makeup_attendance: [attendance, 'applyMakeupSignApproval', 'rejectMakeupSignApproval'],
       salary_adjustment: [salary, 'applySalaryAdjustmentApproval', 'rejectSalaryAdjustmentApproval']
     };
+    if (a.request_type === 'super_admin_role_change') {
+      const payload = JSON.parse(a.after_data_json);
+      const target = get(T.USERS, a.target_record_id);
+      if (target.role !== 'super_admin' || target.status !== 'active') reject('超管身份已变化，请重新申请', 409, 'ROLE_CHANGED');
+      if (approved) db.update(T.USERS, target.id, {role:payload.role,status:payload.status}, '合伙人审批减少超管');
+      db.update(T.APPROVAL_REQUESTS, a.id, {status: approved ? 'approved':'rejected', approver_id:operator.id, approver_name:operator.name, approved_time:new Date().toISOString(), reject_reason:approved ? null:reason}, '服务端合伙人审批');
+      return {approval_id:a.id,status:approved ? 'approved':'rejected'};
+    }
     const entry = handlers[a.request_type];
     if (!entry) reject('不支持的审批类型');
     if (approved && a.request_type === 'config_change') configGuard(a);
@@ -90,7 +99,32 @@ module.exports = ({ fail }) => {
     return { approval_id: a.id, status: approved ? 'approved' : 'rejected' };
   }
   const operations = {
-    'approval.propose': { authorize: admin, validate: require('./approvalProposals').validate, handle: require('./approvalProposals').handle },
+    'user.create': { authorize:u=>u.role==='super_admin', validate:p=>object(p,['name','phone','role'],['teacher_tier_id']) && text(p.name,100) && text(p.phone,30) && ['guest','parent','teacher','admin','super_admin'].includes(p.role) && (p.teacher_tier_id===undefined || id(p.teacher_tier_id)), handle:({params:p})=>{
+      if(db.getTable(T.USERS).some(u=>u.phone===p.phone)) reject('手机号已存在',409,'PHONE_EXISTS');
+      const user=db.insert(T.USERS,{...p,status:'active',teacher_tier_id:p.role==='teacher' ? p.teacher_tier_id || null : null},'服务端预录入成员');
+      return {user_id:user.id};
+    } },
+    'user.changeRole': { authorize:u=>u.role==='super_admin', validate:p=>object(p,['user_id','role'],['teacher_tier_id']) && id(p.user_id) && ['guest','parent','teacher','admin','super_admin'].includes(p.role) && (p.teacher_tier_id===undefined || id(p.teacher_tier_id)), handle:({params:p,operator})=>{
+      const target=get(T.USERS,p.user_id);
+      const count=superAdminPolicy.activeSuperAdmins(db.getTable(T.USERS)).length;
+      if(target.role==='super_admin' && target.status==='active' && p.role!=='super_admin') {
+        if(target.id===operator.id || count<=1) reject('不能降级自己或最后一位超管',403,'LAST_SUPER_ADMIN');
+        const approval=db.insert(T.APPROVAL_REQUESTS,{request_type:'super_admin_role_change',status:'pending',proposer_id:operator.id,proposer_name:operator.name,target_table:T.USERS,target_record_id:target.id,after_data_json:JSON.stringify({role:p.role,status:'active'}),reason:'调整超管身份'},'申请减少超管');
+        return {approval_id:approval.id,status:'pending'};
+      }
+      db.update(T.USERS,target.id,{role:p.role,status:'active',teacher_tier_id:p.role==='teacher' ? p.teacher_tier_id || null : null},'服务端调整成员身份');
+      return {user_id:target.id,status:'updated'};
+    } },
+    'approval.propose': { authorize: admin, validate: require('./approvalProposals').validate, handle: args => {
+      const before = new Set(db.getTable(T.APPROVAL_REQUESTS).map(a => a.id));
+      const result = require('./approvalProposals').handle(args);
+      if (superAdminPolicy.mayApproveOwnRequest(db.getTable(T.USERS), args.operator)) {
+        const added = db.getTable(T.APPROVAL_REQUESTS).filter(a => !before.has(a.id) && a.status === 'pending' && a.proposer_id === args.operator.id);
+        for (const item of added) decision({ approval_id: item.id }, args.operator, true);
+        return { ...result, direct_approved: added.map(a => a.id) };
+      }
+      return result;
+    } },
     'attendance.submit': { authorize: teaching, validate: p => attendanceParams(p) && !Object.hasOwn(p, 'reason'), handle: ({ params:p, operator }) => { sheet(p, operator, 'scheduled'); return attendance.submitAttendance(p.schedule_id, p.attendance_inputs, operator); } },
     'attendance.update': { authorize: teaching, validate: p => attendanceParams(p) && !Object.hasOwn(p, 'reason'), handle: ({ params:p, operator }) => { sheet(p, operator, 'completed'); return attendance.updateAttendanceWithin24Hours(p.schedule_id, p.attendance_inputs, operator); } },
     'attendance.requestMakeup': { authorize: teaching, validate: p => attendanceParams(p) && text(p.reason), handle: ({ params:p, operator }) => { sheet(p, operator, 'scheduled'); return attendance.requestMakeupAttendance(p.schedule_id, p.attendance_inputs, p.reason, operator); } },
