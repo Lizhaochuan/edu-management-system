@@ -67,7 +67,7 @@ function run(command, params) {
     let response
     try { response = await request('/api/commands/execute','POST',envelope,scope) }
     catch (error) {
-      if ([400,404,409,413,428].includes(error.status)) {
+      if ([400,401,403,404,409,413,428].includes(error.status)) {
         wx.removeStorageSync(storageKey)
         try { await refresh() } catch (_e) {}
       }
