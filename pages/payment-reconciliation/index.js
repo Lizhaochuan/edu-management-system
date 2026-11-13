@@ -1,6 +1,7 @@
 // Payment reconciliation page: only server-authorized commands change financial state.
 const commands = require('../../services/commandClient')
 const db = require('../../services/db')
+const paymentDisplay = require('../../services/paymentDisplay')
 const REF = /^[A-Za-z0-9_-]{1,100}$/
 
 function listPayments() {
@@ -23,7 +24,7 @@ function listPayments() {
 Page({
   data: {
     role:'', isSuperAdmin:false, busy:false, strictMode:false,
-    students:[], courses:[], terms:[], receipts:[],
+    students:[], courses:[], terms:[], users:[], receipts:[],
     studentIndex:0, courseIndex:0, termIndex:0,
     paymentReference:'', amount:'', accountDestination:'进入公账',
     statementReference:'', rejectReason:'',
@@ -42,7 +43,8 @@ Page({
       this.setData({
         students:db.getTable(db.TABLES.STUDENTS),
         courses:db.getTable(db.TABLES.COURSES_AND_CLASS_TYPES),
-        terms:db.getTable(db.TABLES.TERMS)
+        terms:db.getTable(db.TABLES.TERMS),
+        users:db.getTable(db.TABLES.USERS)
       })
       await this.loadReceipts()
     } catch (error) { this.report(error) }
@@ -52,8 +54,10 @@ Page({
     // A new login must not reuse a response from an old session.
     if (!wx.getStorageSync('auth_token')) return
     const previous = this.data.selectedReceipt
-    this.setData({receipts:result.items,strictMode:result.strict_mode,
-      selectedReceipt:previous ? (result.items.find(r=>r.receipt_id===previous.receipt_id)||null) : null})
+    const displayContext={students:this.data.students,courses:this.data.courses,users:this.data.users}
+    const receipts=result.items.map(row=>paymentDisplay.receipt(row,displayContext))
+    this.setData({receipts,strictMode:result.strict_mode,
+      selectedReceipt:previous ? (receipts.find(r=>r.receipt_id===previous.receipt_id)||null) : null})
   },
   onPickStudent(event) { this.setData({studentIndex:Number(event.detail.value)}) },
   onPickCourse(event) { this.setData({courseIndex:Number(event.detail.value)}) },
