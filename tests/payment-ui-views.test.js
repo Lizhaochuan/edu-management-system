@@ -111,3 +111,42 @@ test('mini-program presents manual settlement warning, uses two-person-only UI f
   assert.match(MARKUP,/isSuperAdmin && selectedReceipt\.status === 'pending'/);
   assert.match(WEB_SCRIPT,/receipt\.submitted_by===state\.user\.id/);
 });
+
+
+test('mini-program prevents self-confirmation and self-rejection before submitting an uncertain command',async()=>{
+  let page;
+  const commandsMade=[];
+  const warnings=[];
+  const wx={
+    getStorageSync:()=> 'fake-auth-token',
+    showModal:opts=>{warnings.push(opts.title);if(opts.success)opts.success({confirm:true});},
+    showToast:()=>{},
+    request:opts=>opts.success({statusCode:200,data:{code:0,data:{items:[],strict_mode:false}}})
+  };
+  const commands={run:async(name,params)=>{commandsMade.push({name,params});return {status:'ok'};}};
+  const db={SERVER_API_BASE:'http://127.0.0.1:3000'};
+  const identity={id:'u_sa1',role:'super_admin'};
+  vm.runInNewContext(MINI_JS,{
+    Page:obj=>{page=obj;},wx,
+    require:name=>name.includes('commandClient')?commands:db,
+    getApp:()=>({globalData:{currentUser:identity}})
+  });
+  page.setData=function(change){Object.assign(this.data,change);};
+  page.data.isSuperAdmin=true;
+  page.data.selectedReceipt={
+    receipt_id:'a',payment_reference:'bank-test-001',
+    submitted_by:'u_sa1',status:'pending',amount_cents:150000
+  };
+  page.data.statementReference='bank-line-001';
+  page.data.rejectReason='未查到账';
+  page.confirmReceipt();
+  page.rejectReceipt();
+  assert.equal(commandsMade.length,0);
+  assert.equal(warnings.length,2);
+  page.data.selectedReceipt.submitted_by='u_adm1';
+  page.confirmReceipt();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(commandsMade.length,1);
+  assert.equal(commandsMade[0].name,'payment.confirm');
+  assert.equal(commandsMade[0].params.statement_reference,'bank-line-001');
+});
