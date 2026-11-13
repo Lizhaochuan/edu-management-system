@@ -210,6 +210,82 @@ module.exports = ({ fail }) => {
     'attendance.submit': { authorize: teaching, validate: p => attendanceParams(p) && !Object.hasOwn(p, 'reason'), handle: ({ params:p, operator }) => { sheet(p, operator, 'scheduled'); return attendance.submitAttendance(p.schedule_id, p.attendance_inputs, operator); } },
     'attendance.update': { authorize: teaching, validate: p => attendanceParams(p) && !Object.hasOwn(p, 'reason'), handle: ({ params:p, operator }) => { sheet(p, operator, 'completed'); return attendance.updateAttendanceWithin24Hours(p.schedule_id, p.attendance_inputs, operator); } },
     'attendance.requestMakeup': { authorize: teaching, validate: p => attendanceParams(p) && text(p.reason), handle: ({ params:p, operator }) => { sheet(p, operator, 'scheduled'); return attendance.requestMakeupAttendance(p.schedule_id, p.attendance_inputs, p.reason, operator); } },
+    'finance.rollover': {
+      authorize: admin,
+      validate: p => object(p,['package_id','target_term_id','top_up_fee'],['remark']) &&
+        id(p.package_id) && id(p.target_term_id) && number(p.top_up_fee) &&
+        (p.remark === undefined || (typeof p.remark === 'string' && p.remark.length <= 500)),
+      handle: ({params:p,operator}) => {
+        const source=get(T.COURSE_PACKAGES,p.package_id);
+        const target=get(T.TERMS,p.target_term_id);
+        if (source.lock_status === 'pending_approval_locked' ||
+            source.lock_status === 'refunded' || source.refund_status === 'refunded') {
+          reject('课时包已锁定或退款，不可顺延',409,'ROLLOVER_LOCKED');
+        }
+        if (source.term_id === target.id ||
+            !target.fixed_expire_date ||
+            (source.expire_date && target.fixed_expire_date <= source.expire_date)) {
+          reject('目标学期必须晚于现有到期日，不能重复或倒退顺延',409,'ROLLOVER_TARGET_CONFLICT');
+        }
+        if (db.getTable(T.TERM_ROLLOVER_RECORDS).some(x =>
+          x.package_id === source.id && x.target_term_id === target.id)) {
+          reject('该课时包已经顺延过目标学期',409,'ROLLOVER_DUPLICATE');
+        }
+        if (p.top_up_fee !== 0) {
+          // This service records the amount but cannot authenticate a cash receipt.
+          reject('带补费的顺延尚未接入收款核验，不能记为已到账',409,'ROLLOVER_TOPUP_UNVERIFIED');
+        }
+        const result=transfers.executeTermRollover(p,operator);
+        return {package_id:result.package.id,rollover_id:result.rollover_record.id,
+          target_term_id:result.package.term_id,status:'rolled_over'};
+      }
+    },
+    'salary.generate': {
+      authorize: u => u.role === 'super_admin',
+      validate: p => object(p,['teacher_id','period']) &&
+        id(p.teacher_id) && typeof p.period === 'string' &&
+        /^\d{4}-(0[1-9]|1[0-2])$/.test(p.period),
+      handle: ({params:p,operator}) => {
+        const teacher=get(T.USERS,p.teacher_id);
+        if (teacher.role !== 'teacher' || teacher.status !== 'active') {
+          reject('只能为启用中的教师生成结算单',409,'SALARY_TEACHER_INVALID');
+        }
+        if (db.getTable(T.SALARY_SETTLEMENTS).some(x =>
+          x.teacher_id === teacher.id && x.period === p.period)) {
+          reject('该教师本周期已有结算单，不得重复生成',409,'SALARY_PERIOD_DUPLICATE');
+        }
+        const result=salary.generateTeacherSalarySettlement(p.teacher_id,p.period,
+          {auto_settle:false},operator);
+        return {settlement_id:result.id,period:result.period,teacher_id:result.teacher_id,
+          total_salary:result.total_salary,status:result.status};
+      }
+    },
+    'salary.settle': {
+      authorize: u => u.role === 'super_admin',
+      validate: p => object(p,['settlement_id']) && id(p.settlement_id),
+      handle: ({params:p,operator}) => {
+        const settlement=get(T.SALARY_SETTLEMENTS,p.settlement_id);
+        if (settlement.status !== 'draft') {
+          reject('结算单不是待结算草稿，不能再次锁定',409,'SALARY_SETTLEMENT_LOCKED');
+        }
+        // A stale draft must not re-archive an already-settled fee or adjustment.
+        for (const feeId of settlement.lesson_fee_ids || []) {
+          const fee=get(T.TEACHER_LESSON_FEES,feeId);
+          if (fee.settlement_status === 'settled' || fee.is_revoked || fee.is_cancelled) {
+            reject('结算单的课酬明细已结算或已撤销，必须重新核对',409,'SALARY_DETAIL_CONFLICT');
+          }
+        }
+        for (const adjustmentId of settlement.adjustment_ids || []) {
+          const adjustment=get(T.SALARY_ADJUSTMENTS,adjustmentId);
+          if (adjustment.status !== 'approved_pending_settlement') {
+            reject('调账记录状态已变化，不得重复结清',409,'SALARY_DETAIL_CONFLICT');
+          }
+        }
+        const result=salary.settleTeacherSalary(p.settlement_id,operator);
+        return {settlement_id:result.id,status:result.status,settled_at:result.settled_at,
+          total_salary:result.total_salary};
+      }
+    },
     'package.purchase': { authorize: admin, validate: p => object(p, ['student_id','course_id','paid_hours_total','gift_hours_total','total_amount','account_destination','term_id','payment_reference'], ['remark']) && ['student_id','course_id','term_id','payment_reference'].every(k => id(p[k])) && number(p.paid_hours_total, 0.01) && number(p.gift_hours_total) && number(p.total_amount) && ['进入公账','进入个人账户'].includes(p.account_destination) && (p.remark === undefined || text(p.remark)),
       handle: ({ params:p, operator }) => {
         unique('purchase', p.payment_reference);
