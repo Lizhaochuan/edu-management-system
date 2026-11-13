@@ -6,7 +6,7 @@
 
 修改范围：
 - server.js、services/authService.js：增加 GET /api/payments/reconciliation 的鉴权与最小响应。
-- services/commandClient.js：明确拒绝的 401/403 清理客户端未决请求记录。
+- 客户端既有重试规则保持不变：403 等权限异常时继续保存结果不确定的原始幂等信封，避免权限变化后的重复入账。
 - app.json、pages/index/index.js、pages/course-packages/index.wxml：增加小程序入口、购课未核验提示。
 - pages/payment-reconciliation/index.js/.wxml/.wxss：小程序收款登记、列表、人工确认/拒绝及绑定购课。
 - web-admin/index.html、web-admin/js/api.js、web-admin/payment-reconciliation.html、web-admin/js/payment-reconciliation.js：Web 导航、命令封装和独立业务页面。
