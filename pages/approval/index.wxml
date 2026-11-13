@@ -79,23 +79,26 @@
           <text class="reason-text">{{item.reason || '未填写理由'}}</text>
         </view>
 
-        <!-- 变更前后快照对比 -->
+        <!-- 业务变化一项一项说明，不将数据库快照显示给审批人 -->
         <view class="diff-section">
-          <view class="diff-title">📊 数据变更前后快照对比</view>
-          <view class="diff-grid">
-            <view class="diff-col diff-before">
-              <view class="col-head">变更前 (Before)</view>
-              <scroll-view scroll-y class="json-code">
-                <text>{{item.beforeJsonText}}</text>
-              </scroll-view>
-            </view>
-            <view class="diff-col diff-after">
-              <view class="col-head">变更后 (After)</view>
-              <scroll-view scroll-y class="json-code">
-                <text>{{item.afterJsonText}}</text>
-              </scroll-view>
+          <view class="diff-title">{{item.title}}</view>
+          <view class="change-list" wx:if="{{item.rows.length > 0}}">
+            <view class="change-row" wx:for="{{item.rows}}" wx:for-item="change" wx:key="label">
+              <text class="change-label">{{change.label}}</text>
+              <view class="change-values">
+                <view class="change-value change-before">
+                  <text class="change-caption">原标准</text>
+                  <text class="change-text">{{change.beforeText}}</text>
+                </view>
+                <text class="change-arrow">→</text>
+                <view class="change-value change-after">
+                  <text class="change-caption">申请新标准</text>
+                  <text class="change-text">{{change.afterText}}</text>
+                </view>
+              </view>
             </view>
           </view>
+          <text class="change-note">{{item.note}}</text>
         </view>
 
         <!-- 操作按钮与权限控制 -->
@@ -180,22 +183,26 @@
           <text class="reject-text">{{item.reject_reason}}</text>
         </view>
 
+        <!-- 业务变化一项一项说明，不将数据库快照显示给审批人 -->
         <view class="diff-section">
-          <view class="diff-title">📊 历史快照数据</view>
-          <view class="diff-grid">
-            <view class="diff-col diff-before">
-              <view class="col-head">申请前 (Before)</view>
-              <scroll-view scroll-y class="json-code">
-                <text>{{item.beforeJsonText}}</text>
-              </scroll-view>
-            </view>
-            <view class="diff-col diff-after">
-              <view class="col-head">执行后 (After)</view>
-              <scroll-view scroll-y class="json-code">
-                <text>{{item.afterJsonText}}</text>
-              </scroll-view>
+          <view class="diff-title">{{item.title}}</view>
+          <view class="change-list" wx:if="{{item.rows.length > 0}}">
+            <view class="change-row" wx:for="{{item.rows}}" wx:for-item="change" wx:key="label">
+              <text class="change-label">{{change.label}}</text>
+              <view class="change-values">
+                <view class="change-value change-before">
+                  <text class="change-caption">原标准</text>
+                  <text class="change-text">{{change.beforeText}}</text>
+                </view>
+                <text class="change-arrow">→</text>
+                <view class="change-value change-after">
+                  <text class="change-caption">申请新标准</text>
+                  <text class="change-text">{{change.afterText}}</text>
+                </view>
+              </view>
             </view>
           </view>
+          <text class="change-note">{{item.note}}</text>
         </view>
 
         <view class="audit-hint">
