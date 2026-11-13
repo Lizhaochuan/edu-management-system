@@ -455,3 +455,144 @@ test('legacy purchase is labeled unverified rather than falsely claimed as bank-
   if(old!==undefined)process.env.REQUIRE_RECONCILED_PAYMENTS=old;
  }
 }));
+
+
+test('zero-fee term rollover changes only the target term and is single-use across keys',()=>run(f=>{
+  const params={package_id:'pkg_1',target_term_id:'term_summer_2026',top_up_fee:0,remark:'免补费顺延'};
+  const before=f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1');
+  const priorHours=[before.paid_hours_left,before.gift_hours_left,before.debt_hours];
+  const result=execute(f,'finance.rollover',params,'u_adm1').result;
+  assert.equal(result.target_term_id,'term_summer_2026');
+  const after=f.db.getById(f.db.TABLES.COURSE_PACKAGES,'pkg_1');
+  assert.equal(after.expire_date,'2026-08-31');
+  assert.equal(after.term_id,'term_summer_2026');
+  assert.deepEqual([after.paid_hours_left,after.gift_hours_left,after.debt_hours],priorHours);
+  const records=f.db.getTable(f.db.TABLES.TERM_ROLLOVER_RECORDS);
+  assert.equal(records.filter(row=>row.package_id==='pkg_1').length,1);
+  assert.equal(records.find(row=>row.package_id==='pkg_1').top_up_fee,0);
+  const saved=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'finance.rollover',params,'u_adm1'),409,'ROLLOVER_TARGET_CONFLICT');
+  assert.equal(fs.readFileSync(f.file,'utf8'),saved);
+}));
+
+test('rollover rejects unverified topup, earlier terms, locked packages and teachers without any writes',()=>run(f=>{
+  const base={package_id:'pkg_1',target_term_id:'term_summer_2026',top_up_fee:0};
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'finance.rollover',{...base,top_up_fee:100},'u_adm1'),409,'ROLLOVER_TOPUP_UNVERIFIED');
+  checkError(()=>execute(f,'finance.rollover',{...base,target_term_id:'term_spring_2026'},'u_adm1'),409,'ROLLOVER_TARGET_CONFLICT');
+  checkError(()=>execute(f,'finance.rollover',base,'u_tch1'),403,'FORBIDDEN');
+  checkError(()=>execute(f,'finance.rollover',{...base,unknown:true},'u_adm1'),400,'INVALID_PARAMS');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  f.db.update(f.db.TABLES.COURSE_PACKAGES,'pkg_1',{lock_status:'pending_approval_locked'});
+  const locked=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'finance.rollover',base,'u_sa1'),409,'ROLLOVER_LOCKED');
+  assert.equal(fs.readFileSync(f.file,'utf8'),locked);
+}));
+
+test('salary generation is one draft per teacher and month, requires a super admin',()=>run(f=>{
+  const p={teacher_id:'u_tch2',period:'2026-03'};
+  checkError(()=>execute(f,'salary.generate',p,'u_adm1'),403,'FORBIDDEN');
+  checkError(()=>execute(f,'salary.generate',{...p,auto_settle:true}),400,'INVALID_PARAMS');
+  checkError(()=>execute(f,'salary.generate',{...p,period:'2026-13'}),400,'INVALID_PARAMS');
+  const created=execute(f,'salary.generate',p).result;
+  assert.equal(created.status,'draft');
+  assert.equal(created.teacher_id,'u_tch2');
+  assert.equal(f.db.getTable(f.db.TABLES.SALARY_SETTLEMENTS).filter(x=>
+    x.teacher_id==='u_tch2'&&x.period==='2026-03').length,1);
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.generate',p),409,'SALARY_PERIOD_DUPLICATE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  checkError(()=>execute(f,'salary.generate',{teacher_id:'u_adm1',period:'2026-03'}),409,'SALARY_TEACHER_INVALID');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
+
+test('salary settlement locks once and refuses reused fees without changing the version',()=>run(f=>{
+  const created=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  checkError(()=>execute(f,'salary.settle',{settlement_id:created.settlement_id},'u_adm1'),403,'FORBIDDEN');
+  const settled=execute(f,'salary.settle',{settlement_id:created.settlement_id}).result;
+  assert.equal(settled.status,'settled');
+  assert.equal(f.db.getById(f.db.TABLES.SALARY_SETTLEMENTS,created.settlement_id).status,'settled');
+  const saved=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:created.settlement_id}),409,'SALARY_SETTLEMENT_LOCKED');
+  assert.equal(fs.readFileSync(f.file,'utf8'),saved);
+}));
+
+test('salary settling stale draft with already-settled fee refuses atomically',()=>run(f=>{
+  const fee=f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-stale-draft-test',teacher_id:'u_tch2',lesson_date:'2026-03-10',
+    calculated_teacher_fee:160,fee_type:'regular',is_substitute:false,
+    effective_headcount:2,is_revoked:false,settlement_status:'pending'
+  });
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.update(f.db.TABLES.TEACHER_LESSON_FEES,fee.id,{settlement_status:'settled'});
+  const target=f.db.getById(f.db.TABLES.SALARY_SETTLEMENTS,draft.settlement_id);
+  f.db.update(f.db.TABLES.SALARY_SETTLEMENTS,target.id,{lesson_fee_ids:[fee.id]});
+  const saved=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),409,'SALARY_DETAIL_CONFLICT');
+  assert.equal(fs.readFileSync(f.file,'utf8'),saved);
+}));
+
+test('salary creation and rollover honor exact idempotency envelope replay',()=>run(f=>{
+  const p={command:'salary.generate',params:{teacher_id:'u_tch2',period:'2026-03'},
+    idempotencyKey:'salary-replay-stable-123456',expectedVersion:f.db.getWriteState().version};
+  const req=f.req('u_sa1');
+  const first=f.commands.execute(req,p);
+  const saved=fs.readFileSync(f.file,'utf8');
+  const second=f.commands.execute(req,p);
+  assert.equal(second.replayed,true);
+  assert.equal(second.result.settlement_id,first.result.settlement_id);
+  assert.equal(fs.readFileSync(f.file,'utf8'),saved);
+  const r={command:'finance.rollover',
+    params:{package_id:'pkg_1',target_term_id:'term_summer_2026',top_up_fee:0},
+    idempotencyKey:'rollover-replay-stable-123456',expectedVersion:f.db.getWriteState().version};
+  const req2=f.req('u_adm1');
+  const one=f.commands.execute(req2,r);
+  const save2=fs.readFileSync(f.file,'utf8');
+  const two=f.commands.execute(req2,r);
+  assert.equal(two.replayed,true);
+  assert.equal(two.result.rollover_id,one.result.rollover_id);
+  assert.equal(fs.readFileSync(f.file,'utf8'),save2);
+}));
+
+
+test('salary locking rejects new fee added after draft and preserves draft data',()=>run(f=>{
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-arrived-after-draft',teacher_id:'u_tch2',
+    lesson_date:'2026-03-18',calculated_teacher_fee:180,
+    fee_type:'regular',is_substitute:false,settlement_status:'pending'
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  assert.equal(f.db.getById(f.db.TABLES.SALARY_SETTLEMENTS,draft.settlement_id).status,'draft');
+}));
+
+test('salary locking rejects changes to fee amount after creating draft',()=>run(f=>{
+  f.db.insert(f.db.TABLES.TEACHER_LESSON_FEES,{
+    id:'fee-changed-after-draft',teacher_id:'u_tch2',
+    lesson_date:'2026-03-18',calculated_teacher_fee:180,
+    fee_type:'regular',is_substitute:false,settlement_status:'pending'
+  });
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.update(f.db.TABLES.TEACHER_LESSON_FEES,'fee-changed-after-draft',{
+    calculated_teacher_fee:200
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));
+
+test('salary locking rejects approved adjustment created after a draft',()=>run(f=>{
+  const draft=execute(f,'salary.generate',{teacher_id:'u_tch2',period:'2026-03'}).result;
+  f.db.insert(f.db.TABLES.SALARY_ADJUSTMENTS,{
+    id:'adj-after-draft',teacher_id:'u_tch2',
+    signed_amount:50,status:'approved_pending_settlement'
+  });
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'salary.settle',{settlement_id:draft.settlement_id}),
+    409,'SALARY_DRAFT_STALE');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+}));

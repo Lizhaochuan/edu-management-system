@@ -10,6 +10,8 @@ Page({
   data: {
     currentUser: null,
     isTeacher: false,
+    canManageSalary: false,
+    salaryActionBusy: false,
     currentTab: 'settlement', // 'settlement' | 'adjustment' | 'fees'
 
     selectedMonth: '2026-03',
@@ -77,6 +79,7 @@ Page({
     this.setData({
       currentUser: user,
       isTeacher: isTeacher,
+      canManageSalary: user.role === 'super_admin',
       teacherList: teacherList,
       teacherListNoAll: teachers,
       teacherIndex: teacherIndex,
@@ -244,80 +247,72 @@ Page({
     }
   },
 
-  /** 生成本期薪资结算单（管理员触发） */
-  onGenerateSettlement() {
+  /** 服务端统一命令生成薪资草稿；批量模式遇到首个失败立即停止，避免不确定请求被换键重发。 */
+  async onGenerateSettlement() {
     const { teacherList, teacherIndex, selectedMonth, currentUser } = this.data
-    const selectedTeacher = teacherList[teacherIndex]
-
-    if (!selectedTeacher || !selectedTeacher.id) {
-      // 若选择全部老师，依次为每位老师生成
-      const teachers = this.data.teacherListNoAll
-      if (teachers.length === 0) {
-        wx.showToast({ title: '暂无老师', icon: 'none' })
-        return
-      }
-
-      wx.showLoading({ title: '正在批量汇总出账...' })
-      let successCount = 0
-      teachers.forEach(t => {
-        try {
-          salaryEngineService.generateTeacherSalarySettlement(t.id, selectedMonth, {}, currentUser)
-          successCount++
-        } catch (e) {
-          console.warn('generate failed for teacher', t.id, e)
-        }
-      })
-      wx.hideLoading()
-      wx.showToast({ title: `成功生成 ${successCount} 份结算单`, icon: 'success' })
-      this.refreshAllData()
+    if (!currentUser || currentUser.role !== 'super_admin' || this.data.salaryActionBusy) {
+      wx.showToast({title:'仅超级管理员可生成薪资结算单',icon:'none'})
       return
     }
-
+    const selectedTeacher=teacherList[teacherIndex]
+    const targets=selectedTeacher && selectedTeacher.id
+      ? [selectedTeacher] : this.data.teacherListNoAll
+    if (!targets.length) {
+      wx.showToast({title:'暂无老师',icon:'none'})
+      return
+    }
+    this.setData({salaryActionBusy:true})
+    let successCount=0
+    wx.showLoading({title:'正在提交服务端...'})
     try {
-      wx.showLoading({ title: '生成中...' })
-      const res = salaryEngineService.generateTeacherSalarySettlement(
-        selectedTeacher.id,
-        selectedMonth,
-        {},
-        currentUser
-      )
-      wx.hideLoading()
-      wx.showToast({ title: '结算单已生成(草稿)', icon: 'success' })
+      // Commands enforce one draft per teacher/period and persist original retry envelopes.
+      for (const teacher of targets) {
+        await commands.run('salary.generate',{teacher_id:teacher.id,period:selectedMonth})
+        successCount++
+      }
       this.refreshAllData()
+      wx.showToast({title:'已生成'+successCount+'份草稿',icon:'none'})
     } catch (err) {
+      this.refreshAllData()
+      wx.showModal({title:'薪资生成中断',content:'已生成'+successCount+'份；'+
+        (err.message||'请检查服务器状态，勿重新发起不确定请求'),showCancel:false})
+    } finally {
       wx.hideLoading()
-      wx.showModal({
-        title: '生成结算单失败',
-        content: err.message || '未知错误',
-        showCancel: false
-      })
+      this.setData({salaryActionBusy:false})
     }
   },
 
-  /** 确认结算并锁死（铁律锁定防篡改） */
+  /** 服务器确认锁定单笔结算；禁止直接修改小程序本地薪资表。 */
   onSettleConfirm(e) {
-    const id = e.currentTarget.dataset.id
-    const settlement = this.data.settlements.find(s => s.id === id)
-    if (!settlement) return
-
+    if (!this.data.currentUser || this.data.currentUser.role !== 'super_admin' ||
+        this.data.salaryActionBusy) {
+      wx.showToast({title:'仅超级管理员可确认结算',icon:'none'})
+      return
+    }
+    const id=e.currentTarget.dataset.id
+    const settlement=this.data.settlements.find(s=>s.id===id)
+    if (!settlement || settlement.status !== 'draft') return
     wx.showModal({
-      title: '确认结算并锁死该账单？',
-      content: `【财务内控锁定铁律】\n老师: ${settlement.teacher_name}\n周期: ${settlement.period}\n实发课酬: ¥${settlement.total_salary}\n\n确认后该单据彻底锁死，严禁任何修改或删除！后续若发现算错必须走【薪资算错调账审批流】。`,
-      confirmColor: '#10b981',
-      confirmText: '确认锁死结算',
-      success: (res) => {
-        if (res.confirm) {
-          try {
-            salaryEngineService.settleTeacherSalary(id, this.data.currentUser)
-            wx.showToast({ title: '结算已锁定归档', icon: 'success' })
-            this.refreshAllData()
-          } catch (err) {
-            wx.showModal({
-              title: '结算锁定失败',
-              content: err.message || '未知错误',
-              showCancel: false
-            })
-          }
+      title:'确认结算并锁死该账单？',
+      content:'老师：'+settlement.teacher_name+'，周期：'+settlement.period+
+        '，总课酬：¥'+settlement.total_salary+
+        '。确认后不可直接修改，若有错误需走审批调账。请先核实明细。',
+      confirmColor:'#10b981',
+      confirmText:'确认锁定',
+      success:async res=>{
+        if (!res.confirm || this.data.salaryActionBusy) return
+        this.setData({salaryActionBusy:true})
+        wx.showLoading({title:'服务端结算中...'})
+        try {
+          await commands.run('salary.settle',{settlement_id:id})
+          this.refreshAllData()
+          wx.showToast({title:'结算已锁定',icon:'none'})
+        } catch (err) {
+          wx.showModal({title:'结算未确认',content:err.message||'请核查服务端结果',
+            showCancel:false})
+        } finally {
+          wx.hideLoading()
+          this.setData({salaryActionBusy:false})
         }
       }
     })

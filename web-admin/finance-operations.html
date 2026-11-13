@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学期结转与教师薪资 · 教务管理系统</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f5f9;color:#182336;font:15px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+header{background:#163456;color:white;padding:20px max(18px,calc((100vw - 1120px)/2));display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+header a{color:white}h1{font-size:24px;margin:0}h2{font-size:19px;margin:0 0 12px}
+main{max-width:1120px;margin:26px auto;padding:0 18px 70px}
+section{background:white;border-radius:14px;padding:26px;margin-bottom:24px;box-shadow:0 4px 14px #23364a12}
+p{line-height:1.65;color:#50617b}.alert{background:#fff4d6;border-left:4px solid #d6a134;border-radius:8px;padding:14px 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
+label{display:block;color:#40516b;font-weight:600;font-size:14px}
+input,select{display:block;width:100%;padding:12px;margin-top:7px;border:1px solid #cbd7e6;border-radius:9px;font:inherit;background:white;color:#17243c}
+button{border:0;border-radius:9px;padding:11px 17px;background:#1755a6;color:#fff;font:inherit;cursor:pointer;margin-top:16px}
+button:disabled{opacity:.45;cursor:not-allowed}button.muted{background:#566782}
+small{color:#67758b}.status{min-height:34px;padding:12px 0;font-weight:600}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:780px}
+td,th{padding:13px;text-align:left;border-bottom:1px solid #e4eaf3;white-space:nowrap}th{background:#f8fafd;color:#556781}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header><div><h1>学期结转与教师薪资</h1><small style="color:#d0dcf0">真实业务操作 · 记录可核查 · 防止重复提交</small></div><div><a href="/">返回工作台</a>　<span id="actor">正在核实权限…</span></div></header>
+<main>
+ <p class="alert">本页面操作会更改课时和薪资记录。请先核对业务数据。带补费的学期顺延暂不支持，必须待真实付款核验完善后办理；工资单锁定后只能走审批调账，不得直接修改。</p>
+ <div id="message" class="status" role="status" aria-live="polite"></div>
+ <section id="rollover-section">
+  <h2>学期课时顺延（免补费）</h2>
+  <p>保留剩余付费和赠送课时，将课时包顺延到截止日期更晚的学期。一个课时包不能向同一学期重复顺延。</p>
+  <form id="rollover-form">
+   <div class="grid">
+    <label>学员课时包<select name="package_id" id="package" required></select></label>
+    <label>转入学期<select name="target_term_id" id="target-term" required></select></label>
+    <label>备注（可选）<input name="remark" maxlength="500" placeholder="说明本次免补费顺延原因"></label>
+   </div>
+   <p id="package-info"></p>
+   <button type="submit">确认免补费顺延</button>
+  </form>
+ </section>
+ <section id="salary-section" class="hidden">
+  <h2>生成教师月度工资单</h2>
+  <p>选择教师和月份。系统将汇总当月课酬与已批准的待结调账；同一教师、同一月份只允许一份工资单草稿。</p>
+  <form id="salary-form">
+   <div class="grid"><label>教师<select name="teacher_id" id="teacher" required></select></label>
+    <label>结算月份<input name="period" type="month" id="period" required></label></div>
+   <button type="submit">生成工资单草稿</button>
+  </form>
+  <h2 style="margin-top:35px">待核对及已结算工资单</h2>
+  <div class="scroll"><table>
+   <thead><tr><th>教师</th><th>月份</th><th>应发课酬</th><th>状态</th><th>操作</th></tr></thead>
+   <tbody id="settlements"></tbody>
+  </table></div>
+ </section>
+</main>
+<script src="/js/api.js"></script><script src="/js/finance-operations.js"></script>
+</body>
+</html>
