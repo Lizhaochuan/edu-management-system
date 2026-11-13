@@ -8,8 +8,8 @@ const AuditLogsComponent = {
         <div class="card-title-group">
           <span style="font-size: 18px;">📋</span>
           <div>
-            <div class="card-title">全局操作审计日志台 (Operation Logs Viewer)</div>
-            <div class="card-subtitle">底层拦截器实时记录 · 全量不可篡改留痕 · 快照前/后 JSON Diff 深度对比</div>
+            <div class="card-title">业务操作记录</div>
+            <div class="card-subtitle">记录由谁在什么时候修改了什么，展示业务前后数值。原始记录保留供授权核查。</div>
           </div>
         </div>
         <div class="card-actions">
@@ -41,17 +41,17 @@ const AuditLogsComponent = {
             <span class="filter-label">业务模块/表:</span>
             <select class="input-control" v-model="filters.target_table" @change="fetchLogs(true)">
               <option value="">全部模块</option>
-              <option value="course_packages">课时包账本 (course_packages)</option>
-              <option value="schedules_and_attendance">排课与考勤 (schedules_and_attendance)</option>
-              <option value="approval_requests">审批流申请 (approval_requests)</option>
-              <option value="classes">班级名册 (classes)</option>
-              <option value="students">学员档案 (students)</option>
-              <option value="salary_settlements">薪资结算单 (salary_settlements)</option>
-              <option value="salary_adjustments">薪资调账 (salary_adjustments)</option>
-              <option value="manual_hour_adjustments">手工调课时 (manual_hour_adjustments)</option>
-              <option value="transfer_records">教务三转档案 (transfer_records)</option>
-              <option value="refund_records">退费核销档案 (refund_records)</option>
-              <option value="term_rollover_records">四期顺延档案 (term_rollover_records)</option>
+              <option value="course_packages">学员课时包</option>
+              <option value="schedules_and_attendance">排课与考勤</option>
+              <option value="approval_requests">审批申请</option>
+              <option value="classes">班级</option>
+              <option value="students">学员档案</option>
+              <option value="salary_settlements">工资单</option>
+              <option value="salary_adjustments">工资调账</option>
+              <option value="manual_hour_adjustments">课时调整</option>
+              <option value="transfer_records">转人／转课／转班</option>
+              <option value="refund_records">学员退费</option>
+              <option value="term_rollover_records">学期顺延</option>
             </select>
           </div>
 
@@ -59,9 +59,9 @@ const AuditLogsComponent = {
             <span class="filter-label">操作类型:</span>
             <select class="input-control" v-model="filters.action" @change="fetchLogs(true)">
               <option value="">全部操作</option>
-              <option value="INSERT">INSERT (新增/建账)</option>
-              <option value="UPDATE">UPDATE (变更/消课/生效)</option>
-              <option value="REMOVE">REMOVE (删除/解绑)</option>
+              <option value="INSERT">新增</option>
+              <option value="UPDATE">修改</option>
+              <option value="REMOVE">删除</option>
             </select>
           </div>
 
@@ -76,10 +76,10 @@ const AuditLogsComponent = {
                 <th style="width: 150px;">日志时间</th>
                 <th style="width: 120px;">操作人</th>
                 <th style="width: 90px;">类型</th>
-                <th style="width: 180px;">目标表</th>
-                <th style="width: 140px;">记录 ID</th>
+                <th style="width: 180px;">业务事项</th>
+                <th style="width: 140px;">记录内容</th>
                 <th>操作描述摘要</th>
-                <th style="width: 100px; text-align: center;">快照对比</th>
+                <th style="width: 100px; text-align: center;">变化详情</th>
               </tr>
             </thead>
             <tbody>
@@ -99,16 +99,16 @@ const AuditLogsComponent = {
                   <span class="badge badge-purple" style="font-size: 10px;">{{ item.operator_name || '系统' }}</span>
                 </td>
                 <td>
-                  <span :class="getActionBadgeClass(item.action)">{{ item.action }}</span>
+                  <span :class="getActionBadgeClass(item.action)">{{ actionText(item.action) }}</span>
                 </td>
-                <td style="font-family: monospace; font-weight: 600; color: #2563eb;">{{ item.target_table }}</td>
-                <td style="font-family: monospace; color: #475569;">#{{ item.target_record_id }}</td>
+                <td style="font-family: monospace; font-weight: 600; color: #2563eb;">{{ item.readable.title }}</td>
+                <td style="font-family: monospace; color: #475569;">{{ item.readable.rows.length }} 项变化</td>
                 <td style="font-weight: 500;">
                   <span>{{ item.description }}</span>
                 </td>
                 <td style="text-align: center;">
                   <button class="btn btn-sm btn-primary" @click="openDiffModal(item)">
-                    🔍 JSON Diff
+                    查看业务变化
                   </button>
                 </td>
               </tr>
@@ -129,46 +129,31 @@ const AuditLogsComponent = {
         </div>
       </div>
 
-      <!-- JSON Diff 弹窗 Modal -->
+      <!-- 中文业务变化对比：不向用户展示 JSON 或内部数据库字段 -->
       <div v-if="diffModal.visible" class="modal-mask" @click="diffModal.visible = false">
-        <div class="modal-content" @click.stop style="width: 1000px;">
+        <div class="modal-content" @click.stop style="width: min(880px,95vw);">
           <div class="modal-header">
-            <div>
-              <span class="modal-title">🔍 快照变更对比 (JSON Diff)</span>
-              <span style="margin-left: 10px; font-size: 12px; color: #64748b;">
-                [{{ diffModal.item.target_table }} #{{ diffModal.item.target_record_id }}]
-              </span>
-            </div>
-            <button class="modal-close" @click="diffModal.visible = false">✕</button>
+            <span class="modal-title">{{ diffModal.item.readable && diffModal.item.readable.title }}</span>
+            <button class="modal-close" @click="diffModal.visible = false">关闭</button>
           </div>
-
           <div class="modal-body">
-            <div style="margin-bottom: 12px; font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px 12px; border-radius: 6px;">
-              <strong>📝 操作说明：</strong> {{ diffModal.item.description || '无详细说明' }}<br/>
-              <strong>👤 操作人：</strong> {{ diffModal.item.operator_name }} (ID: {{ diffModal.item.operator_id }}) · 
-              <strong>⏰ 发生时间：</strong> {{ diffModal.item.action_time }}
+            <p style="line-height:1.6;color:#334155;">{{ diffModal.item.description || '本次操作暂无补充说明' }}</p>
+            <p style="color:#64748b;">操作人：{{ diffModal.item.operator_name || '系统自动' }} · 时间：{{ formatTime(diffModal.item.action_time) }}</p>
+            <div v-if="diffModal.item.readable && diffModal.item.readable.rows.length" class="table-container">
+              <table class="dense-table">
+                <thead><tr><th>业务项目</th><th>操作前</th><th>操作后</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in diffModal.item.readable.rows" :key="row.label">
+                    <td>{{ row.label }}</td><td>{{ row.beforeText }}</td><td>{{ row.afterText }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-
-            <div class="diff-container">
-              <div class="diff-pane">
-                <div class="diff-header diff-header-before">
-                  ⏮️ 修改前数据快照 (Before Snapshot)
-                </div>
-                <pre class="diff-code">{{ formatJson(diffModal.item.before_snapshot_json) }}</pre>
-              </div>
-
-              <div class="diff-pane">
-                <div class="diff-header diff-header-after">
-                  ⏭️ 修改后数据快照 (After Snapshot)
-                </div>
-                <pre class="diff-code">{{ formatJson(diffModal.item.after_snapshot_json) }}</pre>
-              </div>
-            </div>
+            <p v-if="diffModal.item.readable && diffModal.item.readable.note" style="color:#795d25;line-height:1.6;">
+              {{ diffModal.item.readable.note }}
+            </p>
           </div>
-
-          <div class="modal-footer">
-            <button class="btn" @click="diffModal.visible = false">关闭窗口</button>
-          </div>
+          <div class="modal-footer"><button class="btn" @click="diffModal.visible = false">返回操作记录</button></div>
         </div>
       </div>
     </div>
@@ -212,7 +197,8 @@ const AuditLogsComponent = {
           keyword: this.filters.keyword
         });
         if (res && res.data) {
-          this.logs = res.data.list;
+          this.logs = (res.data.list||[]).map(item=>({ ...item,
+            readable:window.BusinessDisplay.auditChange(item) }));
           this.total = res.data.total;
           this.totalPages = res.data.totalPages;
         }
@@ -244,14 +230,8 @@ const AuditLogsComponent = {
       }
     },
 
-    formatJson(str) {
-      if (!str) return '（无快照数据，记录可能已删除或新建）';
-      try {
-        const obj = typeof str === 'string' ? JSON.parse(str) : str;
-        return JSON.stringify(obj, null, 2);
-      } catch (e) {
-        return str;
-      }
+    actionText(action) {
+      return {INSERT:'新增',UPDATE:'修改',REMOVE:'删除',INIT:'初始化'}[action]||'其他操作';
     },
 
     getActionBadgeClass(action) {
