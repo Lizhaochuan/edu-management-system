@@ -254,6 +254,15 @@ module.exports = ({ fail }) => {
           x.teacher_id === teacher.id && x.period === p.period)) {
           reject('该教师本周期已有结算单，不得重复生成',409,'SALARY_PERIOD_DUPLICATE');
         }
+        // Approved adjustments are not month-scoped in the legacy engine.
+        // Do not allow two drafts to reserve the same adjustment for payout.
+        const pendingAdjustments=new Set(db.getTable(T.SALARY_ADJUSTMENTS)
+          .filter(a => a.teacher_id === teacher.id && a.status === 'approved_pending_settlement')
+          .map(a => a.id));
+        if (pendingAdjustments.size && db.getTable(T.SALARY_SETTLEMENTS).some(x =>
+          x.status === 'draft' && (x.adjustment_ids || []).some(id => pendingAdjustments.has(id)))) {
+          reject('已批准的调账项已挂入其他草稿，不得重复生成',409,'SALARY_ADJUSTMENT_RESERVED');
+        }
         const result=salary.generateTeacherSalarySettlement(p.teacher_id,p.period,
           {auto_settle:false},operator);
         return {settlement_id:result.id,period:result.period,teacher_id:result.teacher_id,
