@@ -11,7 +11,7 @@ const InspectorComponent = {
           :class="{'btn-primary': subTab === 'schedules'}" 
           @click="subTab = 'schedules'"
         >
-          📅 排课与考勤快照透视 (Schedules & Attendance)
+          📅 排课与考勤明细
         </button>
         <button 
           class="btn" 
@@ -28,8 +28,8 @@ const InspectorComponent = {
           <div class="card-title-group">
             <span style="font-size: 18px;">🔎</span>
             <div>
-              <div class="card-title">排课与考勤快照透视镜</div>
-              <div class="card-subtitle">直视底层初始人头、原班已补差人头、代课老师、跨班补课数组、消课扣费快照与算薪封顶</div>
+              <div class="card-title">排课与考勤核对</div>
+              <div class="card-subtitle">查看每次课程的出勤人数、代课、补课、扣课和教师课酬</div>
             </div>
           </div>
           <button class="btn btn-sm btn-primary" @click="fetchSchedules">
@@ -50,7 +50,7 @@ const InspectorComponent = {
                   <th style="width: 90px; text-align: center;">初始人头</th>
                   <th style="width: 90px; text-align: center;">已补差数</th>
                   <th style="width: 110px;">代课老师</th>
-                  <th>跨班补课学员 (makeup_students)</th>
+                  <th>跨班补课学员</th>
                   <th style="width: 120px; text-align: center;">当节消课明细</th>
                   <th style="width: 110px; text-align: right;">当节课酬</th>
                 </tr>
@@ -71,7 +71,7 @@ const InspectorComponent = {
                     <span v-if="s.actual_teacher_id && s.actual_teacher_id !== s.teacher_id" class="badge badge-orange" style="margin-left: 4px; font-size: 9px;">代</span>
                   </td>
                   <td>
-                    <span :class="getStatusBadgeClass(s.status)">{{ s.status }}</span>
+                    <span :class="getStatusBadgeClass(s.status)">{{ statusText(s.status) }}</span>
                   </td>
                   <!-- 初始出勤人头 (铁律不可篡改) -->
                   <td style="text-align: center;">
@@ -96,9 +96,9 @@ const InspectorComponent = {
                         :key="idx" 
                         style="font-size: 11px; margin-bottom: 2px; background: #f8fafc; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0;"
                       >
-                        <strong>{{ m.student_name || m.student_id }}</strong>
+                        <strong>{{ m.student_name || '学员姓名待核对' }}</strong>
                         <span style="color: #64748b; margin-left: 4px;">
-                          (原老师: {{ m.original_teacher_name || m.original_teacher_id }}, 缺勤课: #{{ m.original_absent_schedule_id }})
+                          (原老师: {{ m.original_teacher_name || '原教师姓名待核对' }}, 缺勤课: #{{ m.original_absent_schedule_id }})
                         </span>
                       </div>
                     </div>
@@ -133,7 +133,7 @@ const InspectorComponent = {
           <div class="card-title-group">
             <span style="font-size: 18px;">👛</span>
             <div>
-              <div class="card-title">学生课时包与流水账本透视镜</div>
+              <div class="card-title">学生课时包与流水记录</div>
               <div class="card-subtitle">一屏穿透名下全量课时包批次、可用课时、透支欠课、冻结天数、审批并发锁及不可变流水</div>
             </div>
           </div>
@@ -143,7 +143,7 @@ const InspectorComponent = {
               style="width: 220px;" 
               v-model="studentSearchKeyword" 
               @keyup.enter="fetchStudentPackages"
-              placeholder="输入学员姓名/电话/ID检索..." 
+              placeholder="输入学员姓名或联系电话检索..." 
             />
             <button class="btn btn-sm btn-primary" @click="fetchStudentPackages">搜索学员</button>
           </div>
@@ -155,7 +155,7 @@ const InspectorComponent = {
           </div>
 
           <div v-else-if="studentPackagesList.length === 0" style="text-align: center; padding: 40px; color: #94a3b8;">
-            未检索到匹配的学员账本数据
+            没有找到符合条件的学员课时记录
           </div>
 
           <!-- 学员账本透视卡片列表 -->
@@ -163,7 +163,7 @@ const InspectorComponent = {
             <!-- 学员统计顶栏 -->
             <div class="snapshot-summary-box">
               <div class="ss-item">
-                <span class="ss-label">学员姓名 / ID</span>
+                <span class="ss-label">学员姓名</span>
                 <span class="ss-value" style="color: #1e40af;">{{ item.student.name }} (#{{ item.student.id }})</span>
               </div>
               <div class="ss-item">
@@ -266,11 +266,22 @@ const InspectorComponent = {
       <div v-if="deductModal.visible" class="modal-mask" @click="deductModal.visible = false">
         <div class="modal-content" @click.stop style="width: 750px;">
           <div class="modal-header">
-            <span class="modal-title">⚡ 课堂消课扣费快照透视 (课次 #{{ deductModal.schedule.id }})</span>
+            <span class="modal-title">本次课时扣除明细</span>
             <button class="modal-close" @click="deductModal.visible = false">✕</button>
           </div>
           <div class="modal-body">
-            <pre class="diff-code" style="background:#1e1e1e; color:#d4d4d4; padding:16px; border-radius:6px;">{{ formatJson(deductModal.schedule.deducted_detail_json) }}</pre>
+            <p style="color:#3c5067;line-height:1.6;">按学员列出实际扣除的课时；不会显示内部记录格式。</p>
+            <div v-if="readableDeduction.rows.length" class="table-container">
+              <table class="dense-table">
+                <thead><tr><th>学员</th><th>课时扣除</th><th>课程类别</th></tr></thead>
+                <tbody>
+                  <tr v-for="(row, idx) in readableDeduction.rows" :key="idx">
+                    <td>{{ row.name }}</td><td>{{ row.hours }}</td><td>{{ row.type }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="color:#6b7484;line-height:1.6;">{{ readableDeduction.note }}</p>
           </div>
           <div class="modal-footer">
             <button class="btn" @click="deductModal.visible = false">关闭</button>
@@ -298,6 +309,12 @@ const InspectorComponent = {
   mounted() {
     this.fetchSchedules();
     this.fetchStudentPackages();
+  },
+
+  computed: {
+    readableDeduction() {
+      return window.BusinessDisplay.readableDeduction(this.deductModal.schedule);
+    }
   },
 
   methods: {
@@ -343,14 +360,8 @@ const InspectorComponent = {
       this.deductModal.visible = true;
     },
 
-    formatJson(str) {
-      if (!str) return '无扣费明细数据';
-      try {
-        const obj = typeof str === 'string' ? JSON.parse(str) : str;
-        return JSON.stringify(obj, null, 2);
-      } catch (e) {
-        return str;
-      }
+    statusText(status) {
+      return window.BusinessDisplay.readableScheduleStatus(status);
     },
 
     handleLiveMutation(data) {
