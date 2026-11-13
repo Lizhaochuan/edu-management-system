@@ -36,17 +36,17 @@
     <text class="heading">2. 收款核对记录（最近 200 条）</text>
     <view wx:if="{{!receipts.length}}" class="muted">暂无当前权限可见的收款记录</view>
     <view wx:for="{{receipts}}" wx:key="receipt_id" class="receipt" bindtap="selectReceipt" data-id="{{item.receipt_id}}">
-      <text class="receipt-title">{{item.payment_reference}} · {{item.status}}</text>
-      <text class="muted">学员：{{item.student_id}} / 课程：{{item.course_id}}</text>
-      <text class="muted">金额：¥{{item.amount_cents / 100}} · {{item.account_destination}}</text>
-      <text class="muted">提交人：{{item.submitted_by}} · {{item.created_at}}</text>
-      <text wx:if="{{item.package_id}}" class="muted">已绑定课时包：{{item.package_id}}</text>
+      <text class="receipt-title">{{item.studentName}} · {{item.statusText}}</text>
+      <text class="muted">课程：{{item.courseName}} · 参考号：{{item.payment_reference}}</text>
+      <text class="muted">核对金额：{{item.amountText}} · {{item.accountText}}</text>
+      <text class="muted">登记人：{{item.submittedByName}} · {{item.submittedTimeText}}</text>
+      <text wx:if="{{item.package_id}}" class="muted">{{item.packageText}}</text>
     </view>
   </view>
 
   <view wx:if="{{selectedReceipt}}" class="panel selected">
     <text class="heading">选中：{{selectedReceipt.payment_reference}}</text>
-    <text class="muted">当前状态：{{selectedReceipt.status}}。确认操作要求另一名超级管理员核对官方银行/支付账单。</text>
+    <text class="muted">当前状态：{{selectedReceipt.statusText}}。确认操作要求另一名超级管理员核对官方银行/支付账单。</text>
     <view wx:if="{{isSuperAdmin && selectedReceipt.status === 'pending'}}">
       <view class="field"><text>官方账单流水号（人工填写）</text><input value="{{statementReference}}" data-field="statementReference" bindinput="onInput" maxlength="100" placeholder="官方到账流水号"/></view>
       <button disabled="{{busy}}" bindtap="confirmReceipt" type="primary">已在官方账单人工核实，确认收款</button>

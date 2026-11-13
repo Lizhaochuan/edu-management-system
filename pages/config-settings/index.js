@@ -3,12 +3,16 @@ const commands = require('../../services/commandClient')
 const systemConfigService = require('../../services/systemConfigService')
 const db = require('../../services/db')
 const { normalizeManualRates } = require('../../services/salaryRateConfig')
+const ROLE_NAMES={super_admin:'超级管理员',admin:'教务管理员',teacher:'授课教师',
+  parent:'学员家长',guest:'未分配身份'}
+
 
 Page({
   // Consume modal taps without invoking a missing "true" event handler.
   noOp() {},
   data: {
     currentUser: null,
+    currentRoleText: '未分配身份',
     hasPermission: false, // 仅 admin 与 super_admin 为 true
     activeTab: 'terms', // 'terms' | 'courses' | 'tiers'
     tierSubTab: 'tiers', // 'tiers' | 'teachers'
@@ -89,6 +93,7 @@ Page({
     if (!hasPermission) {
       this.setData({
         currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
         hasPermission: false
       })
       return
@@ -96,6 +101,7 @@ Page({
 
     this.setData({
       currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
       hasPermission: true
     }, () => {
       this.loadAllData()

@@ -2,7 +2,7 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const pattern = /^[A-Za-z0-9_-]{1,100}$/;
-  const state = { user:null, receipt:null, records:[], students:[], courses:[], terms:[] };
+  const state = { user:null, receipt:null, records:[], students:[], courses:[], terms:[], users:[] };
   let busy = false;
   function message(text, error=false) {
     $('#notice').textContent = text;
@@ -20,8 +20,13 @@
   }
   function nameOf(items, id, field) {
     const item=items.find(x=>x.id===id);
-    return item && item[field] ? item[field] : id;
+    return item && item[field] ? item[field] : '相关信息待核对';
   }
+  const STATUS={pending:'待人工核对',confirmed:'已人工确认到账',
+    rejected:'已拒绝',consumed:'已用于购课入账'};
+  const statusText=value=>STATUS[value]||'状态待核对';
+  const accountText=value=>value==='进入公账'?'对公账户':
+    value==='进入个人账户'?'个人账户':'账户待核对';
   function cell(row, value) {
     const td=document.createElement('td');
     td.textContent=String(value ?? '');
@@ -44,9 +49,9 @@
       cell(tr,nameOf(state.students,entry.student_id,'name'));
       cell(tr,nameOf(state.courses,entry.course_id,'course_name'));
       cell(tr,'¥'+(entry.amount_cents/100).toFixed(2));
-      cell(tr,entry.account_destination);
-      cell(tr,entry.status);
-      cell(tr,entry.submitted_by);
+      cell(tr,accountText(entry.account_destination));
+      cell(tr,statusText(entry.status));
+      cell(tr,nameOf(state.users,entry.submitted_by,'name'));
       tr.addEventListener('click',()=>choose(entry.receipt_id));
       tr.addEventListener('keydown',event=>{if(event.key==='Enter')choose(entry.receipt_id)});
       tbody.appendChild(tr);
@@ -71,7 +76,7 @@
     $('#review-panel').classList.toggle('hidden',!review);
     $('#purchase-form').classList.toggle('hidden',!purchasable);
     $('#selection').textContent=entry ?
-      '参考号 '+entry.payment_reference+' · '+entry.status+' · ¥'+(entry.amount_cents/100).toFixed(2)+
+      '参考号 '+entry.payment_reference+' · '+statusText(entry.status)+' · ¥'+(entry.amount_cents/100).toFixed(2)+
       ' · '+nameOf(state.students,entry.student_id,'name')+' · '+nameOf(state.courses,entry.course_id,'course_name') :
       '请点击上方收款记录。超管核对其他人员登记的收款，确认后才能按对应记录购课。';
   }
@@ -165,11 +170,12 @@
       window.location.replace('/login.html');return;
     }
     state.user=user;
-    $('#identity').textContent=user.name+'（'+user.role+'）';
+    $('#identity').textContent=user.name+'（'+(user.role==='super_admin'?'超级管理员':'教务管理员')+'）';
     const ctx=await window.api.commandContext();
     state.students=ctx.data.snapshot.students||[];
     state.courses=ctx.data.snapshot.courses_and_class_types||[];
     state.terms=ctx.data.snapshot.terms||[];
+    state.users=ctx.data.snapshot.users||[];
     optionList('#student',state.students,x=>x.name);
     optionList('#course',state.courses,x=>x.course_name);
     optionList('#term',state.terms,x=>x.name);

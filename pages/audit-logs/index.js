@@ -1,10 +1,14 @@
 // pages/audit-logs/index.js
 const db = require('../../services/db')
 const auditDisplay = require('../../services/auditDisplay')
+const ROLE_NAMES={super_admin:'超级管理员',admin:'教务管理员',teacher:'授课教师',
+  parent:'学员家长',guest:'未分配身份'}
+
 
 Page({
   data: {
     currentUser: null,
+    currentRoleText: '未分配身份',
     isSuperAdmin: false,
     logs: [],
     logCount: 0
@@ -37,6 +41,7 @@ Page({
     if (!isSuperAdmin) {
       this.setData({
         currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
         isSuperAdmin: false,
         logs: [],
         logCount: 0
@@ -46,6 +51,7 @@ Page({
 
     this.setData({
       currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
       isSuperAdmin: true
     }, () => {
       this.loadAuditLogs()

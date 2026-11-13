@@ -12,7 +12,7 @@
         人员权限分配与身份赋权属于核心控制台，仅超级管理员（机构老板 / 合伙人）可进入操作。
       </view>
       <view class="lock-sub">
-        当前登录身份：【{{currentUser.name}} ({{currentUser.role}}）】无权修改系统人员身份。
+        当前登录身份：【{{currentUser.name}} ({{currentRoleText}}）】无权修改系统人员身份。
       </view>
       <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
         返回工作台首页

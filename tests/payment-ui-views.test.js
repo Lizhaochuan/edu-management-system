@@ -59,7 +59,8 @@ test('mini-program purchase refuses pending payments and uses immutable confirme
   const commands={refresh:async()=>{},recoverPending:async()=>{},
     run:async(command,params)=>{calls.push({command,params});return {status:'ok'};}};
   vm.runInNewContext(MINI_JS,{
-    require:name=>name.includes('commandClient')?commands:db,
+    require:name=>name.includes('commandClient')?commands:
+      name.includes('paymentDisplay')?require('../services/paymentDisplay'):db,
     Page:obj=>{page=obj;},wx,
     getApp:()=>({globalData:{currentUser:{id:'u_adm1',role:'admin'}}})
   });
@@ -128,7 +129,8 @@ test('mini-program prevents self-confirmation and self-rejection before submitti
   const identity={id:'u_sa1',role:'super_admin'};
   vm.runInNewContext(MINI_JS,{
     Page:obj=>{page=obj;},wx,
-    require:name=>name.includes('commandClient')?commands:db,
+    require:name=>name.includes('commandClient')?commands:
+      name.includes('paymentDisplay')?require('../services/paymentDisplay'):db,
     getApp:()=>({globalData:{currentUser:identity}})
   });
   page.setData=function(change){Object.assign(this.data,change);};

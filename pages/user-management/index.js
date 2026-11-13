@@ -1,6 +1,9 @@
 // pages/user-management/index.js
 const db = require('../../services/db')
 const commands = require('../../services/commandClient')
+const ROLE_NAMES={super_admin:'超级管理员',admin:'教务管理员',teacher:'授课教师',
+  parent:'学员家长',guest:'未分配身份'}
+
 
 const ROLE_OPTIONS = [
   { value: 'guest',       label: '未分配身份 / 游客', badgeClass: 'role-guest', desc: '无任何教务财务权限，仅能等待超管分配' },
@@ -20,6 +23,7 @@ Page({
   noOp() {},
   data: {
     currentUser: null,
+    currentRoleText: '未分配身份',
     isSuperAdmin: false,
     activeTab: 'all', // 'all' | 'guest' | 'parent' | 'teacher' | 'admin' | 'super_admin'
     allUsers: [],
@@ -81,6 +85,7 @@ Page({
     if (!isSuperAdmin) {
       this.setData({
         currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
         isSuperAdmin: false,
         allUsers: [],
         filteredUsers: []
@@ -90,6 +95,7 @@ Page({
 
     this.setData({
       currentUser: user,
+        currentRoleText: ROLE_NAMES[user.role] || '身份待核对',
       isSuperAdmin: true
     }, () => {
       this.loadUsers()

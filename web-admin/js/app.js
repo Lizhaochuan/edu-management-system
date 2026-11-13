@@ -55,7 +55,7 @@ const app = createApp({
             this.fetchAnomalyMetrics();
           }
           if (event === 'mutation') {
-            this.showToast(`[实时数据更新] ${data.table} 执行了 ${data.action} 操作！`);
+            this.showToast(window.BusinessDisplay.readableMutation(data.table,data.action));
             this.fetchAnomalyMetrics();
 
             // 通知子组件
