@@ -339,3 +339,119 @@ test('opposing pending demotions cannot remove the last active super admin',()=>
  assert.equal(f.db.getById(f.db.TABLES.USERS,'u_adm1').role,'super_admin');
  assert.equal(f.db.getById(f.db.TABLES.APPROVAL_REQUESTS,removeB.approval_id).status,'approved');
 }));
+
+
+test('strict payment mode refuses credit until a separately confirmed matching receipt exists',()=>run(f=>{
+ const old=process.env.REQUIRE_RECONCILED_PAYMENTS;
+ process.env.REQUIRE_RECONCILED_PAYMENTS='1';
+ try {
+  const before=fs.readFileSync(f.file,'utf8');
+  checkError(()=>execute(f,'package.purchase',purchase()),409,'PAYMENT_UNVERIFIED');
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  const submitted=execute(f,'payment.submit',{
+   payment_reference:'payment-001',student_id:'stu_1',course_id:'crs_1',
+   amount:1800,account_destination:'进入公账'
+  },'u_adm1').result;
+  assert.equal(submitted.status,'pending');
+  checkError(()=>execute(f,'package.purchase',purchase()),409,'PAYMENT_UNVERIFIED');
+  checkError(()=>execute(f,'payment.confirm',{payment_reference:'payment-001',statement_reference:'stmt-001'},'u_adm1'),403,'FORBIDDEN');
+  const verified=execute(f,'payment.confirm',{payment_reference:'payment-001',statement_reference:'stmt-001'},'u_sa1').result;
+  assert.equal(verified.status,'confirmed');
+  const result=execute(f,'package.purchase',purchase(),'u_adm1').result;
+  assert.equal(result.package.total_amount,1800);
+  assert.equal(f.db.getTable('business_write_events').find(row=>row.kind==='payment_receipt').status,'consumed');
+  const ledger=f.db.getTable('business_write_events').find(row=>row.kind==='purchase');
+  assert.equal(ledger.verification_status,'manually_reconciled');
+  assert.equal(ledger.receipt_id,submitted.receipt_id);
+  checkError(()=>execute(f,'package.purchase',purchase()),409,'BUSINESS_DUPLICATE');
+ } finally {
+  if(old===undefined)delete process.env.REQUIRE_RECONCILED_PAYMENTS;
+  else process.env.REQUIRE_RECONCILED_PAYMENTS=old;
+ }
+}));
+
+test('manual receipt must match student, course, amount and destination before credit',()=>run(f=>{
+ const old=process.env.REQUIRE_RECONCILED_PAYMENTS;
+ process.env.REQUIRE_RECONCILED_PAYMENTS='1';
+ try {
+  execute(f,'payment.submit',{
+   payment_reference:'match-001',student_id:'stu_1',course_id:'crs_1',
+   amount:1800,account_destination:'进入公账'
+  },'u_adm1');
+  execute(f,'payment.confirm',{payment_reference:'match-001',statement_reference:'stmt-match-001'});
+  const current=f.db.getTable('business_write_events').find(r=>r.reference==='match-001');
+  const before=fs.readFileSync(f.file,'utf8');
+  for(const change of [
+   {total_amount:1801},{student_id:'stu_2'},{course_id:'crs_2'},
+   {account_destination:'进入个人账户'}
+  ]) {
+   checkError(()=>execute(f,'package.purchase',purchase({payment_reference:'match-001',...change})),409,'PAYMENT_MISMATCH');
+   assert.equal(fs.readFileSync(f.file,'utf8'),before);
+   assert.equal(current.status,'confirmed');
+  }
+  execute(f,'package.purchase',purchase({payment_reference:'match-001'}));
+ } finally {
+  if(old===undefined)delete process.env.REQUIRE_RECONCILED_PAYMENTS;
+  else process.env.REQUIRE_RECONCILED_PAYMENTS=old;
+ }
+}));
+
+test('receipt registration and attestation require different authorized users and unique statements',()=>run(f=>{
+ const pending={student_id:'stu_1',course_id:'crs_1',amount:1800,account_destination:'进入公账'};
+ checkError(()=>execute(f,'payment.submit',{...pending,payment_reference:'forbidden-001'},'u_tch1'),403,'FORBIDDEN');
+ checkError(()=>execute(f,'payment.submit',{...pending,payment_reference:'invalid amount',amount:1800},'u_adm1'),400,'INVALID_PARAMS');
+ execute(f,'payment.submit',{...pending,payment_reference:'attest-001'},'u_sa1');
+ checkError(()=>execute(f,'payment.confirm',{payment_reference:'attest-001',statement_reference:'bank-001'},'u_sa1'),403,'SELF_VERIFICATION');
+ execute(f,'payment.confirm',{payment_reference:'attest-001',statement_reference:'bank-001'},'u_sa2');
+ execute(f,'payment.submit',{...pending,payment_reference:'attest-002'},'u_adm1');
+ checkError(()=>execute(f,'payment.confirm',{payment_reference:'attest-002',statement_reference:'bank-001'},'u_sa1'),409,'STATEMENT_DUPLICATE');
+ checkError(()=>execute(f,'payment.submit',{...pending,payment_reference:'attest-001'},'u_adm1'),409,'PAYMENT_DUPLICATE');
+ execute(f,'payment.reject',{payment_reference:'attest-002',reason:'银行对账记录缺失'},'u_sa1');
+ checkError(()=>execute(f,'payment.confirm',{payment_reference:'attest-002',statement_reference:'bank-002'},'u_sa2'),409,'PAYMENT_STATE_CONFLICT');
+ checkError(()=>execute(f,'package.purchase',purchase({payment_reference:'attest-002'})),409,'PAYMENT_UNVERIFIED');
+}));
+
+test('payment consumption and purchase share one atomic transaction even if ledger write fails',()=>run(f=>{
+ const old=process.env.REQUIRE_RECONCILED_PAYMENTS;
+ process.env.REQUIRE_RECONCILED_PAYMENTS='1';
+ try {
+  execute(f,'payment.submit',{
+   payment_reference:'atomic-001',student_id:'stu_1',course_id:'crs_1',
+   amount:1800,account_destination:'进入公账'
+  },'u_adm1');
+  execute(f,'payment.confirm',{payment_reference:'atomic-001',statement_reference:'bank-atomic-001'});
+  const before=fs.readFileSync(f.file,'utf8');
+  const insert=f.db.insert;
+  f.db.insert=(table, record, ...rest)=>{
+    if(table==='business_write_events' && record.kind==='purchase')throw new Error('INJECTED ledger write failure');
+    return insert(table,record,...rest);
+  };
+  try {
+   assert.throws(()=>execute(f,'package.purchase',purchase({payment_reference:'atomic-001'})),/INJECTED ledger write failure/);
+  } finally {f.db.insert=insert}
+  assert.equal(fs.readFileSync(f.file,'utf8'),before);
+  const rows=f.db.getTable('business_write_events');
+  assert.equal(rows.find(x=>x.reference==='atomic-001').status,'confirmed');
+  assert.equal(rows.some(x=>x.kind==='purchase'),false);
+  const accepted=execute(f,'package.purchase',purchase({payment_reference:'atomic-001'})).result;
+  assert.ok(accepted.package.id);
+ } finally {
+  if(old===undefined)delete process.env.REQUIRE_RECONCILED_PAYMENTS;
+  else process.env.REQUIRE_RECONCILED_PAYMENTS=old;
+ }
+}));
+
+test('legacy purchase is labeled unverified rather than falsely claimed as bank-confirmed',()=>run(f=>{
+ const old=process.env.REQUIRE_RECONCILED_PAYMENTS;
+ delete process.env.REQUIRE_RECONCILED_PAYMENTS;
+ try {
+  execute(f,'package.purchase',purchase());
+  const ledger=f.db.getTable('business_write_events').find(x=>x.kind==='purchase');
+  assert.equal(ledger.verification_status,'unverified_legacy');
+  assert.equal(ledger.receipt_id,null);
+  checkError(()=>execute(f,'payment.submit',{payment_reference:'payment-001',
+    student_id:'stu_1',course_id:'crs_1',amount:1800,account_destination:'进入公账'},'u_adm1'),409,'PAYMENT_DUPLICATE');
+ } finally {
+  if(old!==undefined)process.env.REQUIRE_RECONCILED_PAYMENTS=old;
+ }
+}));
