@@ -1,7 +1,7 @@
 <!-- pages/parent-binding/index.wxml -->
 <view class="binding-page">
   <!-- 1. 顶部角色模拟切换组件 -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 身份来自服务器登录；禁止通过前端组件模拟角色切换 -->
 
   <!-- 2. 核心业务铁律横幅 -->
   <view class="rule-banner">

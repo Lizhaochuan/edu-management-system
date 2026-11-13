@@ -1,0 +1,9 @@
+.login-page { min-height: 100vh; background: #f1f5f9; padding: 140rpx 36rpx 60rpx; box-sizing: border-box; }
+.login-card { background: #fff; border-radius: 24rpx; padding: 48rpx 36rpx; box-shadow: 0 12rpx 32rpx rgba(15,23,42,.08); }
+.login-title { font-size: 40rpx; font-weight: 700; color: #0f172a; }
+.login-hint { font-size: 25rpx; line-height: 1.6; color: #64748b; margin: 16rpx 0 40rpx; }
+.form-label { font-size: 26rpx; font-weight: 600; margin: 22rpx 0 12rpx; color: #334155; }
+.input { border: 2rpx solid #cbd5e1; border-radius: 12rpx; padding: 20rpx; font-size: 30rpx; }
+.submit { margin-top: 48rpx; background: #1d4ed8; color: #fff; border-radius: 12rpx; }
+.error { margin-top: 20rpx; color: #b91c1c; font-size: 24rpx; }
+.note { margin-top: 30rpx; color: #64748b; font-size: 23rpx; line-height: 1.6; }

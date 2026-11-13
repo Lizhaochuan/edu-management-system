@@ -46,6 +46,23 @@ function getTeacherTierSnapshot(teacherId) {
   const teacher = db.getById(db.TABLES.USERS, teacherId)
   if (!teacher) return null
 
+  // 合伙人老师是独立薪酬类别，签到时必须锁定其独立八档金额。
+  // 不允许错误记录成普通 Level，也不允许使用未配置价格占位。
+  if (teacher.teacher_category === 'partner_teacher') {
+    const partner = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
+    if (!partner || !partner.headcount_rates_json) {
+      throw new Error('合伙人老师尚未配置1～8人课时费，禁止提交错误的签到价格快照')
+    }
+    return {
+      teacher_id: teacher.id,
+      teacher_name: teacher.name,
+      is_custom_rate: false,
+      tier_id: 'partner_teacher',
+      tier_name: '合伙人老师',
+      headcount_rates_json: require('./salaryRateConfig').normalizeManualRates(partner.headcount_rates_json)
+    }
+  }
+
   // 1. 若为独立改数的特聘名师
   if (teacher.is_custom_rate && teacher.custom_tier_rates_json) {
     return {
@@ -330,6 +347,17 @@ const attendanceService = {
    * 提交排课考勤签到
    */
   submitAttendance(scheduleId, attendanceInputs = [], operatorUser) {
+    const before = JSON.parse(JSON.stringify(db.dumpAll()))
+    try {
+      return this._submitAttendanceTransactional(scheduleId, attendanceInputs, operatorUser)
+    } catch (error) {
+      // Includes deducted credits, debts, attendance and salary ledgers.
+      db.replaceAll(before)
+      throw error
+    }
+  },
+
+  _submitAttendanceTransactional(scheduleId, attendanceInputs = [], operatorUser) {
     const operator = operatorUser || getCurrentUser()
     if (!scheduleId) throw new Error('排课记录ID不能为空')
 
@@ -481,17 +509,13 @@ const attendanceService = {
 
         // ── Phase 4-B：若为原老师补课 (makeup_teacher == original_teacher)，触发原班累进补差 ──
         if (effectiveTeacherId === mk.original_teacher_id && mk.original_absent_schedule_id) {
-          try {
-            salaryEngineService.applyMakeupProgressiveDifferential({
-              original_absent_schedule_id: mk.original_absent_schedule_id,
-              student_id: mk.student_id,
-              student_name: mk.student_name,
-              makeup_schedule_id: schedule.id,
-              operatorUser: operator
-            })
-          } catch (e) {
-            console.warn('[submitAttendance] applyMakeupProgressiveDifferential failed:', e)
-          }
+          salaryEngineService.applyMakeupProgressiveDifferential({
+            original_absent_schedule_id: mk.original_absent_schedule_id,
+            student_id: mk.student_id,
+            student_name: mk.student_name,
+            makeup_schedule_id: schedule.id,
+            operatorUser: operator
+          })
         }
       } else {
         absentCount++
@@ -529,12 +553,7 @@ const attendanceService = {
     // ─────────────────────────────────────────
     // 【Phase 4 课时费实时核算钩子 1：正向签到完成触发】
     // ─────────────────────────────────────────
-    let feeResult = null
-    try {
-      feeResult = salaryEngineService.calculateLessonFee(schedule.id)
-    } catch (e) {
-      console.warn('[submitAttendance] calculateLessonFee hook failed:', e)
-    }
+    const feeResult = salaryEngineService.calculateLessonFee(schedule.id)
 
     return {
       success: true,
@@ -1109,6 +1128,16 @@ const attendanceService = {
    * @returns {Object} 取消执行明细
    */
   cancelScheduleLesson(scheduleId, options = {}) {
+    const before = JSON.parse(JSON.stringify(db.dumpAll()))
+    try {
+      return this._cancelScheduleLessonTransactional(scheduleId, options)
+    } catch (error) {
+      db.replaceAll(before)
+      throw error
+    }
+  },
+
+  _cancelScheduleLessonTransactional(scheduleId, options = {}) {
     const operator = checkAdminPermission() // 管理员最高权限
     if (!scheduleId) throw new Error('必须指定需要取消的排课ID')
 
@@ -1140,22 +1169,18 @@ const attendanceService = {
       const copy = Object.assign({}, item)
       // 若该生此前已出勤并扣了课时，调用 Phase 2-A rollbackHours 严格原路退回！
       if (item.deducted_hours > 0 && item.deducted_detail_json) {
-        try {
-          const rollbackRes = packageAccountService.rollbackHours(
-            item.deducted_detail_json,
-            `[课程取消原路退还] 管理员【${operator.name}】取消班级【${cls.name}】第${schedule.lesson_index}次课，全额退回课时。事由: ${reason.trim()}`
-          )
-          refundedStudents.push({
-            student_id: item.student_id,
-            student_name: item.student_name,
-            refunded_hours: item.deducted_hours,
-            paid_refunded: rollbackRes.total_paid_refunded,
-            gift_refunded: rollbackRes.total_gift_refunded,
-            debt_cleared: rollbackRes.debt_cleared
-          })
-        } catch (e) {
-          console.warn(`[cancelScheduleLesson] rollbackHours failed for stu ${item.student_id}:`, e)
-        }
+        const rollbackRes = packageAccountService.rollbackHours(
+          item.deducted_detail_json,
+          `[课程取消原路退还] 管理员【${operator.name}】取消班级【${cls.name}】第${schedule.lesson_index}次课，全额退回课时。事由: ${reason.trim()}`
+        )
+        refundedStudents.push({
+          student_id: item.student_id,
+          student_name: item.student_name,
+          refunded_hours: item.deducted_hours,
+          paid_refunded: rollbackRes.total_paid_refunded,
+          gift_refunded: rollbackRes.total_gift_refunded,
+          debt_cleared: rollbackRes.debt_cleared
+        })
       }
 
       // 清空扣费记录并标记状态
@@ -1191,12 +1216,17 @@ const attendanceService = {
     db.update(db.TABLES.SCHEDULES_AND_ATTENDANCE, schedule.id, cancelPayload, logDesc)
 
     // Phase 4-A：同步触发课酬引擎将台账记录清零置 0
-    try {
-      salaryEngineService.calculateLessonFee(schedule.id)
-    } catch (e) {
-      console.warn('[cancelScheduleLesson] salaryEngine calculateLessonFee failed:', e)
+    salaryEngineService.calculateLessonFee(schedule.id)
+
+    // ─────────────────────────────────────────
+    // 后续处理执行：选项 B (整班往后挪一节)
+    // ─────────────────────────────────────────
+    let postponeResult = null
+    if (handle_mode === 'postpone_entire_class') {
+      postponeResult = this.postponeClassSchedules(cls.id, schedule.id, reason.trim(), operator)
     }
 
+    // Notifications happen only after all database changes have succeeded.
     // ─────────────────────────────────────────
     // 三步联动第 3 步：触发取消通知分发
     // ─────────────────────────────────────────
@@ -1217,13 +1247,6 @@ const attendanceService = {
       console.warn('[cancelScheduleLesson] sendLessonCancellationNotice failed:', e)
     }
 
-    // ─────────────────────────────────────────
-    // 后续处理执行：选项 B (整班往后挪一节)
-    // ─────────────────────────────────────────
-    let postponeResult = null
-    if (handle_mode === 'postpone_entire_class') {
-      postponeResult = this.postponeClassSchedules(cls.id, schedule.id, reason.trim(), operator)
-    }
 
     return {
       success: true,

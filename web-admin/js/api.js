@@ -3,52 +3,48 @@
 
 const API_BASE = window.location.origin;
 
-// 预设可选身份视角列表 (全量角色覆盖)
-const MOCK_IDENTITIES = [
-  { id: 'u_sa1', name: '张校长(创始人)', role: 'super_admin', roleText: '超级管理员 (独批与全局最高权限)', badgeClass: 'badge-purple' },
-  { id: 'u_sa2', name: '李合伙人', role: 'super_admin', roleText: '超级管理员 (双超管互审防线)', badgeClass: 'badge-purple' },
-  { id: 'u_adm1', name: '王教务主管', role: 'admin', roleText: '教务管理 (排课/冻结/申请)', badgeClass: 'badge-blue' },
-  { id: 'u_adm2', name: '赵财务主管', role: 'admin', roleText: '财务管理 (课时包/调账/退费申请)', badgeClass: 'badge-blue' },
-  { id: 'u_tch1', name: '陈老师(初级)', role: 'teacher', roleText: '教师视角 (隐私脱敏·仅本班与代课)', badgeClass: 'badge-green' },
-  { id: 'u_tch2', name: '林老师(高级)', role: 'teacher', roleText: '教师视角 (隐私脱敏·仅本班与代课)', badgeClass: 'badge-green' },
-  { id: 'u_tch3', name: '周特聘名师', role: 'teacher', roleText: '名师视角 (自定义课酬标准)', badgeClass: 'badge-green' },
-  { id: 'u_par1', name: '刘小宝家长', role: 'parent', student_id: 'stu_1', roleText: '家长视角 (已授权微信订阅·仅名下学员)', badgeClass: 'badge-orange' },
-  { id: 'u_par2', name: '孙小乐家长', role: 'parent', student_id: 'stu_3', roleText: '家长视角 (未授权订阅·人工兜底)', badgeClass: 'badge-orange' }
-];
-
-let currentIdentity = MOCK_IDENTITIES[0];
+// Only a server-authenticated account can select a role.
+// The old client-side identity switcher is intentionally removed.
+let currentIdentity = { id:'', name:'请登录', role:'none', roleText:'未登录', badgeClass:'badge-gray' };
 
 const api = {
-  getIdentities() {
-    return MOCK_IDENTITIES;
+  getIdentities() { return currentIdentity.id ? [currentIdentity] : []; },
+  getCurrentIdentity() { return currentIdentity; },
+  setCurrentIdentity(_id) {
+    throw new Error('身份必须在服务器登录验证，不能通过前端切换');
   },
-
-  getCurrentIdentity() {
+  async whoAmI() {
+    const response = await fetch(API_BASE + '/api/auth/me', { credentials: 'same-origin' });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const user = payload && payload.data && payload.data.user;
+    if (!user || !user.id) return null;
+    currentIdentity = {
+      id:user.id, name:user.name, role:user.role,
+      roleText: user.role === 'super_admin' ? '超级管理员' :
+        user.role === 'admin' ? '管理员' : user.role,
+      badgeClass: user.role === 'super_admin' ? 'badge-purple' : 'badge-blue'
+    };
     return currentIdentity;
   },
-
-  setCurrentIdentity(id) {
-    const found = MOCK_IDENTITIES.find(u => u.id === id);
-    if (found) {
-      currentIdentity = found;
-      localStorage.setItem('current_admin_identity', JSON.stringify(found));
-    }
-    return currentIdentity;
+  async logout() {
+    await fetch(API_BASE + '/api/auth/logout', { method:'POST', credentials:'same-origin' });
+    window.location.replace('/login.html');
   },
-
   async request(path, options = {}) {
     const url = `${API_BASE}${path}`;
-    const headers = Object.assign({
-      'Content-Type': 'application/json',
-      'X-User-Id': currentIdentity.id,
-      'X-User-Role': currentIdentity.role
-    }, options.headers || {});
-
-    const resp = await fetch(url, Object.assign({}, options, { headers }));
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+    const response = await fetch(url, Object.assign({ credentials:'same-origin' }, options, { headers }));
+    if (response.status === 401) {
+      window.location.replace('/login.html');
+      throw new Error('登录已失效，请重新登录');
     }
-    return await resp.json();
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).message || ''; } catch (_err) {}
+      throw new Error(detail || `HTTP ${response.status} ${response.statusText}`);
+    }
+    return await response.json();
   },
 
   // 1. 获取服务状态
@@ -336,15 +332,5 @@ const api = {
     };
   }
 };
-
-// 恢复本地保存的身份
-try {
-  const saved = localStorage.getItem('current_admin_identity');
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    const found = MOCK_IDENTITIES.find(u => u.id === parsed.id);
-    if (found) currentIdentity = found;
-  }
-} catch (e) {}
 
 window.api = api;

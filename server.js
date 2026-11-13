@@ -6,6 +6,7 @@ const path = require('path');
 const url = require('url');
 
 const db = require('./services/db');
+const authService = require('./services/authService');
 const packageAccountService = require('./services/packageAccountService');
 const attendanceService = require('./services/attendanceService');
 const salaryEngineService = require('./services/salaryEngineService');
@@ -28,8 +29,13 @@ function broadcast(event, data) {
   });
   sseClients.forEach((client) => {
     try {
-      client.write(`event: ${event}\n`);
-      client.write(`data: ${payload}\n\n`);
+      if (!authService.authenticate(client.req)) {
+        client.res.end();
+        sseClients.delete(client);
+        return;
+      }
+      client.res.write(`event: ${event}\n`);
+      client.res.write(`data: ${payload}\n\n`);
     } catch (e) {
       sseClients.delete(client);
     }
@@ -79,28 +85,49 @@ function parseJsonBody(req) {
 }
 
 /** 统一 JSON 响应辅助函数 */
-function sendJson(res, statusCode, data) {
-  res.writeHead(statusCode, {
+function sendJson(res, statusCode, data, extraHeaders = {}) {
+  res.writeHead(statusCode, Object.assign({
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
-  });
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  }, extraHeaders));
   res.end(JSON.stringify(data));
 }
 
 /** 从 HTTP 请求中提取操作人身份信息 */
 function getOperatorFromReq(req) {
-  const userId = req.headers['x-user-id'] || 'u_sa1';
-  const role = req.headers['x-user-role'] || 'super_admin';
-  const user = db.getById(db.TABLES.USERS, userId);
-  if (user) return user;
-  return { id: userId, name: '操作员', role: role };
+  // This is established by credential authentication, not by untrusted request headers.
+  if (!req.auth || !req.auth.user) throw new Error('未认证的操作人');
+  return req.auth.user;
+}
+
+// Database-only rollback helper for synchronous JSON-backed business handlers.
+// This cannot undo external notifications and is not a replacement for SQL transactions.
+function withJsonDbRollback(handler) {
+  const snapshot = JSON.parse(JSON.stringify(db.dumpAll()));
+  try {
+    return handler();
+  } catch (error) {
+    db.replaceAll(snapshot);
+    throw error;
+  }
 }
 
 // 创建 HTTP 服务
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
+
+  // Loopback-only dev servers must reject attacker-controlled DNS rebinding hosts.
+  if (!process.env.ALLOW_INSECURE_NETWORK) {
+    let hostname = '';
+    try { hostname = new URL('http://' + String(req.headers.host || '')).hostname; }
+    catch (_err) { /* invalid Host */ }
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(hostname)) {
+      return sendJson(res, 403, { code:403, message:'无效的本机服务器 Host' });
+    }
+  }
 
   // A foreign website must not access this unauthenticated local API via CORS.
   // Same-origin Web requests and native mini-program requests remain compatible.
@@ -121,14 +148,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Role, X-User-Id'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     res.end();
     return;
   }
 
-  // 2. SSE 实时事件通道
+  // 2. SSE 只允许已登录的管理人员订阅，防止泄漏机构业务事件。
   if (pathname === '/api/events') {
+    const identity = authService.authenticate(req);
+    if (!identity || !authService.authorize(pathname, req.method, identity.user.role, req)) {
+      return sendJson(res, identity ? 403 : 401, { code: identity ? 403 : 401, message: '无权订阅业务事件' });
+    }
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
@@ -136,36 +167,76 @@ const server = http.createServer(async (req, res) => {
     });
     res.write(`data: ${JSON.stringify({ type: 'connected', time: new Date().toISOString() })}\n\n`);
 
-    sseClients.add(res);
-
-    req.on('close', () => {
-      sseClients.delete(res);
-    });
+    const client = { req, res };
+    sseClients.add(client);
+    req.on('close', () => sseClients.delete(client));
     return;
   }
 
   // 3. API 路由分发
   if (pathname.startsWith('/api/')) {
     try {
-      // 3.1 服务健康与概况
+      // Minimal public health check. Do not disclose database table/record counts.
       if (pathname === '/api/status' && req.method === 'GET') {
-        const allDb = db.dumpAll();
-        let totalRecords = 0;
-        Object.keys(allDb).forEach(t => { totalRecords += (allDb[t] || []).length; });
         return sendJson(res, 200, {
-          code: 0,
-          status: 'running',
-          uptime: process.uptime(),
-          sse_clients: sseClients.size,
-          total_tables: Object.keys(allDb).length,
-          total_records: totalRecords,
+          code: 0, status: 'running', uptime: process.uptime(),
           timestamp: new Date().toISOString()
         });
       }
 
-      // 3.2 全库数据导出 (小程序全量同步)
+      // Credential authentication for Web cookie sessions and mini-program Bearer tokens.
+      if (pathname === '/api/auth/login' && req.method === 'POST') {
+        const payload = await parseJsonBody(req);
+        const result = authService.login(payload.user_id, payload.password, req.socket.remoteAddress);
+        if (result.status !== 200) {
+          return sendJson(res, result.status, { code: result.status, message: result.message });
+        }
+        const secure = !!req.socket.encrypted || process.env.COOKIE_SECURE === '1';
+        return sendJson(res, 200, { code: 0, data: { user: result.user, token: result.token } },
+          { 'Set-Cookie': authService.sessionCookie(result.token, secure) });
+      }
+
+      if (pathname === '/api/auth/me' && req.method === 'GET') {
+        const identity = authService.authenticate(req);
+        return identity
+          ? sendJson(res, 200, { code: 0, data: { user: authService.publicUser(identity.user) } })
+          : sendJson(res, 401, { code: 401, message: '请先登录' });
+      }
+
+      if (pathname === '/api/auth/logout' && req.method === 'POST') {
+        authService.logout(req);
+        const secure = !!req.socket.encrypted || process.env.COOKIE_SECURE === '1';
+        return sendJson(res, 200, { code: 0, message: '已退出登录' },
+          { 'Set-Cookie': authService.clearCookie(secure) });
+      }
+
+      // All remaining APIs require a valid server-issued session and an allowlisted role.
+      const identity = authService.authenticate(req);
+      if (!identity) return sendJson(res, 401, { code: 401, message: '请先登录' });
+      req.auth = identity;
+      if (!authService.authorize(pathname, req.method, identity.user.role, req)) {
+        return sendJson(res, 403, { code: 403, message: '当前账号无权访问此接口' });
+      }
+
+      // Authenticated snapshot for the native mini-program.
+      // Admins receive business data but never raw audit or salary settlement ledgers.
       if (pathname === '/api/db/all' && req.method === 'GET') {
         const allDb = db.dumpAll();
+        if (identity.user.role === 'admin') {
+          const protectedTables = new Set([
+            db.TABLES.AUDIT_LOGS, db.TABLES.SALARY_SETTLEMENTS,
+            db.TABLES.SALARY_ADJUSTMENTS, db.TABLES.TEACHER_LESSON_FEES
+          ]);
+          const filtered = {};
+          for (const [table, rows] of Object.entries(allDb)) {
+            filtered[table] = protectedTables.has(table) ? [] :
+              table === db.TABLES.APPROVAL_REQUESTS
+                ? rows.filter(a => a.request_type === 'freeze_hours' ||
+                  a.proposer_id === identity.user.id)
+                : rows;
+          }
+          return sendJson(res, 200, { code: 0, data: filtered });
+        }
         return sendJson(res, 200, { code: 0, data: allDb });
       }
 
@@ -545,6 +616,10 @@ const server = http.createServer(async (req, res) => {
         const reqType = query.request_type;
 
         let filtered = allApprovals.filter(a => {
+          if (identity.user.role === 'admin' &&
+              a.request_type !== 'freeze_hours' && a.proposer_id !== identity.user.id) {
+            return false;
+          }
           if (status === 'pending' && a.status !== 'pending') return false;
           if (status === 'processed' && a.status === 'pending') return false;
           if (reqType && a.request_type !== reqType) return false;
@@ -574,6 +649,7 @@ const server = http.createServer(async (req, res) => {
         const operator = getOperatorFromReq(req);
         const approvalItem = db.getById(db.TABLES.APPROVAL_REQUESTS, approval_id);
         if (!approvalItem) return sendJson(res, 404, { code: 1, message: '未找到审批单' });
+        if (approvalItem.status !== 'pending') return sendJson(res, 409, { code: 409, message: '审批单已处理，禁止重复审批或重复撤销' });
 
         // 自审拦截
         if (operator.id === approvalItem.proposer_id) {
@@ -586,14 +662,8 @@ const server = http.createServer(async (req, res) => {
         }
 
         const now = new Date().toISOString();
-        db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
-          status: 'approved',
-          approver_id: operator.id,
-          approver_name: operator.name,
-          approved_time: now
-        }, `[Web端审批通过] ${operator.name} 批准单据 #${approvalItem.id}`);
-
         try {
+          withJsonDbRollback(() => {
           if (approvalItem.request_type === 'config_change') {
             systemConfigService.applyConfigApproval(approvalItem, operator);
           } else if (approvalItem.request_type === 'freeze_hours') {
@@ -608,7 +678,15 @@ const server = http.createServer(async (req, res) => {
             attendanceService.applyMakeupSignApproval(approvalItem, operator);
           } else if (approvalItem.request_type === 'salary_adjustment') {
             salaryEngineService.applySalaryAdjustmentApproval(approvalItem, operator);
+          } else {
+            throw new Error('不支持的审批类型，禁止直接标记为已批准');
           }
+          // Mark approved only after successful business application.
+          db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
+            status: 'approved', approver_id: operator.id,
+            approver_name: operator.name, approved_time: now
+          }, `[Web端审批通过] ${operator.name} 批准单据 #${approvalItem.id}`);
+          });
         } catch (bizErr) {
           return sendJson(res, 400, { code: 1, message: bizErr.message || '业务执行拦截' });
         }
@@ -623,6 +701,7 @@ const server = http.createServer(async (req, res) => {
         const operator = getOperatorFromReq(req);
         const approvalItem = db.getById(db.TABLES.APPROVAL_REQUESTS, approval_id);
         if (!approvalItem) return sendJson(res, 404, { code: 1, message: '未找到审批单' });
+        if (approvalItem.status !== 'pending') return sendJson(res, 409, { code: 409, message: '审批单已处理，禁止重复审批或重复撤销' });
 
         if (operator.id === approvalItem.proposer_id) {
           return sendJson(res, 403, { code: 1, message: '违反内控铁律：不能审批自己发起的申请！请切换其他账号' });
@@ -631,15 +710,9 @@ const server = http.createServer(async (req, res) => {
         const reason = (reject_reason || '经审批人综合评估未予通过').trim();
         const now = new Date().toISOString();
 
-        db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
-          status: 'rejected',
-          approver_id: operator.id,
-          approver_name: operator.name,
-          approved_time: now,
-          reject_reason: reason
-        }, `[Web端审批驳回] ${operator.name} 驳回单据 #${approvalItem.id}，理由：${reason}`);
-
-        if (approvalItem.request_type === 'freeze_hours') {
+        try {
+          withJsonDbRollback(() => {
+            if (approvalItem.request_type === 'freeze_hours') {
           transferRefundService.rejectFreezeApproval(approvalItem, reason, operator);
         } else if (approvalItem.request_type === 'manual_hour_adjust' || approvalItem.request_type === 'balance_adjustment') {
           transferRefundService.rejectManualHourAdjustApproval(approvalItem, reason, operator);
@@ -651,6 +724,14 @@ const server = http.createServer(async (req, res) => {
           attendanceService.rejectMakeupSignApproval(approvalItem, reason, operator);
         } else if (approvalItem.request_type === 'salary_adjustment') {
           salaryEngineService.rejectSalaryAdjustmentApproval(approvalItem, reason, operator);
+        }
+          db.update(db.TABLES.APPROVAL_REQUESTS, approvalItem.id, {
+            status: 'rejected', approver_id: operator.id, approver_name: operator.name,
+            approved_time: now, reject_reason: reason
+          }, `[Web端审批驳回] ${operator.name} 驳回单据 #${approvalItem.id}，理由：${reason}`);
+          });
+        } catch (bizErr) {
+          return sendJson(res, 400, { code:1, message: bizErr.message || '审批驳回执行失败' });
         }
 
         broadcast('mutation', { action: 'APPROVAL_REJECTED', approval_id: approvalItem.id, table: 'approval_requests' });
@@ -954,10 +1035,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 4. 静态 Web 资源托管 (托管 ./web-admin)
-  let filePath = path.join(WEB_ADMIN_DIR, pathname === '/' ? 'index.html' : pathname);
-
-  // 防目录穿越
-  if (!filePath.startsWith(WEB_ADMIN_DIR)) {
+  let requestedPath;
+  try { requestedPath = decodeURIComponent(pathname === '/' ? '/index.html' : pathname); }
+  catch (_err) {
+    res.writeHead(400); res.end('Bad Path'); return;
+  }
+  if (requestedPath.includes('\\0') || requestedPath.includes('\\\\')) {
+    res.writeHead(403); res.end('Access Denied'); return;
+  }
+  const filePath = path.resolve(WEB_ADMIN_DIR, '.' + requestedPath);
+  const relativePath = path.relative(WEB_ADMIN_DIR, filePath);
+  // Canonical path containment, not a string-prefix check (which accepts web-admin2).
+  if (relativePath === '..' || relativePath.startsWith('..' + path.sep) ||
+      path.isAbsolute(relativePath)) {
     res.writeHead(403);
     res.end('Access Denied');
     return;

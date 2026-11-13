@@ -1,7 +1,7 @@
 <!-- pages/config-settings/index.wxml -->
 <view class="config-page">
   <!-- 1. 顶部角色模拟切换组件（方便现场切号测试：管理提单 -> 超管审批） -->
-  <role-switcher active-user-id="{{currentUser.id}}" bind:rolechange="onRoleChange"></role-switcher>
+  <!-- 当前用户由后端登录认证，禁止本地切换身份 -->
 
   <!-- ── 场景 A：无权限拦截视图（老师、家长、游客等） ── -->
   <view wx:if="{{!hasPermission}}" class="lock-container">
@@ -162,8 +162,8 @@
       <block wx:if="{{tierSubTab === 'tiers'}}">
         <view class="panel-header">
           <view class="header-left">
-            <text class="panel-title">教师薪资档位与人头阶梯</text>
-            <text class="panel-subtitle">改名不改历史；人数改大必须填全阶梯价格</text>
+            <text class="panel-title">教师薪酬等级与1～8人档位</text>
+            <text class="panel-subtitle">每档金额独立填写；无固定增量；历史快照不变</text>
           </view>
           <button class="btn-create" bindtap="onOpenAddTier" hover-class="btn-hover">
             ＋ 新建档位
@@ -203,6 +203,21 @@
               </button>
             </view>
           </view>
+          <view class="tier-card">
+            <view class="tier-top"><text class="tier-name">合伙人老师（独立薪酬类别）</text></view>
+            <view class="tier-rates-wrap">
+              <text class="rates-title">与普通教师 Level 分开配置，不涉及股权、分红或管理员权限。</text>
+              <view class="rates-flex">
+                <view wx:for="{{partnerConfig.headcount_rates_json}}" wx:for-index="count" wx:for-item="fee" wx:key="count" class="rate-pill">
+                  <text class="pill-count">{{count}}人</text><text class="pill-fee">¥{{fee}} /课时</text>
+                </view>
+              </view>
+              <text wx:if="{{!partnerConfig.headcount_rates_json}}" class="tier-rule-tip">尚未配置，请填写1～8人每课时金额。</text>
+            </view>
+            <view class="tier-bottom">
+              <button class="btn-action-sm" bindtap="onOpenPartnerModal">配置合伙人老师八档金额</button>
+            </view>
+          </view>
         </view>
       </block>
 
@@ -211,7 +226,7 @@
         <view class="panel-header">
           <view class="header-left">
             <text class="panel-title">授课教师课酬结算状态</text>
-            <text class="panel-subtitle">支持给单个老师单独改数或一键清回档位默认</text>
+            <text class="panel-subtitle">普通教师可独立改数；合伙人老师使用独立价表</text>
           </view>
         </view>
 
@@ -221,7 +236,7 @@
               <view class="teacher-info-row">
                 <text class="teacher-real-name">{{item.name}}</text>
                 <view class="custom-status-tag {{item.isCustom ? 'tag-custom' : 'tag-default'}}">
-                  {{item.isCustom ? '⚡ 特聘独立改数' : '✓ 默认跟档结算'}}
+                  {{item.teacherCategory === 'partner_teacher' ? '合伙人老师' : (item.isCustom ? '特聘独立改数' : '默认跟档结算')}}
                 </view>
               </view>
               <text class="teacher-base-tier">基准绑定档位：{{item.tierName}}</text>
@@ -245,20 +260,24 @@
 
             <view class="teacher-actions">
               <button 
-                wx:if="{{item.isCustom}}" 
+                wx:if="{{item.isCustom &amp;&amp; item.teacherCategory !== 'partner_teacher'}}" 
                 class="btn-reset-tier" 
                 bindtap="onResetTeacherTier" 
                 data-id="{{item.id}}"
               >
                 申请恢复跟档
               </button>
-              <button 
-                class="btn-action-sm" 
+              <button
+                wx:if="{{item.teacherCategory !== 'partner_teacher'}}"
+                class="btn-action-sm"
                 bindtap="onOpenTeacherCustomModal" 
                 data-id="{{item.id}}"
                 hover-class="btn-hover"
               >
                 {{item.isCustom ? '调整特聘阶梯' : '单独改数 (脱离默认)'}}
+              </button>
+              <button class="btn-action-sm" bindtap="onSubmitTeacherCategory" data-id="{{item.id}}">
+                {{item.teacherCategory === 'partner_teacher' ? '转回普通教师（需审批）' : '设为合伙人老师（需审批）'}}
               </button>
             </view>
           </view>
@@ -405,18 +424,7 @@
           />
         </view>
 
-        <!-- 封顶人数步进器 -->
-        <view class="form-group">
-          <view class="stepper-header">
-            <text class="form-label">封顶出勤人数阶梯（强校验）</text>
-            <view class="stepper-ctrl">
-              <button class="btn-step" bindtap="onChangeTierMaxCapacity" data-delta="-1">-</button>
-              <text class="step-num">{{tierForm.max_capacity}} 人</text>
-              <button class="btn-step" bindtap="onChangeTierMaxCapacity" data-delta="1">+</button>
-            </view>
-          </view>
-          <text class="input-tip-warn">⚠️ 强校验铁律：人数改大后，必须将每一个新增出勤档位的价格填全，否则无法提交！</text>
-        </view>
+        <view class="input-tip-warn">必须独立填写1～8人八档每课时金额。金额不要求等差，不能空缺。</view>
 
         <!-- 阶梯价格动态输入框 -->
         <view class="rates-input-group">
@@ -424,8 +432,8 @@
             <text class="rate-count-badge">{{item.headcount}} 人出勤：</text>
             <input 
               class="rate-input-box" 
-              type="number"
-              placeholder="请输入单节课酬(元)"
+              type="digit"
+              placeholder="输入每课时金额（数字）"
               value="{{item.rate}}"
               data-index="{{index}}"
               bindinput="onTierRateItemInput"
@@ -467,17 +475,7 @@
           <text class="brief-role">脱离默认档位，独立计费</text>
         </view>
 
-        <!-- 封顶人数步进器 -->
-        <view class="form-group">
-          <view class="stepper-header">
-            <text class="form-label">特聘人头阶梯封顶人数</text>
-            <view class="stepper-ctrl">
-              <button class="btn-step" bindtap="onChangeCustomMaxCapacity" data-delta="-1">-</button>
-              <text class="step-num">{{teacherCustomForm.max_capacity}} 人</text>
-              <button class="btn-step" bindtap="onChangeCustomMaxCapacity" data-delta="1">+</button>
-            </view>
-          </view>
-        </view>
+        <view class="input-tip-warn">1～8人每档独立手动填写，不自动计算下一档。</view>
 
         <!-- 阶梯价格输入 -->
         <view class="rates-input-group">
@@ -485,8 +483,8 @@
             <text class="rate-count-badge">{{item.headcount}} 人出勤：</text>
             <input 
               class="rate-input-box" 
-              type="number"
-              placeholder="请输入单节课酬(元)"
+              type="digit"
+              placeholder="输入每课时金额（数字）"
               value="{{item.rate}}"
               data-index="{{index}}"
               bindinput="onCustomRateItemInput"
@@ -508,6 +506,35 @@
       <view class="modal-footer">
         <button class="btn-cancel" bindtap="onCloseTeacherCustomModal">取消</button>
         <button class="btn-submit" bindtap="onSubmitTeacherCustom">提交特聘申请</button>
+      </view>
+    </view>
+  </view>
+  <!-- 合伙人老师独立八档课时费申请 -->
+  <view wx:if="{{showPartnerModal}}" class="modal-mask" bindtap="onClosePartnerModal">
+    <view class="modal-box" catchtap="true">
+      <view class="modal-header">
+        <text class="modal-title">合伙人老师 · 1～8人每课时金额</text>
+        <text class="modal-close" bindtap="onClosePartnerModal">✕</text>
+      </view>
+      <view class="modal-body">
+        <view class="input-tip-warn">八档金额由管理员分别手动填写，禁止使用固定增量公式。</view>
+        <view class="rates-input-group">
+          <view wx:for="{{partnerForm.ratesList}}" wx:key="headcount" class="rate-input-row">
+            <text class="rate-count-badge">{{item.headcount}}人：</text>
+            <input class="rate-input-box" type="digit" placeholder="每课时金额" value="{{item.rate}}"
+              data-index="{{index}}" bindinput="onPartnerRateInput" />
+            <text class="rate-unit">元/课时</text>
+          </view>
+        </view>
+        <view class="form-group">
+          <text class="form-label">设置理由</text>
+          <textarea class="form-textarea" value="{{partnerForm.reason}}"
+            bindinput="onPartnerReasonInput" placeholder="请填写审批理由" />
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="btn-cancel" bindtap="onClosePartnerModal">取消</button>
+        <button class="btn-submit" bindtap="onSubmitPartnerRates">提交审批</button>
       </view>
     </view>
   </view>

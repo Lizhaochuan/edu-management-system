@@ -1,6 +1,7 @@
 // services/systemConfigService.js
 // 系统参数设置与审批生效服务（Phase 1-A）
 const db = require('./db')
+const { normalizeManualRates } = require('./salaryRateConfig')
 
 /**
  * 校验当前登录人是否为管理员或超级管理员（老师与家长无权操作）
@@ -246,12 +247,72 @@ const systemConfigService = {
 
     return users.filter(u => u.role === 'teacher').map(t => {
       const defaultTier = tierMap[t.teacher_tier_id]
+      const isPartnerTeacher = t.teacher_category === 'partner_teacher'
+      const partnerConfig = db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
       return Object.assign({}, t, {
-        tierName: defaultTier ? defaultTier.name : '未绑定档位',
-        defaultTierRates: defaultTier ? defaultTier.headcount_rates_json : null,
+        tierName: isPartnerTeacher ? '合伙人老师' : (defaultTier ? defaultTier.name : '未绑定档位'),
+        defaultTierRates: isPartnerTeacher ? (partnerConfig ? partnerConfig.headcount_rates_json : null) : (defaultTier ? defaultTier.headcount_rates_json : null),
+        teacherCategory: isPartnerTeacher ? 'partner_teacher' : 'ordinary',
         isCustom: !!t.is_custom_rate
       })
     })
+  },
+
+  /** Partner-teacher pay is a separate table, not a normal Level or partnership dividend. */
+  getPartnerTeacherRates() {
+    return db.getById(db.TABLES.PARTNER_TEACHER_RATE_CONFIG, 'partner_teacher')
+  },
+
+  submitPartnerTeacherRatesRequest(params) {
+    const user = checkAdminPermission()
+    const { headcount_rates_json, reason } = params
+    if (!reason || !reason.trim()) throw new Error('设置合伙人老师课时费必须说明理由')
+    const validatedRates = normalizeManualRates(headcount_rates_json)
+    const existing = this.getPartnerTeacherRates()
+    return db.insert(db.TABLES.APPROVAL_REQUESTS, {
+      request_type: 'config_change',
+      config_subtype: 'partner_teacher_rates',
+      proposer_id: user.id,
+      proposer_name: user.name,
+      required_approver_role: 'super_admin',
+      target_table: db.TABLES.PARTNER_TEACHER_RATE_CONFIG,
+      target_record_id: existing ? existing.id : null,
+      before_data_json: existing || null,
+      after_data_json: { id: 'partner_teacher', status: 'active', headcount_rates_json: validatedRates },
+      reason: reason.trim(),
+      status: 'pending'
+    }, `[${user.name}] 提交合伙人老师八档课时费申请`)
+  },
+
+  /** Partner is a teaching category; it never grants super-admin privileges. */
+  submitTeacherCategoryRequest(teacherId, params) {
+    const user = checkAdminPermission()
+    const { teacher_category, teacher_tier_id, reason } = params
+    if (!reason || !reason.trim()) throw new Error('调整教师类别必须填写理由')
+    const teacher = db.getById(db.TABLES.USERS, teacherId)
+    if (!teacher || teacher.role !== 'teacher') throw new Error('仅能修改教师类别')
+    if (teacher_category !== 'ordinary' && teacher_category !== 'partner_teacher') {
+      throw new Error('教师类别只能是普通教师或合伙人老师')
+    }
+    if (teacher_category === 'ordinary') {
+      const tier = db.getById(db.TABLES.TEACHER_TIERS, teacher_tier_id || teacher.teacher_tier_id)
+      if (!tier) throw new Error('普通教师必须绑定有效的薪酬等级')
+    }
+    const afterData = { teacher_category }
+    if (teacher_category === 'ordinary') afterData.teacher_tier_id = teacher_tier_id || teacher.teacher_tier_id
+    return db.insert(db.TABLES.APPROVAL_REQUESTS, {
+      request_type: 'config_change',
+      config_subtype: 'teacher_category',
+      proposer_id: user.id,
+      proposer_name: user.name,
+      required_approver_role: 'super_admin',
+      target_table: db.TABLES.USERS,
+      target_record_id: teacherId,
+      before_data_json: { teacher_category: teacher.teacher_category || 'ordinary', teacher_tier_id: teacher.teacher_tier_id },
+      after_data_json: afterData,
+      reason: reason.trim(),
+      status: 'pending'
+    }, `[${user.name}] 申请调整老师【${teacher.name}】类别`)
   },
 
   /**
@@ -266,11 +327,11 @@ const systemConfigService = {
     if (!reason || !reason.trim()) throw new Error('新增教师薪资档位必须填写申请理由')
 
     // 强校验阶梯出勤人数与价格
-    validateHeadcountRates(headcount_rates_json, maxCapacity)
+    const validatedRates = normalizeManualRates(headcount_rates_json)
 
     const afterData = {
       name: name.trim(),
-      headcount_rates_json: headcount_rates_json,
+      headcount_rates_json: validatedRates,
       status: 'active'
     }
 
@@ -318,7 +379,7 @@ const systemConfigService = {
     if (!reason || !reason.trim()) throw new Error('修改薪资档位必须填写申请理由')
 
     // 强校验：阶梯出勤价格必须覆盖到最新封顶人数的每一个数字
-    validateHeadcountRates(headcount_rates_json, maxCapacity)
+    const validatedRates = normalizeManualRates(headcount_rates_json)
 
     const beforeData = {
       name: tier.name,
@@ -327,7 +388,7 @@ const systemConfigService = {
 
     const afterData = {
       name: name.trim(),
-      headcount_rates_json: headcount_rates_json
+      headcount_rates_json: validatedRates
     }
 
     const newApproval = {
@@ -368,7 +429,7 @@ const systemConfigService = {
     if (!teacher || teacher.role !== 'teacher') throw new Error(`未找到指定教师 (id=${teacherId})`)
     if (!reason || !reason.trim()) throw new Error('为老师定制特聘课酬必须填写申请事由')
 
-    validateHeadcountRates(custom_tier_rates_json, maxCapacity)
+    const validatedRates = normalizeManualRates(custom_tier_rates_json)
 
     const beforeData = {
       teacher_name: teacher.name,
@@ -378,7 +439,7 @@ const systemConfigService = {
 
     const afterData = {
       is_custom_rate: true,
-      custom_tier_rates_json: custom_tier_rates_json
+      custom_tier_rates_json: validatedRates
     }
 
     const newApproval = {

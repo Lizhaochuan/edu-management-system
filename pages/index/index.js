@@ -172,6 +172,7 @@ const ROLE_DESC_MAP = {
 Page({
   data: {
     currentUser: null,
+    debugEnabled: false,
     roleInfo: {},
     visibleCards: [],
     stats: {
@@ -190,25 +191,35 @@ Page({
     this.refreshCurrentView()
   },
 
-  /** 角色切换组件回调 */
-  onRoleChange(e) {
-    const user = e.detail.user
+  /** Role is established only by server login; never default to local super-admin. */
+  refreshCurrentView() {
+    const app = getApp()
+    const user = app && app.globalData && app.globalData.currentUser
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+      wx.reLaunch({ url: '/pages/login/index' })
+      return
+    }
+    this.setData({
+      debugEnabled: user.role === 'super_admin' &&
+        wx.getStorageSync('enable_debug_tools') === true
+    })
     this.applyUser(user)
   },
 
-  /** 刷新当前用户视图与统计信息 */
-  refreshCurrentView() {
-    const app = getApp()
-    let user = (app && app.globalData && app.globalData.currentUser) || wx.getStorageSync('current_user')
-    if (!user) {
-      const users = db.getTable(db.TABLES.USERS) || []
-      user = users.find(u => u.role === 'super_admin') || users[0]
-      if (app && app.globalData) {
-        app.globalData.currentUser = user
-      }
-      wx.setStorageSync('current_user', user)
+  onLogout() {
+    const token = wx.getStorageSync('auth_token')
+    if (token) {
+      wx.request({
+        url: db.SERVER_API_BASE + '/api/auth/logout',
+        method: 'POST',
+        header: { Authorization: 'Bearer ' + token },
+        timeout: 2000
+      })
     }
-    this.applyUser(user)
+    wx.removeStorageSync('auth_token')
+    wx.removeStorageSync('current_user')
+    getApp().globalData.currentUser = null
+    wx.reLaunch({ url: '/pages/login/index' })
   },
 
   /** 应用用户并进行视图隔离 */
@@ -272,6 +283,7 @@ Page({
 
   /** 模拟发起一条调账审批并写入日志 */
   onSimulateApproval() {
+    if (!this.data.debugEnabled) return
     const user = this.data.currentUser
     if (!user) {
       wx.showToast({ title: '当前未登录用户', icon: 'none' })
@@ -326,6 +338,7 @@ Page({
 
   /** 一键重置演示数据库 */
   onResetDatabase() {
+    if (!this.data.debugEnabled) return
     wx.showModal({
       title: '确认重置演示数据库？',
       content: '该操作将清空当前所有修改并重新载入 10 张表的初始演示种子数据。',
@@ -334,14 +347,6 @@ Page({
         if (res.confirm) {
           try {
             db.initDatabase(true)
-            const app = getApp()
-            const users = db.getTable(db.TABLES.USERS) || []
-            const firstAdmin = users.find(u => u.role === 'super_admin') || users[0]
-            if (app && app.globalData) {
-              app.globalData.currentUser = firstAdmin
-            }
-            wx.setStorageSync('current_user', firstAdmin)
-
             this.refreshCurrentView()
             wx.showToast({
               title: '数据库已重置还原',
@@ -359,44 +364,8 @@ Page({
     })
   },
 
-  /** 游客输入手机号认领已预设账号 */
+  /** Account claiming by phone without server proof has been removed. */
   onClaimPhone() {
-    wx.showModal({
-      title: '手机号身份认领',
-      content: '若管理员已提前录入您的手机号，请输入手机号直接激活对应身份：',
-      editable: true,
-      placeholderText: '请输入11位手机号码',
-      confirmText: '认领激活',
-      success: (res) => {
-        if (res.confirm) {
-          const phone = res.content && res.content.trim()
-          if (!phone) {
-            wx.showToast({ title: '手机号不能为空', icon: 'none' })
-            return
-          }
-          const users = db.getTable(db.TABLES.USERS) || []
-          const matched = users.find(u => u.phone === phone && u.role !== 'guest')
-          if (matched) {
-            const app = getApp()
-            if (app && app.globalData) {
-              app.globalData.currentUser = matched
-            }
-            wx.setStorageSync('current_user', matched)
-            this.refreshCurrentView()
-            wx.showModal({
-              title: '认领成功！',
-              content: `已成功匹配到预建档账号：【${matched.name} (${matched.role})】，已为您激活专属工作台权限！`,
-              showCancel: false
-            })
-          } else {
-            wx.showModal({
-              title: '未查询到预设档案',
-              content: `系统中尚未查询到绑定手机号【${phone}】的正式角色档案。请联系超级管理员（张校长）在【人员与权限授权中心】为您建档或赋权。`,
-              showCancel: false
-            })
-          }
-        }
-      }
-    })
+    wx.showToast({ title:'请联系管理员设置登录凭证', icon:'none' })
   }
 })
