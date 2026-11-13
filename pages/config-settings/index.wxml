@@ -9,10 +9,10 @@
       <view class="lock-icon">🔒</view>
       <view class="lock-title">权限拦截</view>
       <view class="lock-desc">
-        系统参数、课时单价与薪资档位属于教务与财务核心配置，仅教务管理(admin)或超级管理员(super_admin)可访问。
+        系统参数、课时单价与薪资档位属于教务与财务核心配置，仅教务管理员或超级管理员可访问。
       </view>
       <view class="lock-sub">
-        当前登录身份：【{{currentUser.name}} ({{currentUser.role}}）】无权访问此页面。
+        当前登录身份：【{{currentUser.name}} ({{currentRoleText}}）】无权访问此页面。
       </view>
       <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
         返回工作台首页
