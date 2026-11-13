@@ -99,7 +99,7 @@
     event.preventDefault();
     const form=event.currentTarget.elements;
     const amount=Number(form.amount.value);
-    if (!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100) {
+    if (!Number.isFinite(amount)||amount<=0||!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(form.amount.value.trim())) {
       message('金额应大于零，最多两位小数',true);return;
     }
     let reference;
