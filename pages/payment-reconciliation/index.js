@@ -12,6 +12,7 @@ function listPayments() {
       header: { Authorization: 'Bearer ' + token },
       timeout: 10000,
       success(res) {
+        if (token !== wx.getStorageSync('auth_token')) return reject(new Error('登录身份已变化，请重新读取'))
         if (res.statusCode === 200 && res.data && res.data.code === 0) resolve(res.data.data)
         else reject(new Error((res.data && res.data.message) || '读取收款记录失败'))
       },
