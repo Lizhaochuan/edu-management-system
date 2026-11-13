@@ -6,6 +6,8 @@
 
 **验收性质：** 实际运行微信开发者工具、Web 浏览器和有条件的 iPhone 真机，核实能否操作、看到的数据是否正确、权限是否安全。这不是自动化单元测试，也不是正式环境上线批准。
 
+**验收汇报入口：** https://github.com/Lizhaochuan/edu-management-system/issues/28 。逐项检查后由同事或其 AI 把脱敏报告更新到这里。
+
 **统一事实来源：** 私有 GitHub 仓库 https://github.com/Lizhaochuan/edu-management-system ，尤其是 HANDOFF.md、本文件、WEB_PAYMENT_READABLE_ACCEPTANCE.md、BUSINESS_CHANGE_DISPLAY_AUDIT.md、FINANCE_COMMAND_MIGRATION.md、PAYMENT_UI_HANDOFF.md。不得依赖两个 AI 之间未共享的对话。
 
 ---
