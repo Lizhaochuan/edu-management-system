@@ -177,6 +177,7 @@ Page({
       })
 
       this.setData({ showTermModal: false, editingTerm: null })
+      this.loadAllData()
 
       wx.showModal({
         title: created.direct_approved?.length ? '设置已生效' : '申请已提交！',
