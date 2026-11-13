@@ -178,7 +178,8 @@ function auditChange(log,lookups={}) {
   const active=isRemoved?prior:current;
   const rows=[];let skipped=0;
   for(const key of Object.keys(active)){
-    if(SKIP.has(key) || /(?:password|token|secret|credential|private|hash|signature)/i.test(key))continue;
+    if(SKIP.has(key))continue;
+    if(/(?:password|token|secret|credential|private|hash|signature)/i.test(key)) {skipped++;continue;}
     if(key==='headcount_rates_json'||key==='custom_tier_rates_json') {
       let from=prior[key],to=current[key];
       try{if(typeof from==='string')from=JSON.parse(from);if(typeof to==='string')to=JSON.parse(to);}catch(_){skipped++;continue;}
