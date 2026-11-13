@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>收款人工核对 · 教务管理系统</title>
+  <style>
+    * { box-sizing:border-box }
+    body { margin:0; background:#f4f7fb; font:14px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; color:#17223b }
+    header { background:#102947; color:white; padding:17px max(18px,calc((100vw - 1080px)/2)) }
+    nav { display:flex; gap:20px; align-items:center; justify-content:space-between; flex-wrap:wrap }
+    a { color:inherit }
+    .container { max-width:1080px; margin:24px auto; padding:0 16px 60px }
+    .hint { background:#fff6db; border-left:4px solid #d99a15; border-radius:6px; padding:15px 18px; line-height:1.6; margin-bottom:18px }
+    .card { background:white; border-radius:14px; padding:22px; box-shadow:0 4px 25px #15304a0b; margin-bottom:18px }
+    h1 { font-size:21px; margin:0 } h2 { font-size:17px; margin:0 0 14px }
+    p { color:#56667d; line-height:1.6 }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px }
+    label { display:block; font-weight:600; color:#46566d }
+    input,select { display:block; width:100%; padding:11px 12px; margin-top:7px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font:inherit }
+    button { border:0; border-radius:8px; padding:10px 16px; background:#1454ae; color:#fff; cursor:pointer; font:inherit }
+    button.secondary { background:#475569 } button.warn { background:#aa3b37 }
+    button:disabled { opacity:.55; cursor:wait }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:16px }
+    .muted { color:#62728b; font-size:13px }
+    .status { min-height:25px; padding-top:8px; font-weight:600 }
+    .table-scroll { overflow-x:auto }
+    table { width:100%; border-collapse:collapse; min-width:760px }
+    th,td { border-bottom:1px solid #e5edf5; padding:11px 8px; text-align:left; font-size:13px }
+    th { color:#61728a }
+    tbody tr { cursor:pointer } tbody tr:hover { background:#f2f7fd }
+    tbody tr[aria-selected="true"] { background:#e6f0ff }
+    .pill { display:inline-block; border-radius:20px; background:#e8eff8; padding:3px 9px }
+    .hidden { display:none !important }
+  </style>
+</head>
+<body>
+<header><nav><div><h1>收款人工核对</h1><span class="muted">付款参考号不能证明实际到账</span></div><div><a href="/">返回管理台</a> · <span id="identity">验证登录中…</span></div></nav></header>
+<main class="container">
+  <div class="hint">请在银行或支付平台的官方账单中独立检查金额、实际收款账户和交易流水。系统当前只有人工双人核对，<strong>没有接入自动到账验证</strong>。<span id="mode"></span></div>
+  <div id="notice" class="status" role="status" aria-live="polite"></div>
+  <section class="card">
+    <h2>1. 提交待核对收款</h2>
+    <form id="submit-form">
+      <div class="form-grid">
+        <label>学员<select name="student_id" id="student" required></select></label>
+        <label>课程<select name="course_id" id="course" required></select></label>
+        <label>付款参考号<input name="payment_reference" maxlength="100" pattern="[A-Za-z0-9_-]+" required placeholder="原始交易或业务参考号"></label>
+        <label>实际到账金额（元）<input name="amount" type="number" min="0.01" step="0.01" required></label>
+        <label>到账账户<select name="account_destination"><option>进入公账</option><option>进入个人账户</option></select></label>
+      </div>
+      <div class="actions"><button type="submit">登记待核对（不发放课时）</button></div>
+    </form>
+  </section>
+  <section class="card">
+    <h2>2. 收款核对记录</h2>
+    <div class="actions"><button id="reload" type="button" class="secondary">刷新服务端记录</button><span class="muted">超管可查看全部；普通管理员仅查看本人提交的记录。最多显示最近 200 条。</span></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>付款参考号</th><th>学员</th><th>课程</th><th>金额</th><th>账户</th><th>状态</th><th>提交人</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+  <section class="card">
+    <h2>3. 处理选中收款</h2>
+    <p id="selection">请先点击收款记录。只有另一名超管在官方账单中核验后，才能确认收款。</p>
+    <div id="review-panel" class="hidden">
+      <form id="confirm-form">
+        <div class="form-grid"><label>官方银行/支付账单流水号<input name="statement_reference" maxlength="100" pattern="[A-Za-z0-9_-]+" required placeholder="必须从官方账单核对"></label></div>
+        <div class="actions"><button type="submit">人工核实到账，确认收款</button></div>
+      </form>
+      <form id="reject-form">
+        <div class="form-grid"><label>拒绝原因<input name="reason" maxlength="300" required placeholder="未查到入账 / 金额不符等"></label></div>
+        <div class="actions"><button class="warn" type="submit">拒绝此收款</button></div>
+      </form>
+    </div>
+    <form id="purchase-form" class="hidden">
+      <p>已核对收款可按原学员、课程、金额及账户登记购课。付款只能消费一次。</p>
+      <div class="form-grid">
+        <label>所属学期<select name="term_id" id="term" required></select></label>
+        <label>付费课时<input name="paid_hours_total" type="number" min="0.01" step="0.01" required></label>
+        <label>赠送课时<input name="gift_hours_total" type="number" min="0" step="0.01" value="0" required></label>
+      </div>
+      <div class="actions"><button type="submit">确认金额后购课入账</button></div>
+    </form>
+  </section>
+</main>
+<script src="/js/api.js"></script>
+<script src="/js/payment-reconciliation.js"></script>
+</body>
+</html>

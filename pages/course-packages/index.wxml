@@ -105,6 +105,10 @@
     </view>
   </view>
 
+  <view wx:if="{{isAdmin}}" style="margin:16rpx 24rpx; padding:20rpx; background:#fff7e6; border-radius:12rpx;">
+    <text style="display:block; font-size:24rpx; color:#7a5100;">付款参考号不等于已到账。请先在「人工收款核对」中按官方账单核实。</text>
+    <navigator url="/pages/payment-reconciliation/index" style="color:#175bcc; padding:12rpx 0;">前往人工收款核对 →</navigator>
+  </view>
   <!-- 5. 操作栏与列表标题 -->
   <view class="section-bar">
     <view class="section-left">

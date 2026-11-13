@@ -7,6 +7,7 @@
     "pages/user-management/index",
     "pages/config-settings/index",
     "pages/course-packages/index",
+    "pages/payment-reconciliation/index",
     "pages/classes/index",
     "pages/parent-binding/index",
     "pages/attendance/index",

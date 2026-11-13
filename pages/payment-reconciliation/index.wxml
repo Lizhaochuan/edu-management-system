@@ -1,0 +1,70 @@
+<view class="pay-page">
+  <view class="pay-header">
+    <text class="title">收款人工核对</text>
+    <text class="sub">状态：{{strictMode ? '严格模式：未核对不能购课' : '兼容模式：旧购课仍可未核对登记'}}</text>
+    <text class="sub">本功能需要人工登录官方银行或支付平台确认真实入账，不具备自动支付验证能力。</text>
+    <button size="mini" bindtap="loadReceipts">刷新服务器记录</button>
+  </view>
+
+  <view class="panel">
+    <text class="heading">1. 登记待核对收款</text>
+    <view class="field">
+      <text>学员</text>
+      <picker mode="selector" range="{{students}}" range-key="name" value="{{studentIndex}}" bindchange="onPickStudent">
+        <view class="pick">{{students[studentIndex].name || '请选择学员'}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text>课程</text>
+      <picker mode="selector" range="{{courses}}" range-key="course_name" value="{{courseIndex}}" bindchange="onPickCourse">
+        <view class="pick">{{courses[courseIndex].course_name || '请选择课程'}}</view>
+      </picker>
+    </view>
+    <view class="field"><text>收款参考号</text><input value="{{paymentReference}}" data-field="paymentReference" bindinput="onInput" placeholder="原始交易或业务参考号" maxlength="100"/></view>
+    <view class="field"><text>到账金额（元）</text><input value="{{amount}}" data-field="amount" bindinput="onInput" type="digit" placeholder="0.00"/></view>
+    <view class="field">
+      <text>到账账户</text>
+      <view class="button-row">
+        <button size="mini" data-value="进入公账" bindtap="onDestination" type="{{accountDestination === '进入公账' ? 'primary' : 'default'}}">公账</button>
+        <button size="mini" data-value="进入个人账户" bindtap="onDestination" type="{{accountDestination === '进入个人账户' ? 'primary' : 'default'}}">个人账户</button>
+      </view>
+    </view>
+    <button type="primary" disabled="{{busy}}" bindtap="submitPayment">提交待核对（不会发放课时）</button>
+  </view>
+
+  <view class="panel">
+    <text class="heading">2. 收款核对记录（最近 200 条）</text>
+    <view wx:if="{{!receipts.length}}" class="muted">暂无当前权限可见的收款记录</view>
+    <view wx:for="{{receipts}}" wx:key="receipt_id" class="receipt" bindtap="selectReceipt" data-id="{{item.receipt_id}}">
+      <text class="receipt-title">{{item.payment_reference}} · {{item.status}}</text>
+      <text class="muted">学员：{{item.student_id}} / 课程：{{item.course_id}}</text>
+      <text class="muted">金额：¥{{item.amount_cents / 100}} · {{item.account_destination}}</text>
+      <text class="muted">提交人：{{item.submitted_by}} · {{item.created_at}}</text>
+      <text wx:if="{{item.package_id}}" class="muted">已绑定课时包：{{item.package_id}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{selectedReceipt}}" class="panel selected">
+    <text class="heading">选中：{{selectedReceipt.payment_reference}}</text>
+    <text class="muted">当前状态：{{selectedReceipt.status}}。确认操作要求另一名超级管理员核对官方银行/支付账单。</text>
+    <view wx:if="{{isSuperAdmin && selectedReceipt.status === 'pending'}}">
+      <view class="field"><text>官方账单流水号（人工填写）</text><input value="{{statementReference}}" data-field="statementReference" bindinput="onInput" maxlength="100" placeholder="官方到账流水号"/></view>
+      <button disabled="{{busy}}" bindtap="confirmReceipt" type="primary">已在官方账单人工核实，确认收款</button>
+      <view class="field"><text>拒绝理由</text><input value="{{rejectReason}}" data-field="rejectReason" bindinput="onInput" maxlength="300" placeholder="未查到入账/金额不一致等"/></view>
+      <button disabled="{{busy}}" bindtap="rejectReceipt">拒绝收款登记</button>
+    </view>
+
+    <view wx:if="{{selectedReceipt.status === 'confirmed'}}">
+      <text class="heading">3. 按已核对收款购课入账</text>
+      <text class="muted">学员、课程、金额及账户必须与已核对收款保持一致。完成后付款不可重复使用。</text>
+      <view class="field"><text>所属学期</text>
+        <picker mode="selector" range="{{terms}}" range-key="name" value="{{termIndex}}" bindchange="onPickTerm">
+          <view class="pick">{{terms[termIndex].name || '请选择学期'}}</view>
+        </picker>
+      </view>
+      <view class="field"><text>付费课时</text><input value="{{paidHours}}" type="digit" data-field="paidHours" bindinput="onInput" placeholder="必须大于 0"/></view>
+      <view class="field"><text>赠送课时</text><input value="{{giftHours}}" type="digit" data-field="giftHours" bindinput="onInput" placeholder="0"/></view>
+      <button type="primary" disabled="{{busy}}" bindtap="purchase">核对一致后购课入账</button>
+    </view>
+  </view>
+</view>

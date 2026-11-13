@@ -254,6 +254,43 @@ const server = http.createServer(async (req, res) => {
         }
         return sendJson(res, 200, {code:0,data:{user_id:identity.user.id,version:db.getWriteState().version,snapshot}});
       }
+      // A minimal payment-reconciliation view: never expose the raw business
+      // ledger or unreviewed payment evidence to ordinary administrators.
+      if (pathname === '/api/payments/reconciliation' && req.method === 'GET') {
+        const isSuperAdmin = identity.user.role === 'super_admin';
+        const requested = parsedUrl.query.status;
+        const allowed = new Set(['pending', 'confirmed', 'consumed', 'rejected']);
+        if (requested !== undefined && (typeof requested !== 'string' || !allowed.has(requested))) {
+          return sendJson(res, 400, {code:'INVALID_PAYMENT_FILTER',message:'收款状态筛选无效'});
+        }
+        const rows = db.getTable('business_write_events')
+          .filter(item => item.kind === 'payment_receipt' &&
+            (isSuperAdmin || item.submitted_by === identity.user.id) &&
+            (!requested || item.status === requested))
+          .sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+          .slice(0, 200)
+          .map(item => {
+            const projected = {
+              receipt_id:item.id, payment_reference:item.reference,
+              student_id:item.student_id, course_id:item.course_id,
+              amount_cents:item.amount_cents, account_destination:item.account_destination,
+              status:item.status, submitted_by:item.submitted_by,
+              created_at:item.created_at, confirmed_at:item.confirmed_at || null,
+              package_id:item.package_id || null
+            };
+            if (isSuperAdmin) {
+              projected.confirmed_by=item.confirmed_by || null;
+              projected.statement_reference=item.statement_reference || null;
+              projected.rejected_by=item.rejected_by || null;
+              projected.reject_reason=item.reject_reason || null;
+            }
+            return projected;
+          });
+        return sendJson(res, 200, {code:0,data:{
+          items:rows, version:db.getWriteState().version,
+          strict_mode:process.env.REQUIRE_RECONCILED_PAYMENTS === '1'
+        }});
+      }
       if (pathname === '/api/commands/execute' && req.method === 'POST') {
         const envelope = await parseJsonBody(req, true);
         try {
