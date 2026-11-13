@@ -95,7 +95,8 @@ Page({
   },
   confirmReceipt() {
     const row=this.data.selectedReceipt, reference=this.data.statementReference.trim()
-    if (!this.data.isSuperAdmin || !row || row.status!=='pending' || !REF.test(reference))
+    if (!this.data.isSuperAdmin || !row || row.status!=='pending' ||
+        row.submitted_by===getApp().globalData.currentUser.id || !REF.test(reference))
       return this.report(new Error('请选中待核对收款并填写官方账单流水号'))
     wx.showModal({
       title:'人工到账确认',
@@ -107,7 +108,8 @@ Page({
   },
   rejectReceipt() {
     const row=this.data.selectedReceipt, reason=this.data.rejectReason.trim()
-    if (!this.data.isSuperAdmin || !row || row.status!=='pending' || !reason)
+    if (!this.data.isSuperAdmin || !row || row.status!=='pending' ||
+        row.submitted_by===getApp().globalData.currentUser.id || !reason)
       return this.report(new Error('请选择待核对收款并填写拒绝理由'))
     this.perform('payment.reject',{payment_reference:row.payment_reference,reason},'已拒绝此收款登记')
   },
