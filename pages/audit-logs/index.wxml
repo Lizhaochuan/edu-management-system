@@ -49,9 +49,7 @@
         <!-- 日志卡片头部 -->
         <view class="log-header">
           <view class="header-left">
-            <text class="action-badge {{item.actionTagClass}}">{{item.action}}</text>
-            <text class="table-name">{{item.target_table}}</text>
-            <text class="record-id">#{{item.target_record_id}}</text>
+            <text class="action-badge {{item.actionTagClass}}">{{item.title}}</text>
           </view>
           <text class="log-time">{{item.formattedTime}}</text>
         </view>
@@ -73,25 +71,24 @@
           </view>
         </view>
 
-        <!-- 快照前后对比框 -->
+        <!-- 业务操作前后变化：保留数据原本存证，不直接渲染 JSON -->
         <view class="snapshot-diff-box">
-          <view class="diff-header">
-            <text class="diff-title">🔍 数据操作前后快照对比 (JSON)</text>
-          </view>
-          <view class="diff-columns">
-            <view class="diff-col before-col">
-              <view class="col-title">修改前快照 (Before)</view>
-              <scroll-view scroll-y class="code-view">
-                <text>{{item.beforeText}}</text>
-              </scroll-view>
-            </view>
-            <view class="diff-col after-col">
-              <view class="col-title">修改后快照 (After)</view>
-              <scroll-view scroll-y class="code-view">
-                <text>{{item.afterText}}</text>
-              </scroll-view>
+          <text class="diff-title">{{item.title}}</text>
+          <view class="audit-change-row" wx:for="{{item.rows}}" wx:for-item="change" wx:key="label">
+            <text class="audit-change-name">{{change.label}}</text>
+            <view class="audit-change-values">
+              <view class="audit-change-value">
+                <text class="audit-change-caption">操作前</text>
+                <text class="audit-change-text">{{change.beforeText}}</text>
+              </view>
+              <text class="audit-change-arrow">→</text>
+              <view class="audit-change-value">
+                <text class="audit-change-caption">操作后</text>
+                <text class="audit-change-text">{{change.afterText}}</text>
+              </view>
             </view>
           </view>
+          <text wx:if="{{item.note}}" class="audit-note">{{item.note}}</text>
         </view>
 
         <!-- 防篡改测试触发按钮 -->
