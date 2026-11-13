@@ -330,37 +330,8 @@ Page({
   // ─────────────────────────────────────────
   // 功能 3：删除账号（测试/离职）
   // ─────────────────────────────────────────
-  onDeleteUser(e) {
-    const id = e.currentTarget.dataset.id
-    const target = this.data.allUsers.find(u => u.id === id)
-    if (!target) return
-
-    if (target.id === this.data.currentUser.id) {
-      wx.showToast({ title: '不能删除自己', icon: 'none' })
-      return
-    }
-
-    wx.showModal({
-      title: '确认删除此账号？',
-      content: `是否确认删除成员【${target.name} (${target.phone})】？删除记录同样会被不可篡改日志全量存证。`,
-      confirmColor: '#dc2626',
-      confirmText: '确认删除',
-      success: (res) => {
-        if (res.confirm) {
-          try {
-            db.remove(
-              db.TABLES.USERS,
-              target.id,
-              `超管[${this.data.currentUser.name}]删除了用户[${target.name}(${target.phone})]`
-            )
-            this.loadUsers()
-            wx.showToast({ title: '已删除账号', icon: 'none' })
-          } catch (err) {
-            wx.showModal({ title: '删除失败', content: err.message, showCancel: false })
-          }
-        }
-      }
-    })
+  onDeleteUser() {
+    wx.showModal({title: '暂不支持删除账号', content: '账号删除功能尚未接入服务端。请通过身份调整管理权限；超管身份变更需要遵循审批规则。', showCancel: false})
   },
 
   onBackHome() {
