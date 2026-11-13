@@ -184,6 +184,11 @@ function formatApprovalChange(item, lookup={}) {
   };
   for (const key of Object.keys(after)) {
     if (metadata.has(key)) continue;
+    if (key === 'schedule_id' && item.request_type === 'makeup_attendance') {
+      rows.push({label:'申请补签的课次',beforeText:'此前尚未补签',
+        afterText:renderValue(after[key],'schedule',lookup),changed:true});
+      continue;
+    }
     if (key === 'attendance_inputs') {
       if (!Array.isArray(after[key]) || after[key].length > 200) {
         unknown.push('attendance'); continue;
