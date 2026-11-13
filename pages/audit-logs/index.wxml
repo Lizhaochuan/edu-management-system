@@ -12,7 +12,7 @@
         仅超级管理员（老板 / 机构合伙人）可查看系统底层操作审计日志。
       </view>
       <view class="lock-sub">
-        当前身份为：【{{currentUser.name}} ({{currentUser.role}}）】。审计底册记录全校资金与课时流水不可变变更历史，对该角色严格封锁。
+        当前身份为：【{{currentUser.name}} ({{currentRoleText}}）】。审计底册记录全校资金与课时流水不可变变更历史，对该角色严格封锁。
       </view>
       <button class="btn-back-home" bindtap="onBackHome" hover-class="btn-hover">
         返回工作台首页
