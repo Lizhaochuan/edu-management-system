@@ -18,6 +18,7 @@
 
 - 私有仓库：https://github.com/Lizhaochuan/edu-management-system
 - 代码基线：最新 work 分支；首次交接基线提交 83c4c4e4a51564c730e8809841a18133783735d2
+- GitHub 任务汇报入口：https://github.com/Lizhaochuan/edu-management-system/issues/28
 - 核心执行手册：TASK_13_12_REMOTE_ACCEPTANCE.md
 - 代码协作规则：HANDOFF.md
 - 业务显示检查：WEB_PAYMENT_READABLE_ACCEPTANCE.md、BUSINESS_CHANGE_DISPLAY_AUDIT.md
