@@ -155,6 +155,7 @@ function authorize(pathname, method, role, req) {
   }
   if (pathname === '/api/commands/version') return method === 'GET';
   if (pathname === '/api/commands/execute') return method === 'POST';
+  if (pathname === '/api/payments/reconciliation') return method === 'GET';
   if (pathname === '/api/events') return true;
   if (pathname === '/api/db/all') return true; // Admin export is redacted by server.js.
   if (pathname === '/api/logs' ||
