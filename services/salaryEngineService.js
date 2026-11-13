@@ -1,3 +1,4 @@
+const superAdminPolicy = require('./superAdminPolicy');
 // services/salaryEngineService.js
 // 教师课时费精准核算引擎（Phase 4-A 基础算薪铁律、代课算薪与跨师补课人头核算）
 const db = require('./db')
@@ -1156,7 +1157,7 @@ const salaryEngineService = {
     if (!approvalItem || !approvalItem.target_record_id) return null
 
     // 自审拦截
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能审批自己发起的调账申请！请切换其他超管账号')
     }
 
@@ -1193,7 +1194,7 @@ const salaryEngineService = {
   rejectSalaryAdjustmentApproval(approvalItem, rejectReason, approverUser) {
     if (!approvalItem || !approvalItem.target_record_id) return null
 
-    if (approverUser && approverUser.id === approvalItem.proposer_id) {
+    if (approverUser && approverUser.id === approvalItem.proposer_id && !superAdminPolicy.mayApproveOwnRequest(db.getTable(db.TABLES.USERS), approverUser)) {
       throw new Error('违反内控铁律：不能驳回自己发起的申请')
     }
 
