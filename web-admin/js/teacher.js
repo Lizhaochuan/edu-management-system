@@ -4,7 +4,9 @@
   let rows=[],history=false,busy=false,authenticated=false;
   function tell(text,error=false){$('#message').textContent=text;$('#message').className=error?'error':'';}
   async function request(url,options={}) {
-    const res=await fetch(url,{...options,credentials:'same-origin'});
+    let res;
+    try{res=await fetch(url,{...options,credentials:'same-origin'});}
+    catch(_error){throw new Error('网络连接失败，请检查网络后刷新页面或重试');}
     if(res.status===401){authenticated=false;rows=[];$('#schedule-rows').replaceChildren();$('#count').textContent='';window.location.replace('/login.html');throw new Error('登录已失效，请重新登录');}
     if(!res.ok)throw new Error(res.status===403?'当前账号无权查看个人课表，请重新登录':'读取失败，请检查网络后点击“刷新记录”重试');
     return res.json();

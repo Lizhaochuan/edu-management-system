@@ -19,6 +19,7 @@ async function page({role='teacher',schedules=[],responseStatus=200}={}) {
     fetch:async(url,options)=>{
       requests.push({url,options});
       const code=url==='/api/teacher/schedules'?status:200;
+      if(code==='offline')throw new Error('Failed to fetch');
       return {ok:code===200,status:code,json:async()=>url==='/api/auth/me'?{data:{user:{role,name:'测试老师'}}}:{data:{schedules}}};
     }});
   await new Promise(resolve=>setImmediate(resolve));
@@ -56,6 +57,8 @@ test('teacher portal redirects administrators before fetching teacher data',asyn
 test('teacher portal clears stale rows on failed refresh, supports retry and redirects expired sessions',async()=>{
   const p=await page({schedules});p.setStatus(500);await p.click('refresh');
   assert.equal(p.text(),'');assert.match(p.elements['#message'].textContent,/刷新记录.*重试/);
+  p.setStatus('offline');await p.click('refresh');assert.match(p.elements['#message'].textContent,/网络连接失败.*重试/);
+  assert.doesNotMatch(p.elements['#message'].textContent,/Failed to fetch/);
   p.setStatus(200);await p.click('refresh');assert.equal(p.elements['#schedule-rows'].children.length,2);
   p.setStatus(401);await p.click('refresh');assert.equal(p.text(),'');assert.deepEqual(p.navigation,['/login.html']);
 });
