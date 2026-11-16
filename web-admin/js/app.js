@@ -111,6 +111,10 @@ app.component('toolbox-view', window.ToolboxComponent);
 // Do not mount the admin dashboard or request business data until the server
 // confirms a real login. Old localStorage identity selections are ignored.
 window.api.whoAmI().then((user) => {
+  if (user && user.role === 'teacher') {
+    window.location.replace('/teacher.html');
+    return;
+  }
   if (!user || !['admin', 'super_admin'].includes(user.role)) {
     window.location.replace('/login.html');
     return;

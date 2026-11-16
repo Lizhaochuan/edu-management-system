@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>教师工作台 · 我的课表</title>
+  <link rel="stylesheet" href="/css/teacher.css">
+  <script src="/js/teacher.js" defer></script>
+</head>
+<body>
+  <header><div><span class="eyebrow">教务管理系统 / 教师工作台</span><h1>我的教学安排</h1></div>
+    <div class="account"><span id="teacher-name">正在验证登录…</span><button id="logout" type="button">退出登录</button></div>
+  </header>
+  <main>
+    <section class="intro"><h2>每一堂课，都有清楚的安排</h2><p>查看本人负责的课次与授课记录。代课按当前课次安排显示。</p></section>
+    <section class="workspace" aria-label="个人教学记录">
+      <nav aria-label="课表视图"><button id="schedule-tab" class="active" aria-pressed="true" type="button">我的课表</button><button id="history-tab" aria-pressed="false" type="button">授课记录</button></nav>
+      <form id="filters"><div><label for="from-date">开始日期</label><input id="from-date" type="date"></div><div><label for="to-date">结束日期</label><input id="to-date" type="date"></div><button type="submit">筛选</button><button id="reset" type="button">清除筛选</button><button id="refresh" type="button">刷新记录</button></form>
+      <div class="list-heading"><h2 id="list-title">我的课表</h2><span id="count"></span></div>
+      <p id="message" role="status" aria-live="polite">正在加载个人课表…</p>
+      <div class="table-wrap"><table><caption class="sr-only">本人负责的课次</caption><thead><tr><th>日期与时间</th><th>课程 / 班级</th><th>课时</th><th>授课安排</th><th>课次状态</th></tr></thead><tbody id="schedule-rows"></tbody></table></div>
+      <p class="footnote">我的课表包含本人负责的全部课次；授课记录仅显示已完成或已签到的课次。此页只读，如安排有误请联系教务管理员。</p>
+    </section>
+  </main>
+</body>
+</html>
