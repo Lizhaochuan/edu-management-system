@@ -104,7 +104,7 @@ const AuditLogsComponent = {
                 <td style="font-family: monospace; font-weight: 600; color: #2563eb;">{{ item.readable.title }}</td>
                 <td style="font-family: monospace; color: #475569;">{{ item.readable.rows.length }} 项变化</td>
                 <td style="font-weight: 500;">
-                  <span>{{ item.description }}</span>
+                  <span>{{ item.displayDescription }}</span>
                 </td>
                 <td style="text-align: center;">
                   <button class="btn btn-sm btn-primary" @click="openDiffModal(item)">
@@ -137,7 +137,7 @@ const AuditLogsComponent = {
             <button class="modal-close" @click="diffModal.visible = false">关闭</button>
           </div>
           <div class="modal-body">
-            <p style="line-height:1.6;color:#334155;">{{ diffModal.item.description || '本次操作暂无补充说明' }}</p>
+            <p style="line-height:1.6;color:#334155;">{{ diffModal.item.displayDescription || '本次操作暂无补充说明' }}</p>
             <p style="color:#64748b;">操作人：{{ diffModal.item.operator_name || '系统自动' }} · 时间：{{ formatTime(diffModal.item.action_time) }}</p>
             <div v-if="diffModal.item.readable && diffModal.item.readable.rows.length" class="table-container">
               <table class="dense-table">
@@ -198,6 +198,7 @@ const AuditLogsComponent = {
         });
         if (res && res.data) {
           this.logs = (res.data.list||[]).map(item=>({ ...item,
+            displayDescription:window.BusinessDisplay.readableAuditDescription(item.description),
             readable:window.BusinessDisplay.auditChange(item) }));
           this.total = res.data.total;
           this.totalPages = res.data.totalPages;

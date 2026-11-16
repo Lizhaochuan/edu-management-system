@@ -42,6 +42,13 @@ document.querySelector('#login-form').addEventListener('submit', async (event) =
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || '登录失败');
     document.querySelector('#password').value = '';
+    const role = result.data && result.data.user && result.data.user.role;
+    if (!['admin', 'super_admin'].includes(role)) {
+      // Authentication also serves the mini-program; Web access has a narrower role list.
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+      const roleName = role === 'teacher' ? '教师' : role === 'parent' ? '家长' : '当前角色';
+      throw new Error(`当前账号角色（${roleName}）无 Web 管理端访问权限，请使用管理员账号登录`);
+    }
     window.location.replace('/');
   } catch (err) {
     error.textContent = err.message || '登录失败，请重试';

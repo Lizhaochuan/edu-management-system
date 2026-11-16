@@ -254,9 +254,16 @@ function readableDeduction(schedule){
     rows.length===0?(schedule.deducted_detail_json?'该课次存在扣课记录，但无法可靠按学员整理；请授权人员核对业务记录。':'该课次没有可确认的扣除课时。'):
     '以上是按学员整理的实际扣课时数。历史细分明细请从相应业务记录核对。'};
 }
+function readableAuditDescription(description) {
+  if(typeof description!=='string')return '';
+  // Translate system-generated targets in historical logs without rewriting audit evidence
+  // or replacing user names / approval IDs elsewhere in the description.
+  return description.replace(/参数生效覆盖至 \[([A-Za-z_][A-Za-z0-9_]*)\]/g,(_match,table)=>
+    '参数生效覆盖至 ['+(owns(TABLE_NAMES,table)?TABLE_NAMES[table]:'其他业务记录')+']');
+}
 function readableMutation(table,action) {
   return (TABLE_NAMES[table]||'业务记录')+'已'+(ACTIONS[action]||'更新')+'，可刷新查看最新变化。';
 }
-const BusinessDisplay={auditChange,readablePaymentStatus,readableScheduleStatus,readableDeduction,readableMutation};
+const BusinessDisplay={auditChange,readableAuditDescription,readablePaymentStatus,readableScheduleStatus,readableDeduction,readableMutation};
 if(typeof window!=='undefined')window.BusinessDisplay=BusinessDisplay;
 if(typeof module!=='undefined'&&module.exports)module.exports=BusinessDisplay;

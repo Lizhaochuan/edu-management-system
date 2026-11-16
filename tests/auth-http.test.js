@@ -162,6 +162,16 @@ test('parent cannot read other students or privileged routes', async () => {
   assert.equal((await call('/api/db/students','GET',undefined,headers)).status,403);
   assert.equal((await call('/api/finance/purchase','POST',{},headers)).status,403);
 });
+test('BUG-13-12-01: teacher mini-program login remains valid but cannot access Web management data',async()=>{
+  const response=await signIn('u_tch2');
+  assert.equal(response.status,200);
+  const headers={Cookie:cookie(response)};
+  assert.equal(response.data.data.user.role,'teacher');
+  assert.equal((await call('/api/logs','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/approvals','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/auth/logout','POST',{},headers)).status,200);
+  assert.equal((await call('/api/auth/me','GET',undefined,headers)).status,401);
+});
 test('legacy arbitrary database mutate is blocked even for super admin', async () => {
   const response = await signIn('u_sa1');
   const headers = { Cookie:cookie(response) };
@@ -195,6 +205,12 @@ test('successful approval is applied once; duplicate approve/reject are rejected
   assert.equal(first.status,200,JSON.stringify(first.data));
   const items = await call('/api/db/teacher_tiers','GET',undefined,headers);
   assert.equal(items.data.data.find(t => t.id === 'tier_junior').name,'审批修改后的名称');
+  const logs=await call('/api/logs?keyword=atomic_good_approval','GET',undefined,headers);
+  const log=logs.data.data.list.find(item=>item.description.includes('参数生效覆盖至'));
+  assert.ok(log,'actual approval should produce the reported audit description');
+  assert.match(log.description,/\[teacher_tiers\]/,'stored audit evidence remains unchanged');
+  const {readableAuditDescription}=require('../web-admin/js/business-display');
+  assert.match(readableAuditDescription(log.description),/参数生效覆盖至 \[教师课酬档位\]/);
   const repeated = await callApproval('approval.approve',{approval_id:'atomic_good_approval'},headers);
   assert.equal(repeated.status,409);
   const reverse = await callApproval('approval.reject',{approval_id:'atomic_good_approval'},headers);
