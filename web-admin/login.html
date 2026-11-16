@@ -16,7 +16,7 @@ button:disabled{opacity:.6;cursor:wait}.error{color:#b91c1c;margin-top:12px;font
 <body>
 <form id="login-form">
 <h1>教务管理系统</h1>
-<p>请使用管理员为你设置的用户 ID 和密码登录。不能通过切换界面身份获得额外权限。</p>
+<p>请使用已设置的用户 ID 和密码登录。教师进入个人课表，管理员进入管理工作台。</p>
 <label for="user-id">用户 ID</label>
 <input id="user-id" type="text" autocomplete="username" maxlength="80" required>
 <label for="password">密码</label>
@@ -43,6 +43,10 @@ document.querySelector('#login-form').addEventListener('submit', async (event) =
     if (!response.ok) throw new Error(result.message || '登录失败');
     document.querySelector('#password').value = '';
     const role = result.data && result.data.user && result.data.user.role;
+    if (role === 'teacher') {
+      window.location.replace('/teacher.html');
+      return;
+    }
     if (!['admin', 'super_admin'].includes(role)) {
       // Authentication also serves the mini-program; Web access has a narrower role list.
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });

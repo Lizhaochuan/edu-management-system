@@ -145,6 +145,7 @@ function clearCookie(secure = false) {
 }
 
 function authorize(pathname, method, role, req) {
+  if (pathname === '/api/teacher/schedules') return role === 'teacher' && method === 'GET';
   if (['admin','super_admin','teacher'].includes(role)) {
     if (pathname === '/api/commands/context' || pathname === '/api/commands/version') return method === 'GET';
     if (pathname === '/api/commands/execute') return method === 'POST';

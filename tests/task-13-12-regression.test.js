@@ -21,8 +21,8 @@ function loginPage(fetch) {
   return {elements,navigation,submit:()=>elements.submit({preventDefault(){}})};
 }
 
-test('BUG-13-12-01: valid teacher/parent login stays on the form with Chinese denial and no session',async()=>{
-  for(const [role,label] of [['teacher','教师'],['parent','家长'],['unexpected','当前角色']]) {
+test('BUG-13-12-01: unsupported Web roles stay on the form with Chinese denial and no session',async()=>{
+  for(const [role,label] of [['parent','家长'],['unexpected','当前角色']]) {
     const requests=[];
     const page=loginPage(async(url,options)=>{
       requests.push({url,options});
@@ -40,6 +40,16 @@ test('BUG-13-12-01: valid teacher/parent login stays on the form with Chinese de
     assert.equal(requests[1].options.method,'POST');
     assert.equal(requests[1].options.credentials,'same-origin');
   }
+});
+
+test('teachers now enter their personal Web workspace without administrator access or logout',async()=>{
+  const requests=[];
+  const page=loginPage(async url=>{requests.push(url);return{ok:true,json:async()=>({data:{user:{role:'teacher'}}})};});
+  await page.submit();
+  assert.deepEqual(page.navigation,['/teacher.html']);
+  assert.deepEqual(requests,['/api/auth/login']);
+  assert.equal(page.elements['#password'].value,'');
+  assert.equal(page.elements['#error'].textContent,'');
 });
 
 test('BUG-13-12-01: both Web administrator roles still reach the dashboard',async()=>{

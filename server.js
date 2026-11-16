@@ -7,6 +7,7 @@ const url = require('url');
 
 const db = require('./services/db');
 const authService = require('./services/authService');
+const teacherScheduleService = require('./services/teacherScheduleService');
 const businessCommands = require('./services/businessCommandService');
 const packageAccountService = require('./services/packageAccountService');
 const attendanceService = require('./services/attendanceService');
@@ -221,6 +222,11 @@ const server = http.createServer(async (req, res) => {
       req.auth = identity;
       if (!authService.authorize(pathname, req.method, identity.user.role, req)) {
         return sendJson(res, 403, { code: 403, message: '当前账号无权访问此接口' });
+      }
+
+      if (pathname === '/api/teacher/schedules' && req.method === 'GET') {
+        return sendJson(res, 200, {code:0,data:{schedules:teacherScheduleService.listForTeacher(identity.user)}},
+          {'Cache-Control':'no-store'});
       }
 
       if (pathname === '/api/commands/version' && req.method === 'GET') {

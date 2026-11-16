@@ -67,6 +67,15 @@ before(async () => {
   auth.saveCredential('u_adm1',PASSWORD);
   auth.saveCredential('u_par1',PASSWORD);
   auth.saveCredential('u_tch2',PASSWORD);
+  auth.saveCredential('u_tch1',PASSWORD);
+  const schedule=db.getById(db.TABLES.SCHEDULES_AND_ATTENDANCE,'sch_2');
+  for(const [id,patch] of [
+    ['teacher-substitute',{teacher_id:'u_tch2',substitute_teacher_id:'u_tch1'}],
+    ['teacher-covering',{teacher_id:'u_tch1',substitute_teacher_id:'u_tch2'}],
+    ['teacher-fallback',{teacher_id:null,substitute_teacher_id:null}],
+    ['teacher-missing-class',{teacher_id:'u_tch2',class_id:'no-class',course_id:'no-course',status:'unknown_technical_status'}]
+  ])db.insert(db.TABLES.SCHEDULES_AND_ATTENDANCE,{...schedule,...patch,id,
+    internal_secret:'NEVER_SHOW_PRIVATE_DATA',snapshot_teacher_rates_json:{1:987654}},'隔离教师课表测试');
   assert.equal(fs.statSync(process.env.AUTH_CREDENTIALS_FILE).mode & 0o777, 0o600);
   db.insert(db.TABLES.APPROVAL_REQUESTS, {
     id:'atomic_bad_approval', request_type:'config_change',
@@ -171,6 +180,41 @@ test('BUG-13-12-01: teacher mini-program login remains valid but cannot access W
   assert.equal((await call('/api/approvals','GET',undefined,headers)).status,403);
   assert.equal((await call('/api/auth/logout','POST',{},headers)).status,200);
   assert.equal((await call('/api/auth/me','GET',undefined,headers)).status,401);
+});
+test('teacher Web API scopes Cookie and Bearer reads to self, including substitute and class fallback',async()=>{
+  const login=await signIn('u_tch2');
+  for(const headers of [{Cookie:cookie(login),'X-User-Id':'u_tch1','X-User-Role':'super_admin'},
+    {Authorization:'Bearer '+login.data.data.token}]) {
+    const response=await call('/api/teacher/schedules?teacher_id=u_tch1&user_id=u_tch1','GET',undefined,headers);
+    assert.equal(response.status,200);
+    assert.equal(response.headers['cache-control'],'no-store');
+    const list=response.data.data.schedules;
+    assert.deepEqual(list.map(s=>s.id).sort(),['sch_2','teacher-covering','teacher-fallback','teacher-missing-class']);
+    assert.equal(list.find(s=>s.id==='teacher-covering').assignmentText,'代课');
+    assert.equal(list.find(s=>s.id==='teacher-missing-class').statusText,'状态待核对');
+    assert.equal(list.find(s=>s.id==='teacher-missing-class').className,'班级名称待核对');
+    assert.doesNotMatch(JSON.stringify(response.data),/NEVER_SHOW|987654|calculated_teacher_fee|attendees_json|student_id|package_id|snapshot_teacher_rates_json/);
+  }
+  const other=await signIn('u_tch1');
+  const list=await call('/api/teacher/schedules','GET',undefined,{Cookie:cookie(other)});
+  assert.deepEqual(list.data.data.schedules.map(s=>s.id).sort(),['sch_1','teacher-substitute']);
+});
+test('teacher Web API rejects missing sessions, other roles, writes and direct record probes',async()=>{
+  assert.equal((await call('/api/teacher/schedules')).status,401);
+  for(const id of ['u_par1','u_adm1','u_sa1']) {
+    const login=await signIn(id);
+    assert.equal((await call('/api/teacher/schedules','GET',undefined,{Cookie:cookie(login)})).status,403);
+  }
+  const login=await signIn('u_tch2');const headers={Cookie:cookie(login),Connection:'close'};
+  for(const method of ['POST','PUT','DELETE'])assert.equal((await call('/api/teacher/schedules',method,{},headers)).status,403);
+  assert.equal((await call('/api/teacher/schedules/sch_1','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/inspector/schedules','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/salary/report','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/db/all','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/payments/reconciliation','GET',undefined,headers)).status,403);
+  assert.equal((await call('/api/academic/class/create','POST',{},headers)).status,403);
+  await call('/api/auth/logout','POST',{},headers);
+  assert.equal((await call('/api/teacher/schedules','GET',undefined,headers)).status,401);
 });
 test('legacy arbitrary database mutate is blocked even for super admin', async () => {
   const response = await signIn('u_sa1');
@@ -344,7 +388,8 @@ test('teacher context is scoped and a concurrent real sign-in only deducts once'
   const headers = await commandSession('u_tch2');
   const context = await call('/api/commands/context','GET',undefined,headers);
   assert.equal(context.status,200);
-  assert.deepEqual(context.data.data.snapshot.schedules_and_attendance.map(s=>s.id),['sch_2']);
+  assert.deepEqual(context.data.data.snapshot.schedules_and_attendance.map(s=>s.id).sort(),
+    ['sch_2','teacher-covering','teacher-fallback','teacher-missing-class']);
   assert.deepEqual(context.data.data.snapshot.course_packages,[]);
   assert.deepEqual(context.data.data.snapshot.audit_logs,[]);
   assert.equal(context.data.data.snapshot.schedules_and_attendance[0].snapshot_teacher_rates_json,undefined);
